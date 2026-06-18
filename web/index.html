@@ -21,6 +21,7 @@
       <button data-view="bar" class="active">🍸 Bar</button>
       <button data-view="ledger">📒 My knits</button>
       <button data-view="explorer">🔭 Explorer</button>
+      <button data-view="web">🌐 Web</button>
     </nav>
   </header>
 
@@ -73,6 +74,17 @@
   <section id="explorer" class="view hidden">
     <h2>🔭 Explorer <span class="dim small">— competing knits per topic, best column first</span></h2>
     <div id="explorer-rows"></div>
+  </section>
+
+  <!-- the shared knitweb web everyone extends -->
+  <section id="web" class="view hidden">
+    <h2>🌐 The Knitweb <span class="dim small">— the shared web every player extends</span></h2>
+    <div id="web-stats" class="summary"></div>
+    <div id="web-anchor" class="anchor-bar"></div>
+    <h3>Recently woven</h3>
+    <div id="web-recent" class="fabric"></div>
+    <h3>Topics</h3>
+    <div id="web-topics"></div>
   </section>
 
   <footer class="dim small">bar woven: <b id="bar-woven">0</b> terms · bonds are Knits · molecules are Fibers · peers validate with pulses · <b>no NFTs</b></footer>

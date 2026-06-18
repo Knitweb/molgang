@@ -59,9 +59,10 @@ function start() {
 function setActiveTab() {
   document.querySelectorAll("#tabs button").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === view));
-  ["floor", "table", "ledger", "explorer"].forEach((v) => $(v).classList.add("hidden"));
+  ["floor", "table", "ledger", "explorer", "web"].forEach((v) => $(v).classList.add("hidden"));
   if (view === "ledger") $("ledger").classList.remove("hidden");
   else if (view === "explorer") $("explorer").classList.remove("hidden");
+  else if (view === "web") $("web").classList.remove("hidden");
   else $(table ? "table" : "floor").classList.remove("hidden");
 }
 
@@ -81,6 +82,7 @@ async function refresh() {
   $("bar-woven").textContent = s.bar_woven;
   if (view === "ledger") renderLedger(s.my_knits);
   else if (view === "explorer") renderExplorer(s.explorer);
+  else if (view === "web") renderWeb(await api("/api/web"));
   else if (table) renderTable(s);
   else renderFloor(s);
   setActiveTab();
@@ -172,6 +174,24 @@ function renderExplorer(rows) {
     return `<div class="erow"><div class="etopic">${row.topic} <span class="dim small">(${row.competing})</span></div>
       <div class="ecols">${cols}</div></div>`;
   }).join("") || `<div class="dim">no knits yet</div>`;
+}
+
+function renderWeb(w) {
+  $("web-stats").innerHTML =
+    `<span class="bal">🔵 <b>${w.nodes}</b> nodes</span>
+     <span class="bal">🔗 <b>${w.edges}</b> edges</span>
+     <span class="bal mono small">root ${(w.state_root || "").slice(0, 16)}…</span>`;
+  const a = w.anchor || {};
+  $("web-anchor").innerHTML = a.ual
+    ? `🔗 anchored to OriginTrail: <span class="mono small">${a.ual}</span>
+       <span class="dim small">· ${a.nodes}n/${a.edges}e · verified ${a.verified}</span>`
+    : `<span class="dim">not yet anchored — weave a term to extend the web</span>`;
+  $("web-recent").innerHTML = (w.recent || []).map((r) =>
+    `<span class="woven" title="Fiber ${r.fiber}">${r.term} <span class="dim small">·${r.confirmations}✓ ${r.by}</span></span>`).join("")
+    || `<span class="dim">empty</span>`;
+  $("web-topics").innerHTML = Object.entries(w.topics || {}).map(([t, terms]) =>
+    `<div class="erow"><div class="etopic">${t}</div><div>${terms.map((x) => `<span class="chip">${x}</span>`).join("")}</div></div>`).join("")
+    || `<span class="dim">no topics yet</span>`;
 }
 
 boot();

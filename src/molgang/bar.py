@@ -20,6 +20,7 @@ from knitweb.pouw import quorum
 from . import game
 from .chemistry import MOLECULES
 from .game import Player
+from .world import World, default_world_path
 
 AVATARS = ["🦊", "🐙", "🦉", "🐝", "🦋", "🐢", "🦜", "🐳", "🦄", "🐧"]
 DEFAULT_TABLES = [
@@ -79,12 +80,14 @@ class Table:
 class Bar:
     """In-memory, single-process bar. Real knitweb accounts under the hood."""
 
-    def __init__(self) -> None:
+    def __init__(self, world_path: str | None = None) -> None:
         self.tables: dict[str, Table] = {tid: Table(tid, name) for tid, name in DEFAULT_TABLES}
         self.sessions: dict[str, Session] = {}
         self.proposals: dict[str, Proposal] = {}
-        self.woven: list[dict] = []                      # the bar's whole fabric (woven terms)
+        self.woven: list[dict] = []                      # this instance's woven terms
         self._pid = itertools.count(1)
+        # the SHARED knitweb web every confirmed knit extends (file-shared across instances)
+        self.world = World(world_path or default_world_path())
 
     # -- presence ----------------------------------------------------------
     def join(self, name: str, avatar: str | None = None, table_id: str | None = None) -> Session:
@@ -151,6 +154,15 @@ class Bar:
                 "fiber_cid": s.woven_fiber_cid, "confirmations": s.result.confirms,
                 "is_chemistry": prop.term in MOLECULES,
             })
+            # extend the SHARED knitweb web — visible to every player/instance
+            self.world.extend(prop.term, prop.by_name, s.woven_fiber_cid,
+                              s.result.confirms, prop.topic)
+
+    def web_view(self) -> dict:
+        """The shared web's current state + its OriginTrail provenance anchor."""
+        g = self.world.graph()
+        g["anchor"] = self.world.anchor()
+        return g
 
     # -- ledger & explorer -------------------------------------------------
     def _knit_row(self, p: Proposal) -> dict:

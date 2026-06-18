@@ -61,6 +61,8 @@ def make_handler(bar: Bar):
                 return self._json(200, bar.state(sid))
             if path == "/api/suggested":
                 return self._json(200, {"terms": suggested_terms()})
+            if path == "/api/web":
+                return self._json(200, bar.web_view())
             return self._static(path)
 
         def do_POST(self) -> None:  # noqa: N802
@@ -90,9 +92,11 @@ def make_handler(bar: Bar):
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="MOLGANG browser bar")
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--world", default=None, help="shared world file (default ~/.molgang/world.json)")
     a = ap.parse_args([x for x in argv[1:] if x != "serve"])
-    srv = ThreadingHTTPServer(("0.0.0.0", a.port), make_handler(Bar()))
-    print(f"  🍸 MOLGANG bar open at http://localhost:{a.port}  (Ctrl-C to close)")
+    srv = ThreadingHTTPServer(("0.0.0.0", a.port), make_handler(Bar(a.world)))
+    print(f"  🍸 MOLGANG bar open at http://localhost:{a.port}  (shared web: "
+          f"{a.world or '~/.molgang/world.json'}) (Ctrl-C to close)")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
