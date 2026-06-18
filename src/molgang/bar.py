@@ -20,6 +20,7 @@ from knitweb.pouw import quorum
 from . import game
 from .chemistry import MOLECULES
 from .game import Player
+from .knit_parse import parse_knit
 from .world import World, default_world_path
 
 # Caricature avatars — crypto/tech *archetypes* (original personas, never real people's names).
@@ -50,6 +51,7 @@ class Proposal:
     by_name: str
     term: str
     round: game.Round
+    parsed: dict = field(default_factory=dict)  # parse_knit() result (term vs link)
     topic: str = ""                            # competing knits share a topic (default: the term)
     settled: bool = False
     outcome: str | None = None
@@ -79,6 +81,7 @@ class Session:
     avatar: str
     player: Player
     table_id: str | None = None
+    bot: bool = False                          # an NPC table-mate (so solo humans get votes)
 
 
 @dataclass
@@ -99,6 +102,31 @@ class Bar:
         self._pid = itertools.count(1)
         # the SHARED knitweb web every confirmed knit extends (file-shared across instances)
         self.world = World(world_path or default_world_path())
+        self._seed_bots()                      # NPC table-mates so a solo human can reach quorum
+
+    _BOT_NAMES = ["Bea", "Cy", "Dex", "Vala", "Mo", "Pim"]
+
+    def _seed_bots(self, per_table: int = 2) -> None:
+        for tid in self.tables:
+            for _ in range(per_table):
+                sid = secrets.token_hex(8)
+                nm = self._BOT_NAMES[len(self.sessions) % len(self._BOT_NAMES)]
+                self.sessions[sid] = Session(
+                    sid=sid, name=f"🤖 {nm}", player=Player.join(nm), table_id=tid, bot=True,
+                    avatar=_AVATAR_IDS[len(self.sessions) % len(_AVATAR_IDS)])
+
+    def _bots_act(self) -> None:
+        """Seated NPCs vote 'confirm' on open knits they haven't weighed in on yet."""
+        for prop in list(self.proposals.values()):
+            if prop.settled:
+                continue
+            for s in list(self.sessions.values()):
+                if (s.bot and s.table_id == prop.table_id and s.sid != prop.by
+                        and s.sid not in prop.voters and s.player.pulses >= game.VOTE_COST):
+                    try:
+                        self.vote(s.sid, prop.pid, "confirm")
+                    except (RuntimeError, KeyError):
+                        pass
 
     # -- presence ----------------------------------------------------------
     def join(self, name: str, avatar: str | None = None, table_id: str | None = None) -> Session:
@@ -127,12 +155,14 @@ class Bar:
         sess = self._require(sid)
         if not sess.table_id:
             raise RuntimeError("take a seat at a table first")
-        rnd = game.propose_term(sess.player, term)       # spends 1 silk
+        parsed = parse_knit(term)                         # term vs link; strips LaTeX/markup
+        rnd = game.propose_term(sess.player, parsed["label"])  # spends 1 silk
         pid = f"p{next(self._pid)}"
         prop = Proposal(pid=pid, table_id=sess.table_id, by=sid, by_name=sess.name,
-                        term=term.strip(), round=rnd,
-                        topic=(topic or term).strip().lower())
+                        term=parsed["label"], round=rnd, parsed=parsed,
+                        topic=(parsed.get("subject") or parsed.get("term") or parsed["label"]).strip().lower())
         self.proposals[pid] = prop
+        self._bots_act()                                  # NPC table-mates weigh in immediately
         return prop
 
     def vote(self, sid: str, pid: str, verdict: str) -> Proposal:
@@ -163,11 +193,10 @@ class Bar:
             self.woven.append({
                 "term": prop.term, "by": prop.by_name, "table": prop.table_id,
                 "fiber_cid": s.woven_fiber_cid, "confirmations": s.result.confirms,
-                "is_chemistry": prop.term in MOLECULES,
+                "is_chemistry": prop.parsed.get("term", "") in MOLECULES,
             })
-            # extend the SHARED knitweb web — visible to every player/instance
-            self.world.extend(prop.term, prop.by_name, s.woven_fiber_cid,
-                              s.result.confirms, prop.topic)
+            # extend the SHARED knitweb web — a term node, or a LINK edge between two terms
+            self.world.weave_knit(prop.parsed, prop.by_name, s.woven_fiber_cid, s.result.confirms)
 
     def web_view(self) -> dict:
         """The shared web's current state + its OriginTrail provenance anchor."""
