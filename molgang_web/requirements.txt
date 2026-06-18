@@ -1,0 +1,4 @@
+# MOLGANG web front-end (Django wrapper around the Django-free molgang/knitweb engine).
+# The engine itself (molgang + knitweb) is provided on PYTHONPATH, not via pip here.
+Django>=5.0
+djangorestframework>=3.15

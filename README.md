@@ -71,6 +71,21 @@ knit with its votes and woven Fiber; **🔭 Explorer** shows competing knits for
 side-by-side columns (best first). Same `/api/*` endpoints drive bots, so it's machine-playable
 too. No NFTs — value is pulses, reputation, and woven knowledge.
 
+### Django front-end (`molgang_web/`)
+
+The same bar also runs over **Django**, as a thin wrapper around the (Django-free) engine —
+one `Bar` process singleton shared across requests, the same `/api/*` endpoints (DRF JSON),
+and the same `web/` dapp UI served at the root, so the existing client runs unchanged:
+
+```bash
+python3 -m pip install -r molgang_web/requirements.txt
+PYTHONPATH=src python3 molgang_web/manage.py runserver 8799   # → http://localhost:8799
+```
+
+This is increment 1 (Bar singleton + API + UI). Live tables via Channels/websockets and the
+HTMX/dapp polish land in follow-up PRs. The engine stays Django-free — Django imports it,
+never the reverse.
+
 ## Real peer-to-peer
 
 `examples/p2p_demo.py` is not a simulation: each player is a real
