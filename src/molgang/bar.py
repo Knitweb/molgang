@@ -22,7 +22,18 @@ from .chemistry import MOLECULES
 from .game import Player
 from .world import World, default_world_path
 
-AVATARS = ["🦊", "🐙", "🦉", "🐝", "🦋", "🐢", "🦜", "🐳", "🦄", "🐧"]
+# Caricature avatars — crypto/tech *archetypes* (original personas, never real people's names).
+AVATARS = [
+    {"id": "laser-maxi", "name": "Laser-Eyes Maxi"},
+    {"id": "hoodie-hacker", "name": "Hoodie Hacker"},
+    {"id": "gas-goblin", "name": "Gas-Fee Goblin"},
+    {"id": "dao-delegate", "name": "DAO Delegate"},
+    {"id": "diamond-hands", "name": "Diamond Hands"},
+    {"id": "validator-owl", "name": "Validator Owl"},
+    {"id": "faucet-fairy", "name": "Faucet Fairy"},
+    {"id": "degen-ape", "name": "Degen Ape"},
+]
+_AVATAR_IDS = [a["id"] for a in AVATARS]
 DEFAULT_TABLES = [
     ("periodic", "Periodic Bar"),
     ("organic", "Organic Lounge"),
@@ -92,7 +103,7 @@ class Bar:
     # -- presence ----------------------------------------------------------
     def join(self, name: str, avatar: str | None = None, table_id: str | None = None) -> Session:
         sid = secrets.token_hex(8)
-        avatar = avatar if avatar in AVATARS else AVATARS[len(self.sessions) % len(AVATARS)]
+        avatar = avatar if avatar in _AVATAR_IDS else _AVATAR_IDS[len(self.sessions) % len(_AVATAR_IDS)]
         sess = Session(sid=sid, name=(name or "guest")[:24], avatar=avatar,
                        player=Player.join(name or "guest"))
         self.sessions[sid] = sess
