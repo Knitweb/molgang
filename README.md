@@ -45,7 +45,8 @@ git clone https://github.com/knitweb/molgang.git && cd molgang
 ./install.sh
 source .venv/bin/activate
 
-molgang serve     # 🍸 the browser bar  →  http://localhost:8765
+molgang serve     # 🍸 the browser bar       →  http://localhost:8765
+molgang explore   # 🕸 knowledge-graph explorer →  http://localhost:8990
 molgang           # a narrated session in the terminal
 molgang play      # interactive terminal
 molgang doctor    # check your setup
@@ -85,6 +86,33 @@ PYTHONPATH=src python3 molgang_web/manage.py runserver 8799   # → http://local
 This is increment 1 (Bar singleton + API + UI). Live tables via Channels/websockets and the
 HTMX/dapp polish land in follow-up PRs. The engine stays Django-free — Django imports it,
 never the reverse.
+
+## The knowledge-graph explorer
+
+`molgang explore` opens an interactive **NetworkX** lens on the *state* of the woven p2p web at
+**http://localhost:8990** — built for the 523-concept, 4-language (EN / RU / ZH / AR) chemistry
+graph. It loads a knitweb `gateway.App` store dump into a `networkx.MultiDiGraph` (reusing
+[`src/molgang/graphx.py`](src/molgang/graphx.py)) and serves a single-page UI plus a JSON API:
+
+```bash
+# point it at a woven web (a gateway.App store dump); falls back to a tiny sample if absent
+PYTHONPATH=src:../pulse/src python3 -m molgang.explorer --web /tmp/chem_web.json --port 8990
+# or, as an alternate source, the shared molgang world:
+python3 -m molgang.explorer --world ~/.molgang/world.json
+```
+
+| endpoint | returns |
+| --- | --- |
+| `GET /` | interactive UI (search, language filter EN/RU/ZH/AR, path finder, hubs, stats) |
+| `GET /api/kg/stats` | nodes/edges/clusters/density + **per-language** `label:<lang>` counts |
+| `GET /api/kg/hubs` | top terms by degree + centrality |
+| `GET /api/kg/neighbors?term=` | in/out neighbours with relations |
+| `GET /api/kg/path?from=&to=` | shortest path |
+| `GET /api/kg/concept?key=H2O` | the concept's 4 language labels (water / вода / 水 / ماء) + relations |
+| `GET /api/kg/subgraph?term=&depth=2` | a focused subgraph (nodes+edges) for the viz |
+
+The viz never renders all ~2600 nodes at once: it centres on a searched term or the top hub and
+expands focused subgraphs on click, so it stays interactive. Arabic labels render RTL.
 
 ## Real peer-to-peer
 

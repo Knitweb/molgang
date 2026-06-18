@@ -119,6 +119,11 @@ def serve(argv: list[str]) -> int:
     return serve_main(argv)
 
 
+def explore(argv: list[str]) -> int:
+    from .explorer import main as explore_main
+    return explore_main(argv)
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv if argv is None else argv)
     cmd = argv[1] if len(argv) > 1 else "demo"
@@ -128,6 +133,8 @@ def main(argv: list[str] | None = None) -> int:
         return doctor()
     if cmd == "serve":
         return serve(argv[1:])
+    if cmd == "explore":
+        return explore(argv[1:])
     return demo()
 
 
