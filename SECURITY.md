@@ -7,7 +7,7 @@ external Roblox input, so we welcome coordinated disclosure.
 
 **Do not open a public issue for security problems.** Instead open a private
 [GitHub Security Advisory](https://github.com/knitweb/molgang/security/advisories/new) on this
-repo, or email **security@knitweb.dev**. We acknowledge within 72 hours and practice
+repo, or email **security@k5mart.ml**. We acknowledge within 72 hours and practice
 coordinated disclosure.
 
 ## In scope
