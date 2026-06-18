@@ -177,6 +177,8 @@ function renderTable(s) {
   };
   $("suggest").innerHTML = "try: " + ["H2O","CO2","NaCl","CH4","NH3"].map((x) =>
     `<button class="chip" onclick="document.getElementById('term').value='${x}'">${x}</button>`).join("");
+  renderSpiralComposer(t);
+  renderSpirals(t);
   $("open").innerHTML = t.open.length ? t.open.map((p) => {
     const v = p.votes;
     const buttons = (p.mine || p.voted) ? `<span class="dim small">${p.mine ? "your knit" : "voted ✓"}</span>` :
@@ -193,8 +195,57 @@ function renderTable(s) {
     };
   });
   $("fabric").innerHTML = t.fabric.length ? t.fabric.map((w) =>
-    `<span class="woven" title="Fiber ${w.fiber_cid}">${w.term} <span class="dim small">·${w.confirmations}✓</span></span>`).join("") :
+    `<span class="woven ${w.spiral ? "spiral-woven" : ""}" title="Fiber ${w.fiber_cid}">${w.spiral ? "🌀 " : ""}${w.term} <span class="dim small">·${w.confirmations}✓</span></span>`).join("") :
     `<span class="dim">nothing woven yet</span>`;
+}
+
+function renderSpiralComposer(t) {
+  $("spiral-record").textContent = `record ${t.spiral_record || 0} links`;
+  $("spiral-start").onclick = async () => {
+    const text = $("spiral-lines").value.trim();
+    if (!text) return;
+    const r = await api("/api/spiral/propose", "POST", { sid, text });
+    if (r.error) alert(r.error);
+    else $("spiral-lines").value = "";
+    refresh();
+  };
+  const examples = [
+    ["water-air", "H2O -> O2\nO2 -> O3"],
+    ["salt", "NaCl = table salt\ntable salt -> electrolyte"],
+  ];
+  $("spiral-suggest").innerHTML = "try: " + examples.map(([label, text]) =>
+    `<button class="chip spiral-chip" data-spiral="${encodeURIComponent(text)}">${label}</button>`).join("");
+  $("spiral-suggest").querySelectorAll("button.spiral-chip").forEach((b) => {
+    b.onclick = () => { $("spiral-lines").value = decodeURIComponent(b.dataset.spiral); };
+  });
+}
+
+function renderSpirals(t) {
+  $("spirals").innerHTML = (t.spirals || []).length ? t.spirals.map((sp) => {
+    const v = sp.votes || {};
+    const links = (sp.links || []).map((l) => `<li>${l}</li>`).join("");
+    const buttons = (sp.mine || sp.backed) ? `<span class="dim small">${sp.mine ? "your spiral" : "backed ✓"}</span>` :
+      `<button class="vote ok spiral-vote" data-cid="${sp.cid}" data-v="confirm">👍 back ${sp.stake} PLS</button>
+       <button class="vote no spiral-vote" data-cid="${sp.cid}" data-v="mismatch">👎 reject</button>`;
+    return `<div class="spiral-card">
+      <div class="spiral-card-head">
+        <b>🌀 ${sp.length}-link spiral</b>
+        <span class="dim small">by ${sp.by} · ${sp.state}</span>
+      </div>
+      <ol>${links}</ol>
+      <div class="spiral-foot">
+        <span class="tally">✓${v.confirm || 0} ✗${v.mismatch || 0} · ${v.total || 0}</span>
+        ${buttons}
+      </div>
+    </div>`;
+  }).join("") : `<div class="dim">no open spirals — start one above</div>`;
+  $("spirals").querySelectorAll("button.spiral-vote").forEach((b) => {
+    b.onclick = async () => {
+      const r = await api("/api/spiral/vote", "POST", { sid, cid: b.dataset.cid, verdict: b.dataset.v });
+      if (r.error) alert(r.error);
+      refresh();
+    };
+  });
 }
 
 function renderLedger(mk) {
@@ -238,7 +289,7 @@ function renderWeb(w) {
        <span class="dim small">· ${a.nodes}n/${a.edges}e · verified ${a.verified}</span>`
     : `<span class="dim">not yet anchored — weave a term to extend the web</span>`;
   $("web-recent").innerHTML = (w.recent || []).map((r) =>
-    `<span class="woven" title="Fiber ${r.fiber}">${r.kind === "link" ? "🔗" : "🧬"} ${r.label} <span class="dim small">·${r.confirmations}✓ ${r.by}</span></span>`).join("")
+    `<span class="woven ${r.kind === "spiral" ? "spiral-woven" : ""}" title="Fiber ${r.fiber}">${r.kind === "spiral" ? "🌀" : (r.kind === "link" ? "🔗" : "🧬")} ${r.label} <span class="dim small">·${r.confirmations}✓ ${r.by}</span></span>`).join("")
     || `<span class="dim">empty</span>`;
   $("web-links").innerHTML = (w.links || []).map((l) =>
     `<div class="linkrow"><span class="chip">${l.subject}</span> <span class="dim small">${l.relation} →</span> <span class="chip">${l.object}</span></div>`).join("")

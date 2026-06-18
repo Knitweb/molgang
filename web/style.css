@@ -68,6 +68,22 @@ main,section{padding:20px 22px;max-width:1100px;margin:0 auto}
 .vote.ok{background:linear-gradient(135deg,var(--ok),#10b981)} .vote.no{background:linear-gradient(135deg,var(--no),#e11d48)}
 .fabric{display:flex;flex-wrap:wrap;gap:8px}
 .woven{background:#10231c;border:1px solid #1f6f52;color:#a7f3d0;border-radius:999px;padding:5px 12px;font-size:13px}
+.spiral-woven{background:#21183b;border-color:var(--accent);color:#ddd6fe}
+
+.spiral-box{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px;margin:8px 0 16px}
+.spiral-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.spiral-head h3{margin:0}
+.spiral-box textarea{width:100%;resize:vertical;min-height:92px;background:#0e131c;border:1px solid var(--line);
+  border-radius:12px;color:var(--ink);padding:11px 13px;font:inherit}
+.spiral-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+.spiral-actions .suggest{width:auto;flex:1;margin:0}
+.spirals{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:16px}
+.spiral-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.spiral-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+.spiral-card ol{margin:8px 0 10px;padding-left:22px}
+.spiral-card li{margin:3px 0;color:#cbd5e1}
+.spiral-foot{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.spiral-foot .tally{margin-left:0;margin-right:auto}
 
 /* ledger */
 .summary{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 16px}
@@ -99,6 +115,9 @@ footer{padding:18px 22px;text-align:center;border-top:1px solid var(--line);marg
   .tabs button{white-space:nowrap;flex:0 0 auto}
   .floor{grid-template-columns:1fr}
   .knit-box{flex-direction:column} .knit-box input{min-width:0}
+  .spiral-head,.spiral-actions,.spiral-card-head{flex-direction:column;align-items:stretch}
+  .spiral-actions .suggest{width:100%}
+  .spirals{grid-template-columns:1fr}
   .seats{gap:8px} .seat{padding:8px 10px}
   .card{padding:18px}
   button{padding:12px 14px}        /* bigger tap targets */
