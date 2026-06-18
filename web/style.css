@@ -85,3 +85,5 @@ table.grid{width:100%;border-collapse:collapse;background:var(--panel);border:1p
 .anchor-bar{margin:10px 0;padding:11px 14px;background:#10231c;border:1px solid #1f6f52;
   border-radius:12px;color:#a7f3d0;font-size:13px;word-break:break-all}
 footer{padding:18px 22px;text-align:center;border-top:1px solid var(--line);margin-top:20px}
+
+.linkrow{display:flex;align-items:center;gap:8px;margin:5px 0}

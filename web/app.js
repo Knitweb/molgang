@@ -190,11 +190,11 @@ function renderWeb(w) {
        <span class="dim small">· ${a.nodes}n/${a.edges}e · verified ${a.verified}</span>`
     : `<span class="dim">not yet anchored — weave a term to extend the web</span>`;
   $("web-recent").innerHTML = (w.recent || []).map((r) =>
-    `<span class="woven" title="Fiber ${r.fiber}">${r.term} <span class="dim small">·${r.confirmations}✓ ${r.by}</span></span>`).join("")
+    `<span class="woven" title="Fiber ${r.fiber}">${r.kind === "link" ? "🔗" : "🧬"} ${r.label} <span class="dim small">·${r.confirmations}✓ ${r.by}</span></span>`).join("")
     || `<span class="dim">empty</span>`;
-  $("web-topics").innerHTML = Object.entries(w.topics || {}).map(([t, terms]) =>
-    `<div class="erow"><div class="etopic">${t}</div><div>${terms.map((x) => `<span class="chip">${x}</span>`).join("")}</div></div>`).join("")
-    || `<span class="dim">no topics yet</span>`;
+  $("web-links").innerHTML = (w.links || []).map((l) =>
+    `<div class="linkrow"><span class="chip">${l.subject}</span> <span class="dim small">${l.relation} →</span> <span class="chip">${l.object}</span></div>`).join("")
+    || `<span class="dim">no links yet — knit two terms with "=" (e.g. <code>V2O5 = vanadium pentoxide</code>)</span>`;
 }
 
 boot();
