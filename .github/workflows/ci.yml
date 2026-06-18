@@ -16,7 +16,12 @@ jobs:
       - name: Fetch knitweb (the protocol MOLGANG runs on)
         run: git clone --depth 1 https://github.com/knitweb/pulse.git ../pulse
       - name: Install deps
-        run: python -m pip install --upgrade pip cryptography "pytest>=8"
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ../pulse
+          python -m pip install -e ".[dev]"
+      - name: Compile
+        run: python -m compileall -q src tests
       - name: Tests
         run: PYTHONPATH=.:src:../pulse/src python -m pytest -q
       - name: Demos + bridge run green
