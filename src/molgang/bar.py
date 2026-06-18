@@ -185,6 +185,7 @@ class Bar:
         sv = SpiralView(cid=cid, table_id=sess.table_id, by=sid, by_name=sess.name, round=rnd)
         self.spirals[cid] = sv
         self._bots_spiral_act()                           # NPCs back it immediately
+        self._persist_balances()                          # leader spent silk (+ any settle)
         return sv
 
     def vote_spiral(self, sid: str, cid: str, verdict: str) -> SpiralView:
@@ -201,6 +202,7 @@ class Bar:
         others = self._seated_count(sv.table_id) - 1
         if len(sv.round.votes) >= max(game.MIN_SPIRAL_VOTERS, others):
             self._settle_spiral(sv)
+        self._persist_balances()                          # backer staked (+ any settle payout)
         return sv
 
     def _settle_spiral(self, sv: SpiralView) -> None:
@@ -229,9 +231,17 @@ class Bar:
         nm = (name or "guest")[:24]
         # a device id (e.g. a phone) → a STABLE PLS wallet, registered in the DB
         if device:
-            player = Player.from_device(device, nm)
+            # restore a persisted balance so pulses + silk survive a server restart;
+            # otherwise open the faucet (default) and snapshot that starting balance.
+            saved = self.registry.get_balance(device) if self.registry else None
+            if saved is not None:
+                player = Player.from_device(device, nm, pulses=saved["pulses"], silk=saved["silk"])
+            else:
+                player = Player.from_device(device, nm)
             if self.registry:
                 self.registry.register(device, player.node.address, nm)
+                if saved is None:
+                    self.registry.save_balance(device, player.pulses, player.silk)
         else:
             player = Player.join(nm)
         sess = Session(sid=sid, name=nm, avatar=avatar, player=player, device=device)
@@ -264,6 +274,7 @@ class Bar:
                         topic=(parsed.get("subject") or parsed.get("term") or parsed["label"]).strip().lower())
         self.proposals[pid] = prop
         self._bots_act()                                  # NPC table-mates weigh in immediately
+        self._persist_balances()                          # proposer spent silk (+ any settle)
         return prop
 
     def vote(self, sid: str, pid: str, verdict: str) -> Proposal:
@@ -282,6 +293,7 @@ class Bar:
         others = self._seated_count(prop.table_id) - 1
         if len(prop.round.votes) >= max(1, others):
             self._settle(prop)
+        self._persist_balances()                          # voter staked (+ any settle payout)
         return prop
 
     def _settle(self, prop: Proposal) -> None:
@@ -390,6 +402,18 @@ class Bar:
         }
 
     # -- helpers -----------------------------------------------------------
+    def _persist_balances(self) -> None:
+        """Snapshot every device-backed (non-NPC) player's pulses + silk to the registry.
+
+        Called after balance-changing events so a device's wallet survives a restart.
+        No-op without a registry; NPC bots and guest (non-device) sessions are skipped.
+        """
+        if not self.registry:
+            return
+        for s in self.sessions.values():
+            if s.device and not s.bot:
+                self.registry.save_balance(s.device, s.player.pulses, s.player.silk)
+
     def _require(self, sid: str) -> Session:
         if sid not in self.sessions:
             raise KeyError("unknown session — join the bar first")
