@@ -128,6 +128,13 @@ class World:
         return {"nodes": nodes, "edges": edges, "state_root": web_state_root(self.web),
                 "recent": recent, "links": links[-limit:][::-1], "terms": terms}
 
+    def explore(self, *, term: str | None = None, frm: str | None = None,
+                to: str | None = None) -> dict:
+        """Explore the woven graph with NetworkX (hubs, neighbours, shortest path)."""
+        from . import graphx
+        self._sync()
+        return graphx.explore(self.items, term=term, frm=frm, to=to)
+
 
 def default_world_path() -> str:
     return os.environ.get("MOLGANG_WORLD", os.path.expanduser("~/.molgang/world.json"))

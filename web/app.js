@@ -195,6 +195,35 @@ function renderWeb(w) {
   $("web-links").innerHTML = (w.links || []).map((l) =>
     `<div class="linkrow"><span class="chip">${l.subject}</span> <span class="dim small">${l.relation} →</span> <span class="chip">${l.object}</span></div>`).join("")
     || `<span class="dim">no links yet — knit two terms with "=" (e.g. <code>V2O5 = vanadium pentoxide</code>)</span>`;
+  renderGraph();
+}
+
+async function renderGraph() {
+  const g = await api("/api/graph");
+  const s = g.stats || {};
+  $("gx-stats").innerHTML =
+    `<span class="bal">🔵 <b>${s.nodes || 0}</b> nodes</span>
+     <span class="bal">🔗 <b>${s.edges || 0}</b> edges</span>
+     <span class="bal">🧩 <b>${s.clusters || 0}</b> clusters</span>
+     <span class="bal">density <b>${s.density || 0}</b></span>`;
+  $("gx-hubs").innerHTML = "<b>hubs:</b> " + ((g.hubs || []).map((h) =>
+    `<span class="chip" title="centrality ${h.centrality}">${h.term} <span class="dim small">·${h.degree}</span></span>`).join(" ") || "<span class='dim'>none yet</span>");
+  $("gx-go").onclick = async () => {
+    const t = $("gx-term").value.trim(); if (!t) return;
+    const r = await api("/api/graph?term=" + encodeURIComponent(t));
+    const n = r.neighbors;
+    $("gx-result").innerHTML = !n ? `<span class="dim">“${t}” isn't in the web yet.</span>`
+      : `<b>${t}</b> → ${(n.out.map((x) => `${x.relation} <span class="chip">${x.to}</span>`).join(", ") || "—")}<br>
+         <b>${t}</b> ← ${(n.in.map((x) => `<span class="chip">${x.from}</span> ${x.relation}`).join(", ") || "—")}`;
+  };
+  $("gx-path").onclick = async () => {
+    const a = $("gx-a").value.trim(), b = $("gx-b").value.trim(); if (!a || !b) return;
+    const r = await api(`/api/graph?from=${encodeURIComponent(a)}&to=${encodeURIComponent(b)}`);
+    const p = r.path;
+    $("gx-result").innerHTML = !p ? `<span class="dim">one of those terms isn't woven yet.</span>`
+      : p.path ? `path (${p.hops} hops): ${p.path.map((x) => `<span class="chip">${x}</span>`).join(" → ")}`
+      : `<span class="dim">no path between “${a}” and “${b}” yet.</span>`;
+  };
 }
 
 boot();
