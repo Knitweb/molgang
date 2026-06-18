@@ -23,6 +23,18 @@ pulses**. New players start with **free silk + pulses** from the faucet.
 Because votes are *real* Knits on *real* accounts, playing weaves your first Knits and Fibers
 for real — and a bond is only "true" once peers who know their chemistry confirm it.
 
+## What's in the box
+
+- 🎮 **Playable client** (`molgang`) — faucet → propose → peers vote → woven Fiber → your
+  collection, XP & level, leaderboard, and a provenance anchor, all in one session.
+- 🌐 **Real peer-to-peer** — players are live `AsyncioP2PNode` peers; votes cross real sockets.
+- 🗳️ **Pulse-voting + BFT quorum** — peers stake pulses; the real `pouw.quorum` settles.
+- 🧬 **Collectible molecules** — every confirmed bond is a collectible backed by a real Fiber
+  CID; XP, levels (Apprentice→Laureate) and a leaderboard (`molgang.progression`).
+- 🔗 **OriginTrail provenance** — the confirmed-chemistry web is anchored to a DKG as a
+  verifiable **UAL** + notary receipt (`molgang.anchor`) — web3 provenance, not a badge.
+- 🔄 **Two-way bridge** — Roblox ⇄ Knitweb, alternating every 30 min, over a live HTTP server.
+
 ## Quickstart
 
 ```bash
@@ -30,10 +42,16 @@ for real — and a bond is only "true" once peers who know their chemistry confi
 # For local dev, point PYTHONPATH at a knitweb checkout's src:
 export PYTHONPATH=src:/path/to/pulse/src
 
+python3 -m molgang.cli          # ▶ narrated session: play, collect, leaderboard, anchor
 python3 examples/play_demo.py   # faucet → propose H2O → peers vote with pulses → woven Fiber
 python3 examples/p2p_demo.py    # the same, but votes cross REAL sockets between live nodes
-python3 -m pytest -q            # the core, property-checked
+PYTHONPATH=.:$PYTHONPATH python3 -m pytest -q    # 13 tests, property-checked
+
+# live bridge endpoint for the Roblox client (POST /upload · GET /snapshot.json):
+PYTHONPATH=.:$PYTHONPATH python3 bridge/server.py --port 8787
 ```
+
+(Installed via `pip`, the client is just `molgang`.)
 
 ## Real peer-to-peer
 

@@ -1,0 +1,108 @@
+"""MOLGANG command-line client.
+
+    molgang            a narrated demo session (faucet → propose → vote → woven Fiber →
+                       collection/XP → leaderboard → OriginTrail anchor)
+    molgang play       interactive: propose bonds, a class of peers votes, you collect molecules
+"""
+
+from __future__ import annotations
+
+import sys
+
+from . import progression
+from .anchor import anchor_chemistry
+from .game import Player, cast_vote, propose, settle
+
+BAR = "─" * 64
+
+
+def _round(proposer: Player, peers: list[Player], formula: str, name: str) -> dict | None:
+    rnd = propose(proposer, formula, name)
+    for p in peers:
+        cast_vote(rnd, p)                       # honest verdict from real chemistry; stakes 1 PLS
+    s = settle(rnd)
+    if s.woven:
+        return {"formula": formula, "name": name, "fiber_cid": s.woven_fiber_cid,
+                "by": proposer.name, "confirmations": s.result.confirms}
+    return None
+
+
+def demo() -> int:
+    print(f"\n  🧪  MOLGANG — peer-to-peer chemistry on the Knitweb\n{BAR}")
+    alice = Player.join("Alice")
+    peers = [Player.join(n) for n in ("Bob", "Carol", "Dave")]
+    print(f"  faucet · Alice opens a wallet: {alice.pulses} PLS + {alice.silk} silk (free)")
+    print(f"  3 classmates join the table (each {peers[0].pulses} PLS)\n")
+
+    woven: list[dict] = []
+    for formula, name in (("H2O", "Water"), ("CO2", "Carbon dioxide"), ("NaCl", "Table salt")):
+        rnd = propose(alice, formula, name)
+        verds = [cast_vote(rnd, p).verdict.value for p in peers]
+        s = settle(rnd)
+        mark = "✅ woven" if s.woven else f"✗ {s.outcome.value}"
+        print(f"  bond {formula:<5} ({name:<15}) votes={verds} → {mark}"
+              + (f"  Fiber {s.woven_fiber_cid[:14]}…" if s.woven else ""))
+        if s.woven:
+            woven.append({"formula": formula, "name": name, "fiber_cid": s.woven_fiber_cid,
+                          "by": alice.name, "confirmations": s.result.confirms})
+
+    # a wrong bond — peers who know chemistry catch it
+    bad = propose(alice, "NaCl2", "Bogus salt")
+    for p in peers:
+        cast_vote(bad, p)
+    sb = settle(bad)
+    print(f"  bond NaCl2 (Bogus salt    ) → ✗ {sb.outcome.value} (peers rejected it)\n")
+
+    cols = progression.collections(woven)
+    me = cols.get(alice.name, {"molecules": [], "xp": 0, "level": 1, "title": "Apprentice"})
+    print(f"{BAR}\n  Alice · {alice.pulses} PLS · level {me['level']} {me['title']} · {me['xp']} XP")
+    print(f"  collection: {', '.join(m['formula'] for m in me['molecules']) or '—'}")
+
+    print(f"\n  🏆 leaderboard")
+    for r in progression.leaderboard(woven):
+        print(f"    #{r['rank']} {r['player']:<8} {r['molecules']} molecules · {r['xp']} XP · {r['title']}")
+
+    a = anchor_chemistry(woven)
+    print(f"\n  🔗 anchored to OriginTrail (web3 provenance):")
+    print(f"    UAL {a.ual}")
+    print(f"    {a.bonds} bonds · receipt {a.receipt_cid[:16]}… · verified={a.verified}")
+    print(f"{BAR}\n  ▶ try `molgang play`, or run examples/p2p_demo.py for a real P2P round.\n")
+    return 0
+
+
+def play() -> int:
+    print("\n  🧪 MOLGANG — propose bonds; a class of peers votes. Ctrl-D to quit.\n")
+    you = Player.join("you")
+    peers = [Player.join(n) for n in ("Mara", "Tom", "Iris")]
+    woven: list[dict] = []
+    try:
+        while you.silk > 0:
+            formula = input(f"  [{you.pulses} PLS, {you.silk} silk] formula (e.g. H2O): ").strip()
+            if not formula:
+                continue
+            name = input("  name it: ").strip() or formula
+            got = _round(you, peers, formula, name)
+            if got:
+                woven.append(got)
+                print(f"  ✅ woven! Fiber {got['fiber_cid'][:16]}…  collection: "
+                      f"{', '.join(m['formula'] for m in woven)}\n")
+            else:
+                print("  ✗ the class did not confirm that bond — check your chemistry.\n")
+    except (EOFError, KeyboardInterrupt):
+        pass
+    me = progression.collections(woven).get("you", {"xp": 0, "level": 1, "title": "Apprentice"})
+    print(f"\n  thanks for playing — level {me['level']} {me['title']}, {me['xp']} XP, "
+          f"{len(woven)} molecules.\n")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv if argv is None else argv)
+    cmd = argv[1] if len(argv) > 1 else "demo"
+    if cmd == "play":
+        return play()
+    return demo()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

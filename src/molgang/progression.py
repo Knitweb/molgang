@@ -1,0 +1,59 @@
+"""Progression & collection — the game layer over the woven Fibers.
+
+Each peer-confirmed bond a player weaves is a **collectible molecule** backed by a real
+Fiber CID (the web3-native "you own this because the web says so"). Players accrue XP and
+levels, and a leaderboard ranks the class. This is pure, derived game state — the authority
+is always the knitweb (Fibers + quorum); this is the motivating layer on top.
+"""
+
+from __future__ import annotations
+
+XP_PER_WOVEN = 100                          # XP for weaving a peer-confirmed bond
+LEVELS = [0, 100, 300, 600, 1000, 1500, 2500, 4000]  # XP thresholds → level 1..8
+TITLES = [
+    "Apprentice", "Student", "Lab Assistant", "Chemist", "Synthesist",
+    "Catalyst", "Alchemist", "Laureate",
+]
+
+
+def level_for(xp: int) -> int:
+    lvl = 1
+    for i, threshold in enumerate(LEVELS):
+        if xp >= threshold:
+            lvl = i + 1
+    return lvl
+
+
+def title_for(level: int) -> str:
+    return TITLES[min(level, len(TITLES)) - 1]
+
+
+def collections(woven: list[dict]) -> dict[str, dict]:
+    """Group the woven bonds into per-player collections (keyed by Roblox/knitweb id)."""
+    by_player: dict[str, dict] = {}
+    for b in woven:
+        owner = b.get("by", "?")
+        p = by_player.setdefault(owner, {"molecules": [], "xp": 0})
+        p["molecules"].append({
+            "formula": b["formula"], "name": b.get("name", ""),
+            "fiber_cid": b.get("fiber_cid"), "confirmations": b.get("confirmations", 0),
+        })
+        p["xp"] += XP_PER_WOVEN
+    for p in by_player.values():
+        p["level"] = level_for(p["xp"])
+        p["title"] = title_for(p["level"])
+    return by_player
+
+
+def leaderboard(woven: list[dict]) -> list[dict]:
+    """Rank players by XP (then id) — ready to render in any client."""
+    cols = collections(woven)
+    rows = [
+        {"player": rid, "molecules": len(p["molecules"]), "xp": p["xp"],
+         "level": p["level"], "title": p["title"]}
+        for rid, p in cols.items()
+    ]
+    rows.sort(key=lambda r: (-r["xp"], r["player"]))
+    for rank, r in enumerate(rows, start=1):
+        r["rank"] = rank
+    return rows
