@@ -20,13 +20,14 @@ import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from .bar import Bar, suggested_terms
+from .pulse_host import bootstrap_host, default_wallet_path
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web")
 _CTYPE = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
           ".json": "application/json", ".svg": "image/svg+xml"}
 
 
-def make_handler(bar: Bar):
+def make_handler(bar: Bar, pulse_host: dict | None = None):
     class Handler(BaseHTTPRequestHandler):
         def _json(self, code: int, obj) -> None:
             body = json.dumps(obj, ensure_ascii=False).encode()
@@ -58,11 +59,20 @@ def make_handler(bar: Bar):
             if path == "/api/state":
                 from urllib.parse import parse_qs, urlparse
                 sid = parse_qs(urlparse(self.path).query).get("sid", [None])[0]
-                return self._json(200, bar.state(sid))
+                state = bar.state(sid)
+                state["pulse_host"] = pulse_host
+                return self._json(200, state)
+            if path == "/api/pulse":
+                return self._json(200, pulse_host or {})
             if path == "/api/suggested":
                 return self._json(200, {"terms": suggested_terms()})
             if path == "/api/web":
                 return self._json(200, bar.web_view())
+            if path == "/api/device":
+                from urllib.parse import parse_qs, urlparse
+                did = (parse_qs(urlparse(self.path).query).get("id") or [""])[0]
+                reg = bar.registry.get(did) if (bar.registry and did) else None
+                return self._json(200, {"registered": bool(reg), "wallet": reg})
             if path == "/api/graph":
                 from urllib.parse import parse_qs, urlparse
                 q = parse_qs(urlparse(self.path).query)
@@ -76,8 +86,10 @@ def make_handler(bar: Bar):
             try:
                 b = self._body()
                 if self.path == "/api/join":
-                    s = bar.join(b.get("name", "guest"), b.get("avatar"), b.get("table"))
-                    return self._json(200, {"sid": s.sid, "avatar": s.avatar})
+                    s = bar.join(b.get("name", "guest"), b.get("avatar"), b.get("table"),
+                                 device=b.get("device"))
+                    return self._json(200, {"sid": s.sid, "avatar": s.avatar,
+                                            "address": s.player.node.address})
                 if self.path == "/api/sit":
                     bar.sit(b["sid"], b["table"]); return self._json(200, bar.state(b["sid"]))
                 if self.path == "/api/propose":
@@ -100,10 +112,19 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="MOLGANG browser bar")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--world", default=None, help="shared world file (default ~/.molgang/world.json)")
+    ap.add_argument("--db", default=None, help="device→wallet registry sqlite (default ~/.molgang/registry.db)")
+    ap.add_argument("--wallet", default=default_wallet_path(),
+                    help="Pulse host identity wallet (default ~/.molgang/pulse-identity.cbor)")
+    ap.add_argument("--host-genesis", type=int, default=0,
+                    help="dev/test only: seed the host Pulse wallet if it is first created")
     a = ap.parse_args([x for x in argv[1:] if x != "serve"])
-    srv = ThreadingHTTPServer(("0.0.0.0", a.port), make_handler(Bar(a.world)))
+    from .registry import Registry
+    listen = f"0.0.0.0:{a.port}"
+    pulse = bootstrap_host(a.wallet, listen=listen, genesis=a.host_genesis)
+    srv = ThreadingHTTPServer(("0.0.0.0", a.port), make_handler(Bar(a.world, Registry(a.db)), pulse))
     print(f"  🍸 MOLGANG bar open at http://localhost:{a.port}  (shared web: "
           f"{a.world or '~/.molgang/world.json'}) (Ctrl-C to close)")
+    print(f"  pulse host {pulse['account']['address']} · wallet {pulse['wallet']}")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

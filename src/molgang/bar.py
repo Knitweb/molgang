@@ -82,6 +82,7 @@ class Session:
     player: Player
     table_id: str | None = None
     bot: bool = False                          # an NPC table-mate (so solo humans get votes)
+    device: str | None = None                  # the device id this session's wallet is bound to
 
 
 @dataclass
@@ -94,7 +95,8 @@ class Table:
 class Bar:
     """In-memory, single-process bar. Real knitweb accounts under the hood."""
 
-    def __init__(self, world_path: str | None = None) -> None:
+    def __init__(self, world_path: str | None = None, registry=None) -> None:
+        self.registry = registry               # optional device→wallet DB (knitweb Registry)
         self.tables: dict[str, Table] = {tid: Table(tid, name) for tid, name in DEFAULT_TABLES}
         self.sessions: dict[str, Session] = {}
         self.proposals: dict[str, Proposal] = {}
@@ -129,11 +131,19 @@ class Bar:
                         pass
 
     # -- presence ----------------------------------------------------------
-    def join(self, name: str, avatar: str | None = None, table_id: str | None = None) -> Session:
+    def join(self, name: str, avatar: str | None = None, table_id: str | None = None,
+             device: str | None = None) -> Session:
         sid = secrets.token_hex(8)
         avatar = avatar if avatar in _AVATAR_IDS else _AVATAR_IDS[len(self.sessions) % len(_AVATAR_IDS)]
-        sess = Session(sid=sid, name=(name or "guest")[:24], avatar=avatar,
-                       player=Player.join(name or "guest"))
+        nm = (name or "guest")[:24]
+        # a device id (e.g. a phone) → a STABLE PLS wallet, registered in the DB
+        if device:
+            player = Player.from_device(device, nm)
+            if self.registry:
+                self.registry.register(device, player.node.address, nm)
+        else:
+            player = Player.join(nm)
+        sess = Session(sid=sid, name=nm, avatar=avatar, player=player, device=device)
         self.sessions[sid] = sess
         if table_id:
             self.sit(sid, table_id)
@@ -261,6 +271,7 @@ class Bar:
             w = self._woven_by(sid)
             lvl = progression.level_for(w * progression.XP_PER_WOVEN)
             you = {"sid": me.sid, "name": me.name, "avatar": me.avatar, "table": me.table_id,
+                   "address": me.player.node.address, "device": bool(me.device),
                    "pulses": me.player.pulses, "silk": me.player.silk,
                    "knits_made": sum(1 for p in self.proposals.values() if p.by == sid),
                    "woven": w, "level": lvl, "title": progression.title_for(lvl),

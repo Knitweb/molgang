@@ -19,6 +19,17 @@ let chosenAvatar = null;
 let view = "bar";
 let table = localStorage.getItem("molgang_table") || null;
 
+// a stable per-device id (browser-legal stand-in for IMEI) → the same PLS wallet every visit
+const DEVICE_ID = (() => {
+  let d = localStorage.getItem("molgang_device");
+  if (!d) {
+    d = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+      : "dev-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem("molgang_device", d);
+  }
+  return d;
+})();
+
 // ---- walk-in ----
 async function boot() {
   const avs = (await api("/api/state")).avatars || [];
@@ -42,7 +53,7 @@ async function boot() {
 
 async function walkIn() {
   const name = $("name").value.trim() || "guest";
-  const res = await api("/api/join", "POST", { name, avatar: chosenAvatar });
+  const res = await api("/api/join", "POST", { name, avatar: chosenAvatar, device: DEVICE_ID });
   sid = res.sid; localStorage.setItem("molgang_sid", sid);
   $("enter").classList.add("hidden");
   start();
@@ -72,9 +83,14 @@ function setActiveTab() {
 // ---- render ----
 async function refresh() {
   const s = await api("/api/state?sid=" + encodeURIComponent(sid));
+  renderPulseHost(s.pulse_host);
   if (s.you) {
     $("me-av").innerHTML = avatarImg(s.you.avatar);
     $("me-name").textContent = s.you.name;
+    if (s.you.address) {
+      $("me-wallet").textContent = "👛 " + s.you.address.slice(0, 10) + "…";
+      $("me-wallet").title = "your device wallet: " + s.you.address;
+    }
     $("me-pulses").textContent = s.you.pulses;
     $("me-silk").textContent = s.you.silk;
     $("me-knits").textContent = s.you.knits_made;
@@ -89,6 +105,17 @@ async function refresh() {
   else if (table) renderTable(s);
   else renderFloor(s);
   setActiveTab();
+}
+
+function renderPulseHost(host) {
+  if (!host || !host.account) {
+    $("pulse-host").textContent = "";
+    return;
+  }
+  const addr = host.account.address || "";
+  const bal = host.account.balance_pls || 0;
+  $("pulse-host").textContent = `Pulse host ${addr.slice(0, 10)}… · ${bal} PLS`;
+  $("pulse-host").title = `${addr}\nwallet: ${host.wallet || ""}`;
 }
 
 function renderFloor(s) {
