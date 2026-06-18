@@ -1,0 +1,25 @@
+# Render.com blueprint for the MOLGANG backend.
+#
+#   1. Push this repo to GitHub (already there: github.com/knitweb/molgang).
+#   2. Render Dashboard → New → Blueprint → pick this repo → Apply.
+#      (or: render blueprint launch   with the Render CLI)
+#   3. Your API comes up at https://molgang.onrender.com  → put that in
+#      web/config.js (window.MOLGANG_API) and re-upload config.js to the static host.
+#
+services:
+  - type: web
+    name: molgang
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: frankfurt          # closest Render region to 5mart.ml / TransIP
+    plan: starter              # free has no persistent disk + sleeps; starter stays on
+    healthCheckPath: /api/state
+    envVars:
+      - key: MOLGANG_PORT
+        value: 10000           # Render injects $PORT; we pin the CMD to it below
+    # Render sets $PORT — bind to it and keep state on the mounted disk.
+    dockerCommand: sh -c "molgang serve --port ${PORT:-10000} --world /data/world.json --db /data/reg.db"
+    disk:
+      name: molgang-data
+      mountPath: /data
+      sizeGB: 1

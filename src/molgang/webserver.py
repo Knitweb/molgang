@@ -27,15 +27,31 @@ _CTYPE = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
           ".json": "application/json", ".svg": "image/svg+xml"}
 
 
-def make_handler(bar: Bar, pulse_host: dict | None = None):
+def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*"):
     class Handler(BaseHTTPRequestHandler):
+        def _cors(self) -> None:
+            # Let the static UI (e.g. https://5mart.ml/molgang/) hit this API cross-origin.
+            if cors:
+                self.send_header("Access-Control-Allow-Origin", cors)
+                self.send_header("Vary", "Origin")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header("Access-Control-Max-Age", "86400")
+
         def _json(self, code: int, obj) -> None:
             body = json.dumps(obj, ensure_ascii=False).encode()
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
+            self._cors()
             self.end_headers()
             self.wfile.write(body)
+
+        def do_OPTIONS(self) -> None:  # noqa: N802 — CORS preflight
+            self.send_response(204)
+            self.send_header("Content-Length", "0")
+            self._cors()
+            self.end_headers()
 
         def _body(self) -> dict:
             n = int(self.headers.get("Content-Length", 0) or 0)
@@ -51,6 +67,7 @@ def make_handler(bar: Bar, pulse_host: dict | None = None):
             self.send_response(200)
             self.send_header("Content-Type", _CTYPE.get(os.path.splitext(full)[1], "application/octet-stream"))
             self.send_header("Content-Length", str(len(body)))
+            self._cors()
             self.end_headers()
             self.wfile.write(body)
 
@@ -126,11 +143,15 @@ def main(argv: list[str]) -> int:
                     help="Pulse host identity wallet (default ~/.molgang/pulse-identity.cbor)")
     ap.add_argument("--host-genesis", type=int, default=0,
                     help="dev/test only: seed the host Pulse wallet if it is first created")
+    ap.add_argument("--cors", default="*",
+                    help="Access-Control-Allow-Origin for the API (default '*'; "
+                         "set e.g. https://5mart.ml to restrict, or '' to disable)")
     a = ap.parse_args([x for x in argv[1:] if x != "serve"])
     from .registry import Registry
     listen = f"0.0.0.0:{a.port}"
     pulse = bootstrap_host(a.wallet, listen=listen, genesis=a.host_genesis)
-    srv = ThreadingHTTPServer(("0.0.0.0", a.port), make_handler(Bar(a.world, Registry(a.db)), pulse))
+    srv = ThreadingHTTPServer(("0.0.0.0", a.port),
+                              make_handler(Bar(a.world, Registry(a.db)), pulse, cors=a.cors or None))
     print(f"  🍸 MOLGANG bar open at http://localhost:{a.port}  (shared web: "
           f"{a.world or '~/.molgang/world.json'}) (Ctrl-C to close)")
     print(f"  pulse host {pulse['account']['address']} · wallet {pulse['wallet']}")
