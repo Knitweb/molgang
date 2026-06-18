@@ -63,6 +63,13 @@ def make_handler(bar: Bar):
                 return self._json(200, {"terms": suggested_terms()})
             if path == "/api/web":
                 return self._json(200, bar.web_view())
+            if path == "/api/graph":
+                from urllib.parse import parse_qs, urlparse
+                q = parse_qs(urlparse(self.path).query)
+                return self._json(200, bar.world.explore(
+                    term=(q.get("term") or [None])[0],
+                    frm=(q.get("from") or [None])[0],
+                    to=(q.get("to") or [None])[0]))
             return self._static(path)
 
         def do_POST(self) -> None:  # noqa: N802
