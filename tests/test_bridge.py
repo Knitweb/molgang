@@ -32,7 +32,7 @@ def test_two_way_sync_alternates_persists_and_continues(tmp_path):
     assert i1["direction"] == "download"
     d = json.load(open(snap, encoding="utf-8"))
     assert "H2O" in d["confirmed_formulas"]
-    assert d["players"]["roblox:1001"]["pulses"] == 53   # earned the staked pot, persisted
+    assert d["players"]["roblox:1001"]["pulses"] == 63   # useful work reward persisted
 
     i2 = step(state, EXPORT, snap, now="t2")          # even → upload again
     assert i2["direction"] == "upload"

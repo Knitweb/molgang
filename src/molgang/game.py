@@ -29,8 +29,14 @@ FAUCET_PULSES = 50      # free PLS every new player gets to start voting/playing
 FAUCET_SILK = 10        # free silk (thread) to weave their first bonds
 VOTE_COST = 1           # pulses a peer stakes to cast one vote
 SILK_PER_BOND = 1       # silk a proposer spins into a proposed bond
-# Reward for a confirmed bond = the staked vote-pot (peers' pulses flow to correct
-# chemistry as proof-of-knowledge). Pulses are conserved — nothing is minted here.
+PROPOSER_BASE_REWARD = 2
+VOTER_CONFIRM_REWARD = 1
+USEFULNESS_EXP_BASE = 2
+MAX_USEFULNESS_BONUS = 64
+ROUND_REWARD_BANK_PLS = 1_000_000
+# A confirmed knit pays from the staked vote-pot and from a transparent per-round
+# protocol reward bank. The exponential usefulness bonus grows with confirming
+# peers, capped so a local classroom cannot mint absurd balances by accident.
 
 
 class FaucetError(RuntimeError):
@@ -129,6 +135,9 @@ class Round:
 
     proposer: Player
     escrow: AccountNode                     # neutral pot that holds staked vote-pulses
+    reward_bank: AccountNode = field(
+        default_factory=lambda: AccountNode(genesis_balances={"PLS": ROUND_REWARD_BANK_PLS})
+    )
     bond: Bond | None = None                # set for a chemistry knit (has ground truth)
     term: str | None = None                 # set for a free brainstorm knit (peer consensus)
     votes: list[Vote] = field(default_factory=list)
@@ -193,7 +202,22 @@ class Settlement:
     result: quorum.QuorumResult
     woven: bool
     reward: int
+    voter_rewards: int
+    silk_reward: int
     woven_fiber_cid: str | None
+
+
+def usefulness_bonus(confirms: int) -> int:
+    """Exponential PLS reward for useful work confirmed by other players."""
+    if confirms <= 0:
+        return 0
+    return min(MAX_USEFULNESS_BONUS, USEFULNESS_EXP_BASE ** confirms - 1)
+
+
+def _pay_reward(rnd: Round, player: Player, amount: int) -> None:
+    if amount <= 0:
+        return
+    rnd.reward_bank.transfer_to(player.node, "PLS", amount, rnd._tick())
 
 
 def settle(rnd: Round) -> Settlement:
@@ -202,15 +226,27 @@ def settle(rnd: Round) -> Settlement:
         raise RuntimeError("round already settled")
     result = quorum.tally(v.verdict for v in rnd.votes)
     pot = rnd.escrow.balance("PLS")
-    woven, reward, fiber_cid = False, 0, None
+    woven, reward, voter_rewards, silk_reward, fiber_cid = False, 0, 0, 0, None
 
     if result.releases:
-        # correct chemistry, peer-confirmed → weave the bond + reward the proposer.
-        # escrow pays the staked pot back out to the proposer (proof-of-knowledge reward),
-        # which itself settles as Knits and advances the proposer's Braid → a new Fiber.
+        # Useful, peer-confirmed work earns enough to keep playing: the proposer
+        # gets the vote pot, restored silk, a base PLS reward, and an exponential
+        # usefulness bonus based on confirming peer votes.
         if pot:
             rnd.escrow.transfer_to(rnd.proposer.node, "PLS", pot, rnd._tick())
-        reward = pot
+        silk_reward = SILK_PER_BOND
+        rnd.proposer.silk += silk_reward
+        protocol_reward = PROPOSER_BASE_REWARD + usefulness_bonus(result.confirms)
+        _pay_reward(rnd, rnd.proposer, protocol_reward)
+        reward = pot + protocol_reward
+
+        # Confirming voters did useful validation work. Refund their stake and
+        # pay fresh PLS, so voting on useful work is net-positive.
+        for v in rnd.votes:
+            if v.verdict is quorum.Verdict.CONFIRM:
+                _pay_reward(rnd, v.voter, VOTE_COST + VOTER_CONFIRM_REWARD)
+                voter_rewards += VOTE_COST + VOTER_CONFIRM_REWARD
+
         woven = True
         fiber_cid = rnd.proposer.fiber_cid
     else:
@@ -223,5 +259,6 @@ def settle(rnd: Round) -> Settlement:
     rnd.outcome = result.outcome
     return Settlement(
         outcome=result.outcome, result=result, woven=woven,
-        reward=reward, woven_fiber_cid=fiber_cid,
+        reward=reward, voter_rewards=voter_rewards, silk_reward=silk_reward,
+        woven_fiber_cid=fiber_cid,
     )

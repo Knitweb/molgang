@@ -22,10 +22,12 @@ def test_chemistry_ground_truth():
     assert not chemistry.is_correct(Bond.propose("NaCl2", "bogus"))  # not a real molecule
 
 
-def test_correct_bond_is_woven_and_pulses_conserved():
+def test_correct_bond_is_woven_and_rewards_useful_work():
     alice = Player.join("Alice")
     peers = [Player.join(n) for n in ("Bob", "Carol", "Dave")]
-    start = alice.pulses + sum(p.pulses for p in peers)
+    alice_pulses = alice.pulses
+    peer_pulses = [p.pulses for p in peers]
+    alice_silk = alice.silk
 
     rnd = propose(alice, "H2O", "Water")
     for p in peers:
@@ -34,8 +36,12 @@ def test_correct_bond_is_woven_and_pulses_conserved():
 
     assert s.woven and s.outcome is quorum.Outcome.CONFIRMED
     assert s.woven_fiber_cid                      # a real Fiber was woven
-    assert s.reward == len(peers)                 # earned the staked pot
-    assert alice.pulses + sum(p.pulses for p in peers) == start   # conserved
+    assert s.reward > len(peers)                  # staked pot + protocol reward
+    assert s.voter_rewards == len(peers) * 2      # refunded stake + useful-vote reward
+    assert s.silk_reward == 1
+    assert alice.silk == alice_silk               # useful silk work can keep knitting
+    assert alice.pulses > alice_pulses
+    assert all(p.pulses > before for p, before in zip(peers, peer_pulses))
 
 
 def test_wrong_bond_is_rejected_and_refunded():
@@ -46,6 +52,7 @@ def test_wrong_bond_is_rejected_and_refunded():
         cast_vote(rnd, p)               # honest mismatch
     s = settle(rnd)
     assert not s.woven
+    assert s.reward == 0 and s.voter_rewards == 0 and s.silk_reward == 0
     assert all(p.pulses == 50 for p in peers)     # refunded
 
 

@@ -20,6 +20,7 @@ let sid = localStorage.getItem("molgang_sid") || null;
 let chosenAvatar = null;
 let view = "bar";
 let table = localStorage.getItem("molgang_table") || null;
+let refreshTimer = null;
 
 // a stable per-device id (browser-legal stand-in for IMEI) → the same PLS wallet every visit
 const DEVICE_ID = (() => {
@@ -69,7 +70,21 @@ function start() {
   });
   setActiveTab();
   refresh();
-  setInterval(refresh, 1500);
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(refresh, 1500);
+}
+
+function resetSession() {
+  sid = null;
+  table = null;
+  localStorage.removeItem("molgang_sid");
+  localStorage.removeItem("molgang_table");
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = null;
+  $("me").classList.add("hidden");
+  $("tabs").classList.add("hidden");
+  ["floor", "table", "ledger", "explorer", "web"].forEach((v) => $(v).classList.add("hidden"));
+  $("enter").classList.remove("hidden");
 }
 
 function setActiveTab() {
@@ -86,6 +101,10 @@ function setActiveTab() {
 async function refresh() {
   const s = await api("/api/state?sid=" + encodeURIComponent(sid));
   renderPulseHost(s.pulse_host);
+  if (sid && !s.you) {
+    resetSession();
+    return;
+  }
   if (s.you) {
     $("me-av").innerHTML = avatarImg(s.you.avatar);
     $("me-name").textContent = s.you.name;
