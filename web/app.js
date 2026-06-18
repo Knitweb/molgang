@@ -3,8 +3,10 @@
 // and the explorer (competing knits in columns). Same API a bot would drive.
 
 const $ = (id) => document.getElementById(id);
+// Works whether served at the root or under a subpath like https://5mart.ml/molgang/.
+const BASE = location.pathname.replace(/\/(index\.html)?$/, "");
 const api = async (path, method = "GET", body = null) => {
-  const r = await fetch(path, {
+  const r = await fetch(BASE + path, {
     method,
     headers: body ? { "Content-Type": "application/json" } : {},
     body: body ? JSON.stringify(body) : null,
