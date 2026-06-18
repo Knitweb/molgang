@@ -38,10 +38,12 @@ molgang/
 3. **Vote** — each peer stakes 1 PLS as a *real Knit* into a round escrow and records a
    verdict (honest peers `CONFIRM` correct chemistry, `MISMATCH` wrong).
 4. **Settle** — `quorum.tally` decides: `CONFIRMED` → the bond is woven (escrow pays the
-   proposer; their Braid advances → a new **Fiber**); otherwise voters are refunded.
+   proposer, a capped exponential usefulness bonus is paid from the protocol reward bank,
+   confirming voters get their stake plus a PLS reward, and the proposer's silk is restored);
+   otherwise voters are refunded.
 
-Pulses are conserved throughout — a confirmed bond just routes the staked pot to correct
-chemistry (proof-of-knowledge), nothing is minted.
+Confirmed useful work is intentionally net-positive in the game economy. Failed or unconfirmed
+work does not mint rewards; voter stakes are refunded.
 
 ## Real peer-to-peer
 
