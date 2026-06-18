@@ -20,7 +20,7 @@ from knitweb.pouw import quorum
 from . import game
 from .chemistry import MOLECULES
 from .game import Player
-from .knit_parse import parse_knit
+from .knit_parse import parse_knit, spiral_links
 from .world import World, default_world_path
 
 # Caricature avatars — crypto/tech *archetypes* (original personas, never real people's names).
@@ -92,6 +92,29 @@ class Table:
     seats: int = SEATS_PER_TABLE
 
 
+@dataclass
+class SpiralView:
+    """A spiral woven at a table — auxiliary (gathering pulses) until captured (sticky)."""
+
+    cid: str
+    table_id: str
+    by: str
+    by_name: str
+    round: "game.SpiralRound"
+    voters: set = field(default_factory=set)
+    settled: bool = False
+    captured: bool = False
+
+    @property
+    def length(self) -> int:
+        return self.round.length
+
+    def breakdown(self) -> dict:
+        c = sum(1 for v in self.round.votes if v.verdict == quorum.Verdict.CONFIRM)
+        m = sum(1 for v in self.round.votes if v.verdict == quorum.Verdict.MISMATCH)
+        return {"confirm": c, "mismatch": m, "total": len(self.round.votes)}
+
+
 class Bar:
     """In-memory, single-process bar. Real knitweb accounts under the hood."""
 
@@ -100,15 +123,18 @@ class Bar:
         self.tables: dict[str, Table] = {tid: Table(tid, name) for tid, name in DEFAULT_TABLES}
         self.sessions: dict[str, Session] = {}
         self.proposals: dict[str, Proposal] = {}
+        self.spirals: dict[str, SpiralView] = {}         # auxiliary/capture spirals by id
+        self.spiral_record: dict[str, int] = {}          # longest captured spiral per table
         self.woven: list[dict] = []                      # this instance's woven terms
         self._pid = itertools.count(1)
+        self._scid = itertools.count(1)                  # spiral ids
         # the SHARED knitweb web every confirmed knit extends (file-shared across instances)
         self.world = World(world_path or default_world_path())
         self._seed_bots()                      # NPC table-mates so a solo human can reach quorum
 
     _BOT_NAMES = ["Bea", "Cy", "Dex", "Vala", "Mo", "Pim"]
 
-    def _seed_bots(self, per_table: int = 2) -> None:
+    def _seed_bots(self, per_table: int = 3) -> None:
         for tid in self.tables:
             for _ in range(per_table):
                 sid = secrets.token_hex(8)
@@ -129,6 +155,71 @@ class Bar:
                         self.vote(s.sid, prop.pid, "confirm")
                     except (RuntimeError, KeyError):
                         pass
+
+    def _bots_spiral_act(self) -> None:
+        """Seated NPCs back open spirals with an honest verdict (a sound spiral → confirm)."""
+        for sv in list(self.spirals.values()):
+            if sv.settled:
+                continue
+            hv = game.honest_spiral_verdict(sv.round.links).value
+            for s in list(self.sessions.values()):
+                if (s.bot and s.table_id == sv.table_id and s.sid != sv.by
+                        and s.sid not in sv.voters and s.player.pulses >= sv.round.stake_per_vote):
+                    try:
+                        self.vote_spiral(s.sid, sv.cid, hv)
+                    except (RuntimeError, KeyError):
+                        pass
+
+    # -- the spiral loop ---------------------------------------------------
+    def propose_spiral(self, sid: str, lines: list[str]) -> SpiralView:
+        sess = self._require(sid)
+        if not sess.table_id:
+            raise RuntimeError("take a seat at a table first")
+        open_here = [s for s in self.spirals.values()
+                     if s.table_id == sess.table_id and not s.settled]
+        if len(open_here) >= 2:
+            raise RuntimeError("too many open spirals at this table (max 2)")
+        links = spiral_links(lines)                       # raises if not all links
+        rnd = game.propose_spiral(sess.player, links)     # spends escalating silk
+        cid = f"s{next(self._scid)}"
+        sv = SpiralView(cid=cid, table_id=sess.table_id, by=sid, by_name=sess.name, round=rnd)
+        self.spirals[cid] = sv
+        self._bots_spiral_act()                           # NPCs back it immediately
+        return sv
+
+    def vote_spiral(self, sid: str, cid: str, verdict: str) -> SpiralView:
+        sess = self._require(sid)
+        sv = self.spirals.get(cid)
+        if not sv or sv.settled:
+            raise RuntimeError("no open spiral with that id")
+        if sid == sv.by:
+            raise RuntimeError("you cannot back your own spiral")
+        if sid in sv.voters:
+            raise RuntimeError("you already backed this spiral")
+        game.cast_spiral_vote(sv.round, sess.player, quorum.Verdict(verdict))
+        sv.voters.add(sid)
+        others = self._seated_count(sv.table_id) - 1
+        if len(sv.round.votes) >= max(game.MIN_SPIRAL_VOTERS, others):
+            self._settle_spiral(sv)
+        return sv
+
+    def _settle_spiral(self, sv: SpiralView) -> None:
+        from . import progression
+        levels = [progression.level_for(self._woven_by(s.sid) * progression.XP_PER_WOVEN)
+                  for s in self.sessions.values()
+                  if s.table_id == sv.table_id and not s.bot]
+        k = progression.reputation_threshold(levels, len(sv.round.votes))
+        s = game.settle_spiral(sv.round, threshold=k)
+        sv.settled, sv.captured = True, s.captured
+        if s.captured:
+            self.world.weave_spiral(sv.round.links, sv.by_name, s.leader_fiber_cid,
+                                    s.result.confirms, validators=len(sv.round.votes),
+                                    pls_staked=s.pls_staked)
+            path = " → ".join([sv.round.links[0]["subject"], *[l["object"] for l in sv.round.links]])
+            self.woven.append({"term": f"🕸 {path}", "by": sv.by_name, "table": sv.table_id,
+                               "fiber_cid": s.leader_fiber_cid, "confirmations": s.result.confirms,
+                               "is_chemistry": False, "spiral": True})
+            self.spiral_record[sv.table_id] = max(self.spiral_record.get(sv.table_id, 0), sv.length)
 
     # -- presence ----------------------------------------------------------
     def join(self, name: str, avatar: str | None = None, table_id: str | None = None,
@@ -244,6 +335,10 @@ class Bar:
     def _woven_by(self, sid: str) -> int:
         return sum(1 for p in self.proposals.values() if p.by == sid and p.woven)
 
+    def _spiral_leaderboard(self) -> list[dict]:
+        caps = sorted((sv for sv in self.spirals.values() if sv.captured), key=lambda x: -x.length)
+        return [{"by": sv.by_name, "length": sv.length, "table": sv.table_id} for sv in caps[:10]]
+
     def state(self, sid: str | None = None) -> dict:
         from . import progression
 
@@ -262,8 +357,16 @@ class Bar:
                       "mine": p.by == sid, "voted": sid in p.voters}
                      for p in self.proposals.values()
                      if p.table_id == t.id and not p.settled]
+            spirals_open = [{"cid": sv.cid, "by": sv.by_name, "length": sv.length,
+                             "links": [f"{l['subject']} → {l['object']}" for l in sv.round.links],
+                             "votes": sv.breakdown(), "state": sv.round.state,
+                             "mine": sv.by == sid, "backed": sid in sv.voters,
+                             "stake": sv.round.stake_per_vote}
+                            for sv in self.spirals.values()
+                            if sv.table_id == t.id and not sv.settled]
             tables.append({"id": t.id, "name": t.name, "seats": t.seats,
-                           "seated": seated, "open": opens,
+                           "seated": seated, "open": opens, "spirals": spirals_open,
+                           "spiral_record": self.spiral_record.get(t.id, 0),
                            "fabric": [w for w in self.woven if w["table"] == t.id]})
         me = self.sessions.get(sid) if sid else None
         you = None
@@ -283,6 +386,7 @@ class Bar:
             "my_knits": self.my_knits(sid) if sid else None,
             "explorer": self.explorer(),
             "bar_woven": len(self.woven),
+            "spiral_leaderboard": self._spiral_leaderboard(),
         }
 
     # -- helpers -----------------------------------------------------------

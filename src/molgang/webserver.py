@@ -98,6 +98,15 @@ def make_handler(bar: Bar, pulse_host: dict | None = None):
                     p = bar.vote(b["sid"], b["pid"], b.get("verdict", "confirm"))
                     return self._json(200, {"pid": p.pid, "settled": p.settled,
                                             "outcome": p.outcome, "woven": p.woven})
+                if self.path == "/api/spiral/propose":
+                    links = b.get("links") or [x for x in (b.get("text", "")).splitlines() if x.strip()]
+                    sv = bar.propose_spiral(b["sid"], links)
+                    return self._json(200, {"cid": sv.cid, "length": sv.length,
+                                            "state": sv.round.state})
+                if self.path == "/api/spiral/vote":
+                    sv = bar.vote_spiral(b["sid"], b["cid"], b.get("verdict", "confirm"))
+                    return self._json(200, {"cid": sv.cid, "settled": sv.settled,
+                                            "captured": sv.captured, "votes": sv.breakdown()})
                 return self._json(404, {"error": "not found"})
             except (KeyError, RuntimeError, ValueError) as e:
                 return self._json(400, {"error": str(e)})
