@@ -37,21 +37,39 @@ for real — and a bond is only "true" once peers who know their chemistry confi
 
 ## Quickstart
 
+**One command (macOS / Linux)** — sets up a venv, fetches the knitweb engine, and gives you a
+`molgang` command:
+
 ```bash
-# MOLGANG depends on the knitweb package (github.com/knitweb/pulse).
-# For local dev, point PYTHONPATH at a knitweb checkout's src:
-export PYTHONPATH=src:/path/to/pulse/src
+git clone https://github.com/knitweb/molgang.git && cd molgang
+./install.sh
+source .venv/bin/activate
 
-python3 -m molgang.cli          # ▶ narrated session: play, collect, leaderboard, anchor
-python3 examples/play_demo.py   # faucet → propose H2O → peers vote with pulses → woven Fiber
-python3 examples/p2p_demo.py    # the same, but votes cross REAL sockets between live nodes
-PYTHONPATH=.:$PYTHONPATH python3 -m pytest -q    # 13 tests, property-checked
-
-# live bridge endpoint for the Roblox client (POST /upload · GET /snapshot.json):
-PYTHONPATH=.:$PYTHONPATH python3 bridge/server.py --port 8787
+molgang serve     # 🍸 the browser bar  →  http://localhost:8765
+molgang           # a narrated session in the terminal
+molgang play      # interactive terminal
+molgang doctor    # check your setup
 ```
 
-(Installed via `pip`, the client is just `molgang`.)
+**Prefer no install?** Clone the knitweb engine next to this repo — the bootstrap auto-finds
+it, so there's no `PYTHONPATH` to juggle:
+
+```bash
+git clone https://github.com/knitweb/pulse.git ../pulse   # if you don't have it
+PYTHONPATH=src python3 -m molgang.cli serve                # then open http://localhost:8765
+```
+
+(See [`examples/`](examples/) for the headless `play_demo.py` / `p2p_demo.py`, and run the
+tests with `PYTHONPATH=.:src:../pulse/src python3 -m pytest -q`.)
+
+## The browser bar
+
+`molgang serve` opens a **dapp-style** bar: take a seat at a table with an avatar, **brainstorm a
+term and knit it** (1 silk), and the table **votes with pulses** — a quorum weaves it into a
+Fiber. Your **PLS balance, silk, and knits** are always in the header; **📒 My knits** lists each
+knit with its votes and woven Fiber; **🔭 Explorer** shows competing knits for a topic in
+side-by-side columns (best first). Same `/api/*` endpoints drive bots, so it's machine-playable
+too. No NFTs — value is pulses, reputation, and woven knowledge.
 
 ## Real peer-to-peer
 

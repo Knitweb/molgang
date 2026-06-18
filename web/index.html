@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MOLGANG — the bar</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">🧪 <b>MOLGANG</b> <span class="dim">· the bar</span></div>
+    <div id="me" class="me hidden">
+      <span id="me-av" class="av"></span>
+      <span id="me-name"></span>
+      <span class="bal">⚡ <b id="me-pulses">0</b> PLS</span>
+      <span class="bal">🧵 <b id="me-silk">0</b> silk</span>
+      <span class="bal">🪢 <b id="me-knits">0</b> knits</span>
+      <span class="bal">🏅 <b id="me-level">L1</b> <i id="me-title" class="dim"></i></span>
+    </div>
+    <nav id="tabs" class="tabs hidden">
+      <button data-view="bar" class="active">🍸 Bar</button>
+      <button data-view="ledger">📒 My knits</button>
+      <button data-view="explorer">🔭 Explorer</button>
+      <button data-view="web">🌐 Web</button>
+    </nav>
+  </header>
+
+  <!-- walk-in overlay -->
+  <div id="enter" class="overlay">
+    <div class="card">
+      <h1>🍸 Welcome to the MOLGANG bar</h1>
+      <p>Grab free <b>silk</b> + <b>pulses</b>, take a seat, and <b>knit chemistry terms</b> with
+         the others at your table. Peers <b>vote with a pulse</b>; a quorum weaves your term.
+         No tokens to buy, nothing to sell — just knowledge. <span class="dim">(web3, no NFTs)</span></p>
+      <label>Your name <input id="name" maxlength="24" placeholder="e.g. Mara" /></label>
+      <div id="avatars" class="avatars"></div>
+      <button id="go">Walk in →</button>
+      <p class="dim small">Machine-playable too: same API at <code>/api/*</code>.</p>
+    </div>
+  </div>
+
+  <main id="floor" class="floor hidden"></main>
+
+  <!-- table view -->
+  <section id="table" class="table-view hidden">
+    <button id="leave-table" class="ghost">← back to the floor</button>
+    <h2 id="table-name"></h2>
+    <div class="seats" id="seats"></div>
+
+    <div class="knit-box">
+      <input id="term" placeholder="brainstorm a term to knit — e.g. H2O, CO2, NaCl…" />
+      <button id="knit">🧵 knit (1 silk)</button>
+      <div class="suggest" id="suggest"></div>
+    </div>
+
+    <h3>Open knits — vote with a pulse</h3>
+    <div id="open" class="open"></div>
+
+    <h3>Woven into this table's fabric</h3>
+    <div id="fabric" class="fabric"></div>
+  </section>
+
+  <!-- my knits ledger -->
+  <section id="ledger" class="view hidden">
+    <h2>📒 My knits</h2>
+    <div id="ledger-summary" class="summary"></div>
+    <table class="grid">
+      <thead><tr><th>knit (term)</th><th>topic</th><th>status</th><th>✓ / ✗ / – / total</th><th>woven Fiber</th></tr></thead>
+      <tbody id="ledger-rows"></tbody>
+    </table>
+  </section>
+
+  <!-- explorer: competing knits in side-by-side columns -->
+  <section id="explorer" class="view hidden">
+    <h2>🔭 Explorer <span class="dim small">— competing knits per topic, best column first</span></h2>
+    <div id="explorer-rows"></div>
+  </section>
+
+  <!-- the shared knitweb web everyone extends -->
+  <section id="web" class="view hidden">
+    <h2>🌐 The Knitweb <span class="dim small">— the shared web every player extends</span></h2>
+    <div id="web-stats" class="summary"></div>
+    <div id="web-anchor" class="anchor-bar"></div>
+    <h3>Recently woven</h3>
+    <div id="web-recent" class="fabric"></div>
+    <h3>Topics</h3>
+    <div id="web-topics"></div>
+  </section>
+
+  <footer class="dim small">bar woven: <b id="bar-woven">0</b> terms · bonds are Knits · molecules are Fibers · peers validate with pulses · <b>no NFTs</b></footer>
+  <script src="app.js"></script>
+</body>
+</html>

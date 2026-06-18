@@ -6,6 +6,10 @@ and newcomers start with free silk + pulses from the faucet. See `game.py` for t
 
 from __future__ import annotations
 
+from . import _bootstrap
+
+_bootstrap.ensure_knitweb()  # locate the knitweb package before importing anything that needs it
+
 from . import chemistry, game
 from .chemistry import Bond
 from .game import Player, Round, Settlement, Vote, cast_vote, honest_verdict, propose, settle

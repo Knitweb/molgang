@@ -96,11 +96,38 @@ def play() -> int:
     return 0
 
 
+def doctor() -> int:
+    import importlib.util
+    import os
+
+    print("  🧪 MOLGANG doctor")
+    print(f"  python    {sys.version.split()[0]}")
+    spec = importlib.util.find_spec("knitweb")
+    if spec is not None:
+        import knitweb
+        print(f"  knitweb   ✓ found  ({os.path.dirname(knitweb.__file__)})")
+        print("  status    ✓ ready — run `molgang` to play, or `molgang serve` for the browser bar")
+        return 0
+    print("  knitweb   ✗ NOT found")
+    print("  fix       ./install.sh   (or: pip install -e /path/to/pulse,")
+    print("            or set KNITWEB_SRC=/path/to/pulse/src)")
+    return 1
+
+
+def serve(argv: list[str]) -> int:
+    from .webserver import main as serve_main
+    return serve_main(argv)
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv if argv is None else argv)
     cmd = argv[1] if len(argv) > 1 else "demo"
     if cmd == "play":
         return play()
+    if cmd == "doctor":
+        return doctor()
+    if cmd == "serve":
+        return serve(argv[1:])
     return demo()
 
 
