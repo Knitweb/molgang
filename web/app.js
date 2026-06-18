@@ -12,6 +12,8 @@ const api = async (path, method = "GET", body = null) => {
   return r.json();
 };
 
+const avatarImg = (id, cls = "av-img") => `<img class="${cls}" src="avatars/${id}.svg" alt="" />`;
+
 let sid = localStorage.getItem("molgang_sid") || null;
 let chosenAvatar = null;
 let view = "bar";
@@ -24,15 +26,16 @@ async function boot() {
   avs.forEach((a, i) => {
     const b = document.createElement("button");
     b.className = "av-pick" + (i === 0 ? " sel" : "");
-    b.textContent = a;
+    b.title = a.name;
+    b.innerHTML = `<img src="avatars/${a.id}.svg" alt="${a.name}" /><span>${a.name}</span>`;
     b.onclick = () => {
-      chosenAvatar = a;
+      chosenAvatar = a.id;
       document.querySelectorAll(".av-pick").forEach((x) => x.classList.remove("sel"));
       b.classList.add("sel");
     };
     $("avatars").appendChild(b);
   });
-  chosenAvatar = avs[0];
+  chosenAvatar = avs[0].id;
   $("go").onclick = walkIn;
   if (sid) { $("enter").classList.add("hidden"); start(); }
 }
@@ -70,7 +73,7 @@ function setActiveTab() {
 async function refresh() {
   const s = await api("/api/state?sid=" + encodeURIComponent(sid));
   if (s.you) {
-    $("me-av").textContent = s.you.avatar;
+    $("me-av").innerHTML = avatarImg(s.you.avatar);
     $("me-name").textContent = s.you.name;
     $("me-pulses").textContent = s.you.pulses;
     $("me-silk").textContent = s.you.silk;
@@ -95,7 +98,7 @@ function renderFloor(s) {
     card.className = "table-card";
     const chairs = Array.from({ length: t.seats }, (_, i) => {
       const occ = t.seated[i];
-      return `<span class="chair ${occ ? "occ" : ""}" title="${occ ? occ.name : "empty"}">${occ ? occ.avatar : "·"}</span>`;
+      return `<span class="chair ${occ ? "occ" : ""}" title="${occ ? occ.name : "empty"}">${occ ? avatarImg(occ.avatar, "chair-av") : "·"}</span>`;
     }).join("");
     card.innerHTML = `<h3>${t.name}</h3>
       <div class="chairs">${chairs}</div>
@@ -114,7 +117,7 @@ function renderTable(s) {
   if (!t) { table = null; return; }
   $("table-name").textContent = "🍸 " + t.name;
   $("seats").innerHTML = t.seated.map((p) =>
-    `<div class="seat ${p.you ? "you" : ""}"><span class="av">${p.avatar}</span>
+    `<div class="seat ${p.you ? "you" : ""}">${avatarImg(p.avatar, "seat-av")}
       <div><b>${p.name}</b><br><span class="dim small">L${p.level} ${p.title} · ${p.woven}🧬</span></div></div>`).join("");
   $("leave-table").onclick = () => { table = null; setActiveTab(); };
   $("knit").onclick = async () => {
