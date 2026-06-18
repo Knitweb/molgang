@@ -1,0 +1,6 @@
+# Serve the MOLGANG static UI when the directory is requested without a filename.
+# The host's default DirectoryIndex expects index.php; this UI is a static index.html.
+DirectoryIndex index.html
+
+# (Single-page UI — no client-side routes to rewrite. API calls go to the backend
+#  configured in config.js, cross-origin, so no proxy/rewrite is needed here.)

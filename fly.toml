@@ -1,0 +1,33 @@
+# Fly.io deploy for the MOLGANG backend.
+#
+#   fly launch --no-deploy --copy-config --name molgang   # first time (creates the app)
+#   fly volume create molgang_data --size 1                # 1 GB persistent disk for /data
+#   fly deploy
+#
+# After deploy your API is at https://<app>.fly.dev  → put that in web/config.js
+# (window.MOLGANG_API) and re-upload config.js to the static host.
+
+app = "molgang"
+primary_region = "ams"   # Amsterdam — closest to 5mart.ml / TransIP
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  MOLGANG_PORT = "8080"
+
+# Persistent device→wallet registry + shared world survive restarts.
+[mounts]
+  source = "molgang_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1   # keep the bar always-on (state is in-process)
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
