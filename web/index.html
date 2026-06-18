@@ -9,9 +9,11 @@
 <body>
   <header>
     <div class="brand">🧪 <b>MOLGANG</b> <span class="dim">· the bar</span></div>
+    <div id="pulse-host" class="pulse-host dim small"></div>
     <div id="me" class="me hidden">
       <span id="me-av" class="av"></span>
       <span id="me-name"></span>
+      <span class="bal mono small" id="me-wallet" title="your device wallet"></span>
       <span class="bal">⚡ <b id="me-pulses">0</b> PLS</span>
       <span class="bal">🧵 <b id="me-silk">0</b> silk</span>
       <span class="bal">🪢 <b id="me-knits">0</b> knits</span>
@@ -35,7 +37,8 @@
       <label>Your name <input id="name" maxlength="24" placeholder="e.g. Mara" /></label>
       <div id="avatars" class="avatars"></div>
       <button id="go">Walk in →</button>
-      <p class="dim small">Machine-playable too: same API at <code>/api/*</code>.</p>
+      <p class="dim small">📱 This device gets its own PLS wallet — leave and rejoin from your phone
+         and you're back in the same account. Machine-playable too: same API at <code>/api/*</code>.</p>
     </div>
   </div>
 
@@ -83,8 +86,20 @@
     <div id="web-anchor" class="anchor-bar"></div>
     <h3>Recently woven</h3>
     <div id="web-recent" class="fabric"></div>
-    <h3>Topics</h3>
-    <div id="web-topics"></div>
+    <h3>Links — terms knit together</h3>
+    <div id="web-links"></div>
+
+    <h3>🧠 Graph explorer <span class="dim small">— NetworkX over the woven web</span></h3>
+    <div id="gx-stats" class="summary"></div>
+    <div id="gx-hubs"></div>
+    <div class="knit-box">
+      <input id="gx-term" placeholder="explore a term's links — e.g. V2O5" />
+      <button id="gx-go">explore</button>
+      <input id="gx-a" placeholder="from" style="max-width:150px" />
+      <input id="gx-b" placeholder="to" style="max-width:150px" />
+      <button id="gx-path">shortest path</button>
+    </div>
+    <div id="gx-result" class="dim"></div>
   </section>
 
   <footer class="dim small">bar woven: <b id="bar-woven">0</b> terms · bonds are Knits · molecules are Fibers · peers validate with pulses · <b>no NFTs</b></footer>

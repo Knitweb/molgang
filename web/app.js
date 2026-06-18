@@ -3,8 +3,10 @@
 // and the explorer (competing knits in columns). Same API a bot would drive.
 
 const $ = (id) => document.getElementById(id);
+// Works whether served at the root or under a subpath like https://5mart.ml/molgang/.
+const BASE = location.pathname.replace(/\/(index\.html)?$/, "");
 const api = async (path, method = "GET", body = null) => {
-  const r = await fetch(path, {
+  const r = await fetch(BASE + path, {
     method,
     headers: body ? { "Content-Type": "application/json" } : {},
     body: body ? JSON.stringify(body) : null,
@@ -12,10 +14,23 @@ const api = async (path, method = "GET", body = null) => {
   return r.json();
 };
 
+const avatarImg = (id, cls = "av-img") => `<img class="${cls}" src="avatars/${id}.svg" alt="" />`;
+
 let sid = localStorage.getItem("molgang_sid") || null;
 let chosenAvatar = null;
 let view = "bar";
 let table = localStorage.getItem("molgang_table") || null;
+
+// a stable per-device id (browser-legal stand-in for IMEI) → the same PLS wallet every visit
+const DEVICE_ID = (() => {
+  let d = localStorage.getItem("molgang_device");
+  if (!d) {
+    d = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+      : "dev-" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem("molgang_device", d);
+  }
+  return d;
+})();
 
 // ---- walk-in ----
 async function boot() {
@@ -24,22 +39,23 @@ async function boot() {
   avs.forEach((a, i) => {
     const b = document.createElement("button");
     b.className = "av-pick" + (i === 0 ? " sel" : "");
-    b.textContent = a;
+    b.title = a.name;
+    b.innerHTML = `<img src="avatars/${a.id}.svg" alt="${a.name}" /><span>${a.name}</span>`;
     b.onclick = () => {
-      chosenAvatar = a;
+      chosenAvatar = a.id;
       document.querySelectorAll(".av-pick").forEach((x) => x.classList.remove("sel"));
       b.classList.add("sel");
     };
     $("avatars").appendChild(b);
   });
-  chosenAvatar = avs[0];
+  chosenAvatar = avs[0].id;
   $("go").onclick = walkIn;
   if (sid) { $("enter").classList.add("hidden"); start(); }
 }
 
 async function walkIn() {
   const name = $("name").value.trim() || "guest";
-  const res = await api("/api/join", "POST", { name, avatar: chosenAvatar });
+  const res = await api("/api/join", "POST", { name, avatar: chosenAvatar, device: DEVICE_ID });
   sid = res.sid; localStorage.setItem("molgang_sid", sid);
   $("enter").classList.add("hidden");
   start();
@@ -69,9 +85,14 @@ function setActiveTab() {
 // ---- render ----
 async function refresh() {
   const s = await api("/api/state?sid=" + encodeURIComponent(sid));
+  renderPulseHost(s.pulse_host);
   if (s.you) {
-    $("me-av").textContent = s.you.avatar;
+    $("me-av").innerHTML = avatarImg(s.you.avatar);
     $("me-name").textContent = s.you.name;
+    if (s.you.address) {
+      $("me-wallet").textContent = "👛 " + s.you.address.slice(0, 10) + "…";
+      $("me-wallet").title = "your device wallet: " + s.you.address;
+    }
     $("me-pulses").textContent = s.you.pulses;
     $("me-silk").textContent = s.you.silk;
     $("me-knits").textContent = s.you.knits_made;
@@ -88,6 +109,17 @@ async function refresh() {
   setActiveTab();
 }
 
+function renderPulseHost(host) {
+  if (!host || !host.account) {
+    $("pulse-host").textContent = "";
+    return;
+  }
+  const addr = host.account.address || "";
+  const bal = host.account.balance_pls || 0;
+  $("pulse-host").textContent = `Pulse host ${addr.slice(0, 10)}… · ${bal} PLS`;
+  $("pulse-host").title = `${addr}\nwallet: ${host.wallet || ""}`;
+}
+
 function renderFloor(s) {
   const f = $("floor"); f.innerHTML = "";
   s.tables.forEach((t) => {
@@ -95,7 +127,7 @@ function renderFloor(s) {
     card.className = "table-card";
     const chairs = Array.from({ length: t.seats }, (_, i) => {
       const occ = t.seated[i];
-      return `<span class="chair ${occ ? "occ" : ""}" title="${occ ? occ.name : "empty"}">${occ ? occ.avatar : "·"}</span>`;
+      return `<span class="chair ${occ ? "occ" : ""}" title="${occ ? occ.name : "empty"}">${occ ? avatarImg(occ.avatar, "chair-av") : "·"}</span>`;
     }).join("");
     card.innerHTML = `<h3>${t.name}</h3>
       <div class="chairs">${chairs}</div>
@@ -114,7 +146,7 @@ function renderTable(s) {
   if (!t) { table = null; return; }
   $("table-name").textContent = "🍸 " + t.name;
   $("seats").innerHTML = t.seated.map((p) =>
-    `<div class="seat ${p.you ? "you" : ""}"><span class="av">${p.avatar}</span>
+    `<div class="seat ${p.you ? "you" : ""}">${avatarImg(p.avatar, "seat-av")}
       <div><b>${p.name}</b><br><span class="dim small">L${p.level} ${p.title} · ${p.woven}🧬</span></div></div>`).join("");
   $("leave-table").onclick = () => { table = null; setActiveTab(); };
   $("knit").onclick = async () => {
@@ -187,11 +219,40 @@ function renderWeb(w) {
        <span class="dim small">· ${a.nodes}n/${a.edges}e · verified ${a.verified}</span>`
     : `<span class="dim">not yet anchored — weave a term to extend the web</span>`;
   $("web-recent").innerHTML = (w.recent || []).map((r) =>
-    `<span class="woven" title="Fiber ${r.fiber}">${r.term} <span class="dim small">·${r.confirmations}✓ ${r.by}</span></span>`).join("")
+    `<span class="woven" title="Fiber ${r.fiber}">${r.kind === "link" ? "🔗" : "🧬"} ${r.label} <span class="dim small">·${r.confirmations}✓ ${r.by}</span></span>`).join("")
     || `<span class="dim">empty</span>`;
-  $("web-topics").innerHTML = Object.entries(w.topics || {}).map(([t, terms]) =>
-    `<div class="erow"><div class="etopic">${t}</div><div>${terms.map((x) => `<span class="chip">${x}</span>`).join("")}</div></div>`).join("")
-    || `<span class="dim">no topics yet</span>`;
+  $("web-links").innerHTML = (w.links || []).map((l) =>
+    `<div class="linkrow"><span class="chip">${l.subject}</span> <span class="dim small">${l.relation} →</span> <span class="chip">${l.object}</span></div>`).join("")
+    || `<span class="dim">no links yet — knit two terms with "=" (e.g. <code>V2O5 = vanadium pentoxide</code>)</span>`;
+  renderGraph();
+}
+
+async function renderGraph() {
+  const g = await api("/api/graph");
+  const s = g.stats || {};
+  $("gx-stats").innerHTML =
+    `<span class="bal">🔵 <b>${s.nodes || 0}</b> nodes</span>
+     <span class="bal">🔗 <b>${s.edges || 0}</b> edges</span>
+     <span class="bal">🧩 <b>${s.clusters || 0}</b> clusters</span>
+     <span class="bal">density <b>${s.density || 0}</b></span>`;
+  $("gx-hubs").innerHTML = "<b>hubs:</b> " + ((g.hubs || []).map((h) =>
+    `<span class="chip" title="centrality ${h.centrality}">${h.term} <span class="dim small">·${h.degree}</span></span>`).join(" ") || "<span class='dim'>none yet</span>");
+  $("gx-go").onclick = async () => {
+    const t = $("gx-term").value.trim(); if (!t) return;
+    const r = await api("/api/graph?term=" + encodeURIComponent(t));
+    const n = r.neighbors;
+    $("gx-result").innerHTML = !n ? `<span class="dim">“${t}” isn't in the web yet.</span>`
+      : `<b>${t}</b> → ${(n.out.map((x) => `${x.relation} <span class="chip">${x.to}</span>`).join(", ") || "—")}<br>
+         <b>${t}</b> ← ${(n.in.map((x) => `<span class="chip">${x.from}</span> ${x.relation}`).join(", ") || "—")}`;
+  };
+  $("gx-path").onclick = async () => {
+    const a = $("gx-a").value.trim(), b = $("gx-b").value.trim(); if (!a || !b) return;
+    const r = await api(`/api/graph?from=${encodeURIComponent(a)}&to=${encodeURIComponent(b)}`);
+    const p = r.path;
+    $("gx-result").innerHTML = !p ? `<span class="dim">one of those terms isn't woven yet.</span>`
+      : p.path ? `path (${p.hops} hops): ${p.path.map((x) => `<span class="chip">${x}</span>`).join(" → ")}`
+      : `<span class="dim">no path between “${a}” and “${b}” yet.</span>`;
+  };
 }
 
 boot();

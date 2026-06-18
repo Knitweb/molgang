@@ -79,6 +79,25 @@ class Player:
         return cls(name=name or f"roblox:{roblox_id}", node=node,
                    silk=silk, roblox_id=str(roblox_id))
 
+    @classmethod
+    def from_device(
+        cls, device_id: str, name: str | None = None,
+        *, pulses: int = FAUCET_PULSES, silk: int = FAUCET_SILK,
+    ) -> "Player":
+        """A **stable** knitweb wallet for a unique device id (e.g. a phone's persistent id).
+
+        The same device always maps to the same PLS wallet, so a player can leave and rejoin
+        the bar from their phone and find their account. Derived deterministically from the id.
+        """
+        import hashlib
+
+        from knitweb.core import crypto
+
+        priv = hashlib.sha256(f"molgang:device:{device_id}".encode()).hexdigest()
+        pub = crypto.public_from_private(priv)
+        node = AccountNode(priv=priv, pub=pub, genesis_balances={"PLS": pulses})
+        return cls(name=name or "player", node=node, silk=silk)
+
     # -- views -------------------------------------------------------------
     @property
     def address(self) -> str:
@@ -206,3 +225,120 @@ def settle(rnd: Round) -> Settlement:
         outcome=result.outcome, result=result, woven=woven,
         reward=reward, woven_fiber_cid=fiber_cid,
     )
+
+
+# ── Spirals ────────────────────────────────────────────────────────────────
+# A spider weaves spirals, not chains. Players weave a spiral of links together at a table:
+# an **auxiliary** spiral (a draft guide track) while it gathers staked pulses, becoming a
+# sticky **capture** spiral once peers confirm it with a BFT quorum — it captures a Fiber and
+# pays the staked pulse-pot to its weaver. One settle weaves every link → the web grows fast.
+CONTAGION_SILK = 1          # silk a correct-side backer earns back on a captured spiral
+MAX_SPIRAL_LEN = 7          # links per spiral (anti-spam cap)
+MIN_SPIRAL_VOTERS = 3       # a spiral needs ≥3 backers before it can be captured
+AUXILIARY = "auxiliary"     # draft, non-sticky guide spiral (still gathering pulses)
+CAPTURE = "capture"         # confirmed, sticky spiral that captured a Fiber
+
+
+def spiral_silk_cost(n_links: int) -> int:
+    """Escalating silk to weave a spiral of ``n_links`` (1 + i//3 per added link)."""
+    return sum(1 + i // 3 for i in range(n_links))
+
+
+@dataclass
+class SpiralRound:
+    leader: Player
+    escrow: AccountNode                     # one pot for the whole spiral's staked pulses
+    links: list[dict]                       # ordered parsed link dicts (kind='link')
+    votes: list[Vote] = field(default_factory=list)
+    _clock: int = 0
+    settled: bool = False
+    captured: bool = False
+    outcome: quorum.Outcome | None = None
+
+    @property
+    def state(self) -> str:
+        return CAPTURE if self.captured else AUXILIARY
+
+    @property
+    def length(self) -> int:
+        return len(self.links)
+
+    @property
+    def stake_per_vote(self) -> int:
+        return VOTE_COST * len(self.links)    # a backer stakes one pulse per link
+
+    def _tick(self) -> int:
+        self._clock += 1
+        return self._clock
+
+
+def honest_spiral_verdict(links) -> quorum.Verdict:
+    """How a peer who knows chemistry votes on a whole spiral: confirm iff every link is sound."""
+    return (quorum.Verdict.CONFIRM if all(chemistry.link_is_sound(link) for link in links)
+            else quorum.Verdict.MISMATCH)
+
+
+def propose_spiral(leader: Player, links: list[dict]) -> SpiralRound:
+    """Lay the auxiliary spiral: spend escalating silk to open a spiral of 2..7 links."""
+    if not 2 <= len(links) <= MAX_SPIRAL_LEN:
+        raise ValueError(f"a spiral needs 2..{MAX_SPIRAL_LEN} links")
+    cost = spiral_silk_cost(len(links))
+    if leader.silk < cost:
+        raise FaucetError(f"{leader.name} needs {cost} silk to weave this spiral")
+    leader.silk -= cost
+    return SpiralRound(leader=leader, escrow=AccountNode(), links=list(links))
+
+
+def cast_spiral_vote(sr: SpiralRound, voter: Player, verdict: quorum.Verdict | None = None) -> Vote:
+    """Back a spiral: stake VOTE_COST pulses per link into the escrow (real Knit) + a verdict."""
+    if sr.settled:
+        raise RuntimeError("spiral already settled")
+    if voter.address == sr.leader.address:
+        raise RuntimeError("the leader cannot back their own spiral")
+    stake = sr.stake_per_vote
+    if voter.pulses < stake:
+        raise FaucetError(f"{voter.name} needs {stake} pulses to back this spiral")
+    if verdict is None:
+        verdict = honest_spiral_verdict(sr.links)
+    knit = voter.node.transfer_to(sr.escrow, "PLS", stake, sr._tick())
+    vote = Vote(voter=voter, verdict=verdict, knit_id=knit.id)
+    sr.votes.append(vote)
+    return vote
+
+
+@dataclass
+class SpiralSettlement:
+    outcome: quorum.Outcome
+    result: "quorum.QuorumResult"
+    captured: bool
+    reward: int
+    leader_fiber_cid: str | None
+    voter_silk: dict
+    pls_staked: int
+
+
+def settle_spiral(sr: SpiralRound, *, threshold: int | None = None) -> SpiralSettlement:
+    """Tally with the real BFT quorum (optional reputation ``threshold``). On confirm the spiral
+    becomes a sticky capture spiral: the whole pot pays the leader + correct backers earn
+    contagion silk; otherwise every backer is fully refunded (integer-exact). pouw is untouched."""
+    if sr.settled:
+        raise RuntimeError("spiral already settled")
+    result = quorum.tally((v.verdict for v in sr.votes), threshold=threshold)
+    pot = sr.escrow.balance("PLS")
+    captured, reward, fiber, voter_silk = False, 0, None, {}
+    if result.releases:
+        if pot:
+            sr.escrow.transfer_to(sr.leader.node, "PLS", pot, sr._tick())
+        reward, captured, fiber = pot, True, sr.leader.fiber_cid
+        for v in sr.votes:
+            if v.verdict == quorum.Verdict.CONFIRM:
+                v.voter.silk += CONTAGION_SILK
+                voter_silk[v.voter.address] = voter_silk.get(v.voter.address, 0) + CONTAGION_SILK
+    else:
+        for v in sr.votes:
+            if sr.escrow.balance("PLS") >= sr.stake_per_vote:
+                sr.escrow.transfer_to(v.voter.node, "PLS", sr.stake_per_vote, sr._tick())
+    sr.settled, sr.captured, sr.outcome = True, captured, result.outcome
+    return SpiralSettlement(outcome=result.outcome, result=result, captured=captured,
+                            reward=reward, leader_fiber_cid=fiber, voter_silk=voter_silk,
+                            pls_staked=pot)

@@ -16,6 +16,7 @@ keywords = ["chemistry", "scheikunde", "education", "game", "p2p", "knitweb", "d
 # for local dev install it editable:  pip install -e /path/to/pulse   (or set PYTHONPATH).
 dependencies = [
     "knitweb>=0.6",
+    "networkx>=3",   # explore the woven graph (hubs, neighbours, shortest path)
 ]
 
 [project.urls]
