@@ -1,0 +1,105 @@
+"""MOLGANG browser bar — a stdlib HTTP server.
+
+Serves the bar UI (the `web/` folder) AND a small JSON API over one live `Bar`. The SAME
+endpoints are used by humans (the browser) and machines (bots/agents) — dual play:
+
+    GET  /api/state?sid=…              full bar snapshot (tables, seats, avatars, open knits)
+    POST /api/join     {name,avatar,table?}   walk in (free silk + pulses), optionally sit
+    POST /api/sit      {sid,table}            take a seat at a table
+    POST /api/propose  {sid,term}             brainstorm + knit a term (spends silk)
+    POST /api/vote     {sid,pid,verdict}      vote with a pulse ('confirm'|'mismatch'|'abstain')
+
+    molgang serve --port 8765
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from .bar import Bar, suggested_terms
+
+WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web")
+_CTYPE = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
+          ".json": "application/json", ".svg": "image/svg+xml"}
+
+
+def make_handler(bar: Bar):
+    class Handler(BaseHTTPRequestHandler):
+        def _json(self, code: int, obj) -> None:
+            body = json.dumps(obj, ensure_ascii=False).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _body(self) -> dict:
+            n = int(self.headers.get("Content-Length", 0) or 0)
+            return json.loads(self.rfile.read(n) or b"{}")
+
+        def _static(self, path: str) -> None:
+            rel = "index.html" if path in ("/", "") else path.lstrip("/")
+            full = os.path.normpath(os.path.join(WEB_DIR, rel))
+            if not full.startswith(WEB_DIR) or not os.path.isfile(full):
+                return self._json(404, {"error": "not found"})
+            with open(full, "rb") as fh:
+                body = fh.read()
+            self.send_response(200)
+            self.send_header("Content-Type", _CTYPE.get(os.path.splitext(full)[1], "application/octet-stream"))
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self) -> None:  # noqa: N802
+            path = self.path.split("?")[0]
+            if path == "/api/state":
+                from urllib.parse import parse_qs, urlparse
+                sid = parse_qs(urlparse(self.path).query).get("sid", [None])[0]
+                return self._json(200, bar.state(sid))
+            if path == "/api/suggested":
+                return self._json(200, {"terms": suggested_terms()})
+            return self._static(path)
+
+        def do_POST(self) -> None:  # noqa: N802
+            try:
+                b = self._body()
+                if self.path == "/api/join":
+                    s = bar.join(b.get("name", "guest"), b.get("avatar"), b.get("table"))
+                    return self._json(200, {"sid": s.sid, "avatar": s.avatar})
+                if self.path == "/api/sit":
+                    bar.sit(b["sid"], b["table"]); return self._json(200, bar.state(b["sid"]))
+                if self.path == "/api/propose":
+                    p = bar.propose(b["sid"], b["term"]); return self._json(200, {"pid": p.pid})
+                if self.path == "/api/vote":
+                    p = bar.vote(b["sid"], b["pid"], b.get("verdict", "confirm"))
+                    return self._json(200, {"pid": p.pid, "settled": p.settled,
+                                            "outcome": p.outcome, "woven": p.woven})
+                return self._json(404, {"error": "not found"})
+            except (KeyError, RuntimeError, ValueError) as e:
+                return self._json(400, {"error": str(e)})
+
+        def log_message(self, *args) -> None:
+            pass
+
+    return Handler
+
+
+def main(argv: list[str]) -> int:
+    ap = argparse.ArgumentParser(description="MOLGANG browser bar")
+    ap.add_argument("--port", type=int, default=8765)
+    a = ap.parse_args([x for x in argv[1:] if x != "serve"])
+    srv = ThreadingHTTPServer(("0.0.0.0", a.port), make_handler(Bar()))
+    print(f"  🍸 MOLGANG bar open at http://localhost:{a.port}  (Ctrl-C to close)")
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        print("\n  bar closed.")
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    raise SystemExit(main(sys.argv))

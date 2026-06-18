@@ -106,15 +106,20 @@ class Vote:
 
 @dataclass
 class Round:
-    """One bond up for peer validation."""
+    """One knit up for peer validation — a chemistry ``bond`` or a free brainstorm ``term``."""
 
     proposer: Player
-    bond: Bond
     escrow: AccountNode                     # neutral pot that holds staked vote-pulses
+    bond: Bond | None = None                # set for a chemistry knit (has ground truth)
+    term: str | None = None                 # set for a free brainstorm knit (peer consensus)
     votes: list[Vote] = field(default_factory=list)
     _clock: int = 0
     settled: bool = False
     outcome: quorum.Outcome | None = None
+
+    @property
+    def label(self) -> str:
+        return self.bond.formula if self.bond else (self.term or "?")
 
     def _tick(self) -> int:
         self._clock += 1
@@ -127,12 +132,20 @@ def honest_verdict(bond: Bond) -> quorum.Verdict:
 
 
 def propose(proposer: Player, formula: str, name: str) -> Round:
-    """Spin silk into a proposed bond and open a validation round."""
+    """Spin silk into a proposed chemistry bond and open a validation round."""
     if proposer.silk < SILK_PER_BOND:
         raise FaucetError(f"{proposer.name} is out of silk — visit the faucet")
     proposer.silk -= SILK_PER_BOND
     bond = Bond.propose(formula, name)
-    return Round(proposer=proposer, bond=bond, escrow=AccountNode())
+    return Round(proposer=proposer, escrow=AccountNode(), bond=bond)
+
+
+def propose_term(proposer: Player, term: str) -> Round:
+    """Spin silk into a free brainstorm **term** (peer consensus, no chemistry ground truth)."""
+    if proposer.silk < SILK_PER_BOND:
+        raise FaucetError(f"{proposer.name} is out of silk — visit the faucet")
+    proposer.silk -= SILK_PER_BOND
+    return Round(proposer=proposer, escrow=AccountNode(), term=term.strip())
 
 
 def cast_vote(rnd: Round, voter: Player, verdict: quorum.Verdict | None = None) -> Vote:
