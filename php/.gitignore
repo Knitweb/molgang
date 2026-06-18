@@ -1,0 +1,2 @@
+# Real DB credentials live only on the host, never in git.
+config.php

@@ -1,0 +1,20 @@
+# MOLGANG dapp — serve static files directly, route /api/* to the PHP front controller.
+RewriteEngine On
+
+# Never serve the config or the src/ engine over HTTP.
+RewriteRule ^(\.\.|config\.php) - [F]
+
+# Existing files/dirs (index.html, app.js, style.css, avatars/*) are served as-is.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Everything under api/ goes to the front controller (query string preserved).
+RewriteRule ^api/ index.php [QSA,L]
+
+DirectoryIndex index.html
+
+# Defence in depth: block direct access to PHP config + the engine sources.
+<FilesMatch "^config\.php$">
+  Require all denied
+</FilesMatch>
