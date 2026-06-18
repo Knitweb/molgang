@@ -9,9 +9,11 @@
 <body>
   <header>
     <div class="brand">🧪 <b>MOLGANG</b> <span class="dim">· the bar</span></div>
+    <div id="pulse-host" class="pulse-host dim small"></div>
     <div id="me" class="me hidden">
       <span id="me-av" class="av"></span>
       <span id="me-name"></span>
+      <span class="bal mono small" id="me-wallet" title="your device wallet"></span>
       <span class="bal">⚡ <b id="me-pulses">0</b> PLS</span>
       <span class="bal">🧵 <b id="me-silk">0</b> silk</span>
       <span class="bal">🪢 <b id="me-knits">0</b> knits</span>
@@ -35,7 +37,8 @@
       <label>Your name <input id="name" maxlength="24" placeholder="e.g. Mara" /></label>
       <div id="avatars" class="avatars"></div>
       <button id="go">Walk in →</button>
-      <p class="dim small">Machine-playable too: same API at <code>/api/*</code>.</p>
+      <p class="dim small">📱 This device gets its own PLS wallet — leave and rejoin from your phone
+         and you're back in the same account. Machine-playable too: same API at <code>/api/*</code>.</p>
     </div>
   </div>
 

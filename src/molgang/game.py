@@ -79,6 +79,25 @@ class Player:
         return cls(name=name or f"roblox:{roblox_id}", node=node,
                    silk=silk, roblox_id=str(roblox_id))
 
+    @classmethod
+    def from_device(
+        cls, device_id: str, name: str | None = None,
+        *, pulses: int = FAUCET_PULSES, silk: int = FAUCET_SILK,
+    ) -> "Player":
+        """A **stable** knitweb wallet for a unique device id (e.g. a phone's persistent id).
+
+        The same device always maps to the same PLS wallet, so a player can leave and rejoin
+        the bar from their phone and find their account. Derived deterministically from the id.
+        """
+        import hashlib
+
+        from knitweb.core import crypto
+
+        priv = hashlib.sha256(f"molgang:device:{device_id}".encode()).hexdigest()
+        pub = crypto.public_from_private(priv)
+        node = AccountNode(priv=priv, pub=pub, genesis_balances={"PLS": pulses})
+        return cls(name=name or "player", node=node, silk=silk)
+
     # -- views -------------------------------------------------------------
     @property
     def address(self) -> str:
