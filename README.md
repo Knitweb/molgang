@@ -41,20 +41,27 @@ python3 -m pytest -q            # the core, property-checked
 `knitweb.p2p.AsyncioP2PNode` on a real TCP port, and every vote is a Knit sent over the wire
 through the proposal→accept→finalize handshake. A web of player-nodes forms an actual class.
 
-## Roblox counterpart + hourly bridge
+## Roblox counterpart + two-way bridge
 
 [`roblox/`](roblox/) holds Lua scripts for an easily-deployable **Roblox** version with the
-same gameplay (propose a bond, classmates vote with pulses, k-of-n quorum). Roblox runs its
-own local rounds; once an hour it **exports** the votes its players cast (keyed by each
-unique **Roblox wallet ID**). The [`bridge/`](bridge/) then **breit/weaves** that export into
-the Knitweb: each Roblox wallet ID maps to a *stable* knitweb account, every vote replays as a
-real Knit, and confirmed bonds are woven into real Fibers.
+same gameplay (propose a bond, classmates vote with pulses, k-of-n quorum). Roblox plays
+locally; the [`bridge/`](bridge/) keeps it and the Knitweb in sync **both ways**, alternating
+direction every **30 minutes** (so each direction syncs hourly, and never both in one tick):
+
+- ⬆️ **Upload** (Roblox → Knitweb): each unique **Roblox wallet ID** maps to a *stable*
+  knitweb account, every vote replays as a real Knit, and confirmed bonds are woven into Fibers.
+- ⬇️ **Download** (Knitweb → molgang): the canonical woven-bonds web + continued balances —
+  including bonds woven by other peers or the Python P2P game — flow back so Roblox stays current.
 
 ```bash
-# hourly (cron): ingest the latest Roblox export into the knitweb
-PYTHONPATH=src:/path/to/pulse/src python3 bridge/ingest.py bridge/sample_roblox_votes.json
+# cron every 30 min — alternates upload/download automatically (internal cursor):
+#   */30 * * * *
+PYTHONPATH=src:/path/to/pulse/src python3 bridge/sync.py \
+    --state .molgang/state.json --export .molgang/inbox_votes.json \
+    --snapshot .molgang/outbox_snapshot.json
 ```
 
+(`bridge/ingest.py` is the upload half on its own; `bridge/snapshot.py` the download half.)
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design.
 
 ## Community

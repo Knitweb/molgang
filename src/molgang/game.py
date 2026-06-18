@@ -57,12 +57,17 @@ class Player:
         )
 
     @classmethod
-    def from_roblox(cls, roblox_id: str, name: str | None = None) -> "Player":
+    def from_roblox(
+        cls, roblox_id: str, name: str | None = None,
+        *, pulses: int = FAUCET_PULSES, silk: int = FAUCET_SILK,
+    ) -> "Player":
         """A **stable** knitweb account for a unique Roblox wallet ID.
 
         The same Roblox player always maps to the same knitweb account (derived
-        deterministically from the id), so the hourly bridge can weave their votes
-        across sessions. Dev/test faucet seeding applies.
+        deterministically from the id), so the two-way bridge can weave their votes and
+        carry their balances across sync cycles. ``pulses``/``silk`` seed the account —
+        pass the player's *persisted* balance to continue it, or the faucet default for a
+        first-seen player.
         """
         import hashlib
 
@@ -70,9 +75,9 @@ class Player:
 
         priv = hashlib.sha256(f"molgang:roblox:{roblox_id}".encode()).hexdigest()
         pub = crypto.public_from_private(priv)
-        node = AccountNode(priv=priv, pub=pub, genesis_balances={"PLS": FAUCET_PULSES})
+        node = AccountNode(priv=priv, pub=pub, genesis_balances={"PLS": pulses})
         return cls(name=name or f"roblox:{roblox_id}", node=node,
-                   silk=FAUCET_SILK, roblox_id=str(roblox_id))
+                   silk=silk, roblox_id=str(roblox_id))
 
     # -- views -------------------------------------------------------------
     @property

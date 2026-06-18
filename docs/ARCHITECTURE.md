@@ -49,19 +49,36 @@ chemistry (proof-of-knowledge), nothing is minted.
 wire via the proposal→accept→finalize handshake. A live web of player-nodes is an actual
 class — not a single-process simulation.
 
-## Roblox counterpart + hourly bridge
+## Roblox counterpart + two-way bridge (alternating every 30 min)
 
 `roblox/` is a 1:1 Lua mirror that plays locally in Roblox (wallet id = `Player.UserId`).
-**Once an hour** `VoteExport.lua` POSTs the accumulated votes (the exact shape of
-`bridge/sample_roblox_votes.json`) to an endpoint running `bridge/ingest.py`, which:
+`roblox/Sync.lua` and `bridge/sync.py` keep Roblox and the Knitweb in sync **both ways**,
+alternating direction by an internal cursor every **30 minutes** — so each direction syncs
+**hourly**, *something* syncs every 30 min, and upload/download never collide in one tick.
 
-1. maps each unique **Roblox wallet id** → a *stable* knitweb account (`Player.from_roblox`,
-   key derived deterministically from the id, so identity persists across hours);
-2. replays every vote as a real Knit;
-3. tallies with the real quorum and **breit/weaves** confirmed bonds into Fibers.
+```
+bridge/
+├── state.py      persisted projection (cursor · players{address,pulses,silk} · web{formula→…})
+├── ingest.py     UPLOAD   : Roblox votes export → weave into the knitweb (real Knits/Fibers)
+├── snapshot.py   DOWNLOAD : canonical knitweb state → molgang/Roblox
+└── sync.py       the alternating runner (even tick ⇒ upload, odd ⇒ download)
+```
 
-This keeps the fun, low-latency Roblox classroom and the authoritative Knitweb in sync at an
-hourly cadence.
+**⬆️ Upload (Roblox → Knitweb).** `VoteExport.lua` buffers settled rounds; on an upload tick
+`Sync.lua` POSTs them (shape of `bridge/sample_roblox_votes.json`) to an endpoint running
+`sync.py`, which: (1) maps each unique **Roblox wallet id** → a *stable* knitweb account
+(`Player.from_roblox`, deterministic key, **balance continued** from the persisted state),
+(2) replays every vote as a real Knit, (3) tallies with the real quorum and **breit/weaves**
+confirmed bonds into Fibers, updating `state.json`.
+
+**⬇️ Download (Knitweb → molgang).** On a download tick `sync.py` writes a snapshot of the
+canonical state (confirmed/woven bonds — *including those woven by other peers or the Python
+P2P game* — plus continued balances). `Sync.lua` GETs it and applies it
+(`Sync.isConfirmed(formula)`, `Sync.players`), so an update on the p2p Knitweb propagates back
+down to the Roblox classroom.
+
+Pulses/web continuity lives in `state.json`; for production the authoritative accounts/braids
+persist via `knitweb.store` and this projection is the molgang-facing view both sides sync on.
 
 ## Vocabulary
 

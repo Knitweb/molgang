@@ -32,5 +32,5 @@ packages = ["src/molgang"]
 allow-direct-references = true
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 testpaths = ["tests"]
