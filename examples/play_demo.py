@@ -4,7 +4,7 @@ Run:  PYTHONPATH=src:../pulse/src python3 examples/play_demo.py   (exit 0 ⇒ it
 
 Shows: faucet (free pulses + silk) → propose a bond → peers vote with their pulses
 (real Knits into escrow) → real `pouw.quorum` tally → a correct bond is woven (Fiber
-+ reward), an incorrect one is caught and everyone is refunded.
++ proposer/voter rewards), an incorrect one is caught and everyone is refunded.
 """
 
 from __future__ import annotations
@@ -31,7 +31,9 @@ def main() -> None:
     print(f"   settle   outcome={s.outcome.value}  woven={s.woven}  reward={s.reward} PLS")
     print(f"   Alice now {alice.pulses} PLS; her woven Fiber = {s.woven_fiber_cid[:18]}…\n")
     assert s.woven and s.outcome.value == "confirmed"
-    assert s.reward == 3 and alice.pulses == 50 + s.reward   # earned the 3-voter staked pot
+    assert s.reward == 12 and s.voter_rewards == 6
+    assert alice.pulses == 62                                # pot + useful-work reward
+    assert all(p.pulses == 51 for p in peers)                # stake back + useful-vote reward
     assert s.woven_fiber_cid is not None                     # a real Fiber was woven
 
     # 3. Alice proposes a WRONG bond: 'NaCl2' is not a real molecule. Peers catch it.
@@ -43,11 +45,11 @@ def main() -> None:
           f"(voters refunded)")
     assert not s2.woven
 
-    # 4. Conservation: pulses only moved around (reward = the pot Alice earned); none vanished.
+    # 4. Useful work is rewarded from the transparent game reward bank.
     end_total = alice.pulses + sum(p.pulses for p in peers)
-    print(f"\n4. conserve start_total={start_total} PLS  end_total={end_total} PLS  "
-          f"(no pulses created or destroyed)")
-    assert end_total == start_total
+    print(f"\n4. reward   start_total={start_total} PLS  end_total={end_total} PLS  "
+          f"(+{end_total - start_total} PLS for useful work)")
+    assert end_total == start_total + 15
 
     print("\n✅ MOLGANG core verified: faucet → propose → pulse-vote → quorum → woven Fiber")
 
