@@ -4,12 +4,13 @@ Run:  PYTHONPATH=src:../pulse/src python3 examples/play_demo.py   (exit 0 ⇒ it
 
 Shows: faucet (free pulses + silk) → propose a bond → peers vote with their pulses
 (real Knits into escrow) → real `pouw.quorum` tally → a correct bond is woven (Fiber
-+ reward), an incorrect one is caught and everyone is refunded.
++ reward-bank PLS), an incorrect one is caught and everyone is refunded.
 """
 
 from __future__ import annotations
 
 from molgang import Player, cast_vote, propose, settle
+from molgang.game import PROPOSER_BASE_REWARD, VOTE_COST, usefulness_bonus
 
 
 def main() -> None:
@@ -31,7 +32,8 @@ def main() -> None:
     print(f"   settle   outcome={s.outcome.value}  woven={s.woven}  reward={s.reward} PLS")
     print(f"   Alice now {alice.pulses} PLS; her woven Fiber = {s.woven_fiber_cid[:18]}…\n")
     assert s.woven and s.outcome.value == "confirmed"
-    assert s.reward == 3 and alice.pulses == 50 + s.reward   # earned the 3-voter staked pot
+    expected_reward = len(peers) * VOTE_COST + PROPOSER_BASE_REWARD + usefulness_bonus(len(peers))
+    assert s.reward == expected_reward and alice.pulses == 50 + s.reward
     assert s.woven_fiber_cid is not None                     # a real Fiber was woven
 
     # 3. Alice proposes a WRONG bond: 'NaCl2' is not a real molecule. Peers catch it.
@@ -43,11 +45,12 @@ def main() -> None:
           f"(voters refunded)")
     assert not s2.woven
 
-    # 4. Conservation: pulses only moved around (reward = the pot Alice earned); none vanished.
+    # 4. Accounting: the staked pot moved to Alice; fresh rewards came from the protocol bank.
     end_total = alice.pulses + sum(p.pulses for p in peers)
-    print(f"\n4. conserve start_total={start_total} PLS  end_total={end_total} PLS  "
-          f"(no pulses created or destroyed)")
-    assert end_total == start_total
+    fresh_pls = (s.reward - len(peers) * VOTE_COST) + s.voter_rewards
+    print(f"\n4. account  start_total={start_total} PLS  end_total={end_total} PLS  "
+          f"fresh_rewards={fresh_pls} PLS")
+    assert end_total == start_total + fresh_pls
 
     print("\n✅ MOLGANG core verified: faucet → propose → pulse-vote → quorum → woven Fiber")
 
