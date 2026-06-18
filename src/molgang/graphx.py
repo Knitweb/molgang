@@ -19,6 +19,10 @@ def build(items) -> nx.DiGraph:
         if it.kind == "link":
             g.add_edge(it.subject, it.object,
                        relation=it.relation or "links", weight=max(1, it.confirmations))
+        elif it.kind == "spiral":
+            for pl in it.links:
+                g.add_edge(pl["subject"], pl["object"],
+                           relation=pl.get("relation", "links"), weight=max(1, it.confirmations))
         else:
             g.add_node(it.term)
     return g

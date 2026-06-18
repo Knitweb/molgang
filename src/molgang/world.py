@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 from knitweb.anchor import Notary
 from knitweb.anchor.origintrail import OriginTrailAnchorBackend
@@ -25,7 +25,7 @@ _NOTARY_PRIV = "0" * 63 + "1"  # fixed dev notary so the UAL is reproducible per
 
 @dataclass
 class WovenItem:
-    kind: str            # "term" | "link"
+    kind: str            # "term" | "link" | "spiral"
     by: str
     fiber_cid: str
     confirmations: int
@@ -33,9 +33,15 @@ class WovenItem:
     subject: str = ""
     object: str = ""
     relation: str = ""
+    links: list = field(default_factory=list)   # kind="spiral": ordered link dicts
+    validators: int = 0
+    pls_staked: int = 0
 
     @property
     def label(self) -> str:
+        if self.kind == "spiral":
+            return (" → ".join([self.links[0]["subject"], *[l["object"] for l in self.links]])
+                    if self.links else "spiral")
         return self.term if self.kind == "term" else f"{self.subject} {self.relation} {self.object}"
 
 
@@ -62,6 +68,10 @@ class World:
         if it.kind == "link":
             s, o = self._term_node(it.subject), self._term_node(it.object)
             self.web.link(s, o, rel=it.relation or "links", weight=max(1, it.confirmations))
+        elif it.kind == "spiral":
+            for pl in it.links:
+                s, o = self._term_node(pl["subject"]), self._term_node(pl["object"])
+                self.web.link(s, o, rel=pl.get("relation", "links"), weight=max(1, it.confirmations))
         else:
             self._term_node(it.term)
         self.items.append(it)
@@ -93,6 +103,20 @@ class World:
             kind=parsed.get("kind", "term"), by=by, fiber_cid=fiber_cid, confirmations=confirmations,
             term=parsed.get("term", ""), subject=parsed.get("subject", ""),
             object=parsed.get("object", ""), relation=parsed.get("relation", ""),
+        ))
+        if self.path:
+            self._save()
+
+    def weave_spiral(self, links: list[dict], by: str, fiber_cid: str, confirmations: int,
+                     *, validators: int = 0, pls_staked: int = 0) -> None:
+        """A captured spiral: weave every link (each → two term-nodes + a weighted edge) and
+        record one kind='spiral' item for provenance/replay. One call, many edges."""
+        self._sync()
+        self._apply(WovenItem(
+            kind="spiral", by=by, fiber_cid=fiber_cid, confirmations=confirmations,
+            links=[{"subject": l["subject"], "object": l["object"],
+                    "relation": l.get("relation", "links")} for l in links],
+            validators=validators, pls_staked=pls_staked,
         ))
         if self.path:
             self._save()

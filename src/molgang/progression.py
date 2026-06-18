@@ -57,3 +57,18 @@ def leaderboard(woven: list[dict]) -> list[dict]:
     for rank, r in enumerate(rows, start=1):
         r["rank"] = rank
     return rows
+
+
+def reputation_threshold(seated_levels: list[int], n_voters: int) -> int:
+    """A reputation-scaled BFT threshold: a high-level (Catalyst+) table demands a stricter
+    supermajority. It only ever *raises* k, and only when the quorum invariant (k ≤ n and
+    2k > n) still holds — so `pouw.quorum` stays untouched and a newcomer table keeps the default.
+    """
+    from knitweb.pouw import quorum
+
+    base = quorum.default_threshold(n_voters)
+    if seated_levels and sum(seated_levels) / len(seated_levels) >= 6:   # avg level ≥ Catalyst
+        bumped = base + 1
+        if bumped <= n_voters and 2 * bumped > n_voters:
+            return bumped
+    return base
