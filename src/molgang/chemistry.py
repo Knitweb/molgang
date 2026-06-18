@@ -93,3 +93,25 @@ def is_correct(bond: Bond) -> bool:
         return bond.atoms == parse_formula(bond.formula)
     except ValueError:
         return False
+
+
+def _term_recognized(term: str) -> bool:
+    t = (term or "").strip()
+    if not t:
+        return False
+    if t in MOLECULES:
+        return True
+    try:
+        parse_formula(t)            # a structurally valid chemical formula
+        return True
+    except ValueError:
+        return bool(re.fullmatch(r"[A-Za-z][\w'’ +/-]{1,}", t))   # a plausible word/phrase
+
+
+def link_is_sound(link: dict) -> bool:
+    """Ground truth for one spiral link: both ends are recognizable (a known molecule, a valid
+    formula, or a plausible word) and distinct — so NPC peers can vote on a spiral honestly."""
+    if not isinstance(link, dict) or link.get("kind") != "link":
+        return False
+    s, o = link.get("subject", ""), link.get("object", "")
+    return _term_recognized(s) and _term_recognized(o) and s.casefold() != o.casefold()

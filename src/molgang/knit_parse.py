@@ -46,3 +46,20 @@ def parse_knit(text: str) -> dict:
                         "relation": rel, "label": f"{subject} {rel} {obj}"}
     term = clean(raw) or raw.strip()
     return {"kind": "term", "term": term, "label": term}
+
+
+def spiral_links(lines) -> list[dict]:
+    """Parse several brainstormed lines into ordered LINK dicts — the threads of a spiral.
+
+    Each line must be a link (``A = B`` / ``A -> B``); raises ValueError otherwise. Blank
+    lines are skipped. (A spider weaves spirals, not chains.)
+    """
+    out: list[dict] = []
+    for ln in lines:
+        if not ln or not str(ln).strip():
+            continue
+        parsed = parse_knit(str(ln))
+        if parsed.get("kind") != "link":
+            raise ValueError(f"a spiral is woven from links — use 'A = B' or 'A -> B': {ln!r}")
+        out.append(parsed)
+    return out
