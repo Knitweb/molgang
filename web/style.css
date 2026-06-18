@@ -87,6 +87,56 @@ table.grid{width:100%;border-collapse:collapse;background:var(--panel);border:1p
   border-radius:12px;color:#a7f3d0;font-size:13px;word-break:break-all}
 footer{padding:18px 22px;text-align:center;border-top:1px solid var(--line);margin-top:20px}
 
+/* --- spirals --- */
+.spiral-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}
+.spiral-head h3{margin:0}
+.spiral-start{background:linear-gradient(135deg,var(--accent2),#0ea5b7);color:#06121a;margin-left:auto}
+.spiral-blurb{margin:4px 0 12px}
+.spirals{display:flex;flex-direction:column;gap:10px}
+.spiral{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.spiral.captured{border-color:var(--accent2);box-shadow:0 0 0 1px var(--accent2) inset;
+  background:linear-gradient(180deg,rgba(34,211,238,.07),transparent)}
+.spiral.flash{animation:capflash 1.1s ease-out}
+@keyframes capflash{0%{box-shadow:0 0 0 0 rgba(34,211,238,.7)}100%{box-shadow:0 0 0 14px rgba(34,211,238,0)}}
+.spiral-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.spiral-state{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  border-radius:999px;padding:3px 9px;background:#222b3a;color:var(--dim)}
+.spiral-state.capture{background:rgba(34,211,238,.16);color:var(--accent2);border:1px solid var(--accent2)}
+.spiral-len{margin-left:auto;color:var(--dim);font-size:12px}
+.spiral-path{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin:8px 0}
+.spiral-arrow{color:var(--accent2);font-weight:700}
+.spiral-meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;color:var(--dim);font-size:13px;margin-top:6px}
+.spiral-actions{display:flex;gap:8px;margin-left:auto}
+.spiral .back{background:linear-gradient(135deg,var(--accent2),#0ea5b7);color:#06121a}
+.spiral .reject{background:linear-gradient(135deg,var(--no),#e11d48)}
+.spiral-stake{background:#0e131c;border:1px solid var(--line);border-radius:999px;padding:3px 10px}
+
+/* spiral modal */
+#spiral-modal .card{position:relative}
+.spiral-x{position:absolute;top:14px;right:14px;width:auto;padding:6px 10px}
+#spiral-links{background:#0e131c;border:1px solid var(--line);border-radius:12px;color:var(--ink);
+  padding:11px 13px;font:inherit;font-family:SFMono-Regular,Menlo,monospace;width:100%;resize:vertical;
+  margin-top:10px}
+.spiral-cost{margin-top:8px}
+.spiral-error{color:var(--no);font-size:13px;min-height:1.2em;margin-top:6px}
+#spiral-submit{margin-top:14px;width:100%;padding:12px;
+  background:linear-gradient(135deg,var(--accent2),#0ea5b7);color:#06121a}
+
+/* spiral records leaderboard */
+.records-board{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.record-row{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:11px 14px}
+.record-rank{font-size:18px;min-width:32px}
+.record-len{margin-left:auto;background:rgba(34,211,238,.16);color:var(--accent2);
+  border:1px solid var(--accent2);border-radius:999px;padding:3px 11px;font-weight:700;font-size:13px}
+
+/* capture toast */
+.toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:20;
+  background:linear-gradient(135deg,var(--accent2),#0ea5b7);color:#06121a;font-weight:700;
+  border-radius:12px;padding:11px 18px;box-shadow:0 8px 30px rgba(0,0,0,.45);
+  animation:toastin .3s ease-out}
+@keyframes toastin{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1}}
+
 .linkrow{display:flex;align-items:center;gap:8px;margin:5px 0}
 
 /* --- mobile (phones: Galaxy etc.) --- */
@@ -104,4 +154,9 @@ footer{padding:18px 22px;text-align:center;border-top:1px solid var(--line);marg
   button{padding:12px 14px}        /* bigger tap targets */
   input{font-size:16px}            /* stops iOS zoom-on-focus */
   #gx-a,#gx-b{max-width:100%!important}
+  .spiral-head .spiral-start{margin-left:0;width:100%}
+  .spiral-actions{margin-left:0;width:100%}
+  .spiral-actions button{flex:1}
+  .spiral-meta{gap:8px}
+  #spiral-links{font-size:16px}    /* stops iOS zoom-on-focus */
 }

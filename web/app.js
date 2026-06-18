@@ -68,6 +68,10 @@ function start() {
   document.querySelectorAll("#tabs button").forEach((b) => {
     b.onclick = () => { view = b.dataset.view; setActiveTab(); refresh(); };
   });
+  $("spiral-close").onclick = closeSpiralModal;
+  $("spiral-submit").onclick = submitSpiral;
+  $("spiral-links").oninput = updateSpiralCost;
+  $("spiral-modal").onclick = (e) => { if (e.target.id === "spiral-modal") closeSpiralModal(); };
   setActiveTab();
   refresh();
   if (refreshTimer) clearInterval(refreshTimer);
@@ -83,17 +87,18 @@ function resetSession() {
   refreshTimer = null;
   $("me").classList.add("hidden");
   $("tabs").classList.add("hidden");
-  ["floor", "table", "ledger", "explorer", "web"].forEach((v) => $(v).classList.add("hidden"));
+  ["floor", "table", "ledger", "explorer", "web", "records"].forEach((v) => $(v).classList.add("hidden"));
   $("enter").classList.remove("hidden");
 }
 
 function setActiveTab() {
   document.querySelectorAll("#tabs button").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === view));
-  ["floor", "table", "ledger", "explorer", "web"].forEach((v) => $(v).classList.add("hidden"));
+  ["floor", "table", "ledger", "explorer", "web", "records"].forEach((v) => $(v).classList.add("hidden"));
   if (view === "ledger") $("ledger").classList.remove("hidden");
   else if (view === "explorer") $("explorer").classList.remove("hidden");
   else if (view === "web") $("web").classList.remove("hidden");
+  else if (view === "records") $("records").classList.remove("hidden");
   else $(table ? "table" : "floor").classList.remove("hidden");
 }
 
@@ -120,9 +125,11 @@ async function refresh() {
     table = s.you.table; localStorage.setItem("molgang_table", table || "");
   }
   $("bar-woven").textContent = s.bar_woven;
+  detectCaptures(s);
   if (view === "ledger") renderLedger(s.my_knits);
   else if (view === "explorer") renderExplorer(s.explorer);
   else if (view === "web") renderWeb(await api("/api/web"));
+  else if (view === "records") renderRecords(s);
   else if (table) renderTable(s);
   else renderFloor(s);
   setActiveTab();
@@ -192,9 +199,134 @@ function renderTable(s) {
       refresh();
     };
   });
+  renderSpirals(t);
   $("fabric").innerHTML = t.fabric.length ? t.fabric.map((w) =>
     `<span class="woven" title="Fiber ${w.fiber_cid}">${w.term} <span class="dim small">·${w.confirmations}✓</span></span>`).join("") :
     `<span class="dim">nothing woven yet</span>`;
+}
+
+// escalating silk to weave a spiral of n links — mirrors game.spiral_silk_cost (1 + i//3).
+function spiralSilkCost(n) {
+  let c = 0;
+  for (let i = 0; i < n; i++) c += 1 + Math.floor(i / 3);
+  return c;
+}
+
+// parse the textarea into link lines (non-blank), so the modal can preview cost/length.
+function spiralLines() {
+  return $("spiral-links").value.split("\n").map((l) => l.trim()).filter(Boolean);
+}
+
+function updateSpiralCost() {
+  const lines = spiralLines(), n = lines.length;
+  const el = $("spiral-cost");
+  if (n === 0) { el.textContent = "Add 2–7 link lines (e.g. H2O -> O2)."; return; }
+  const cost = spiralSilkCost(n);
+  let msg = `${n} link${n === 1 ? "" : "s"} · costs 🧵 ${cost} silk · backers stake ⚡ ${n} PLS each`;
+  if (n < 2) msg += " — need ≥2 links";
+  else if (n > 7) msg += " — max 7 links";
+  el.textContent = msg;
+}
+
+function openSpiralModal() {
+  $("spiral-error").textContent = "";
+  $("spiral-modal").classList.remove("hidden");
+  updateSpiralCost();
+  $("spiral-links").focus();
+}
+function closeSpiralModal() { $("spiral-modal").classList.add("hidden"); }
+
+async function submitSpiral() {
+  const lines = spiralLines();
+  if (lines.length < 2 || lines.length > 7) {
+    $("spiral-error").textContent = "A spiral needs 2–7 links (one A -> B per line).";
+    return;
+  }
+  const r = await api("/api/spiral/propose", "POST", { sid, links: lines });
+  if (r.error) { $("spiral-error").textContent = r.error; return; }
+  $("spiral-links").value = "";
+  closeSpiralModal();
+  refresh();
+}
+
+function renderSpirals(t) {
+  $("table-spiral-record").textContent =
+    t.spiral_record ? `· 🏆 longest captured here: ${t.spiral_record} links` : "";
+  $("start-spiral").onclick = openSpiralModal;
+  const list = t.spirals || [];
+  $("spirals").innerHTML = list.length ? list.map((sp) => {
+    const v = sp.votes, captured = sp.state === "capture";
+    const path = sp.links.map((lk, i) => {
+      // each link is "A → B"; chain them without repeating the shared node.
+      const [a, b] = lk.split("→").map((x) => x.trim());
+      return (i === 0 ? `<span class="chip">${a}</span>` : "") +
+        ` <span class="spiral-arrow">→</span> <span class="chip">${b}</span>`;
+    }).join("");
+    const stateLabel = captured ? "🕸 capture" : "auxiliary";
+    const acts = (sp.mine || sp.backed)
+      ? `<span class="dim small">${sp.mine ? "your spiral" : "backed ✓"}</span>`
+      : `<button class="back" data-cid="${sp.cid}" data-v="confirm">⚡ Back (pulse)</button>
+         <button class="reject" data-cid="${sp.cid}" data-v="mismatch">✗ Reject</button>`;
+    return `<div class="spiral ${captured ? "captured" : ""}" data-cid="${sp.cid}">
+      <div class="spiral-top">
+        <span class="spiral-state ${captured ? "capture" : ""}">${stateLabel}</span>
+        <b>by ${sp.by}</b>
+        <span class="spiral-len">${sp.length} links</span>
+      </div>
+      <div class="spiral-path">${path}</div>
+      <div class="spiral-meta">
+        <span>✓ ${v.confirm} · ✗ ${v.mismatch} · ${v.total} backers</span>
+        <span class="spiral-stake">my stake if I back: ⚡ ${sp.stake} PLS</span>
+        <span class="spiral-actions">${acts}</span>
+      </div>
+    </div>`;
+  }).join("") : `<div class="dim">no open spirals — start one above</div>`;
+  $("spirals").querySelectorAll("button.back, button.reject").forEach((b) => {
+    b.onclick = async () => {
+      const r = await api("/api/spiral/vote", "POST",
+        { sid, cid: b.dataset.cid, verdict: b.dataset.v });
+      if (r.error) alert(r.error);
+      refresh();
+    };
+  });
+}
+
+function renderRecords(s) {
+  const board = s.spiral_leaderboard || [];
+  $("records-board").innerHTML = board.length ? board.map((r, i) => {
+    const rank = ["🥇", "🥈", "🥉"][i] || ("#" + (i + 1));
+    return `<div class="record-row">
+      <span class="record-rank">${rank}</span>
+      <span><b>${r.by}</b> <span class="dim small">· ${r.table}</span></span>
+      <span class="record-len">🕸 ${r.length} links</span>
+    </div>`;
+  }).join("") : `<div class="dim">no spirals captured yet — weave one at a table to set the record</div>`;
+}
+
+// brief teal toast + flash when a spiral we can see flips into capture.
+let _capturedSeen = new Set();
+let _toastTimer = null;
+function detectCaptures(s) {
+  const now = new Set();
+  (s.tables || []).forEach((t) => (t.spirals || []).forEach((sp) => {
+    if (sp.state === "capture") {
+      now.add(sp.cid);
+      if (!_capturedSeen.has(sp.cid)) {
+        showToast(`🕸 Spiral captured! ${sp.length} links by ${sp.by}`);
+        const card = document.querySelector(`.spiral[data-cid="${sp.cid}"]`);
+        if (card) card.classList.add("flash");
+      }
+    }
+  }));
+  _capturedSeen = now;
+}
+
+function showToast(msg) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.add("hidden"), 3200);
 }
 
 function renderLedger(mk) {
