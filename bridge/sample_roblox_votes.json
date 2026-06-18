@@ -1,0 +1,33 @@
+{
+  "exported_at": "2026-06-18T20:00:00Z",
+  "source": "molgang-roblox",
+  "rounds": [
+    {
+      "bond": { "formula": "H2O", "name": "Water" },
+      "proposer_roblox_id": "roblox:1001",
+      "votes": [
+        { "roblox_id": "roblox:1002", "verdict": "confirm" },
+        { "roblox_id": "roblox:1003", "verdict": "confirm" },
+        { "roblox_id": "roblox:1004", "verdict": "confirm" }
+      ]
+    },
+    {
+      "bond": { "formula": "CO2", "name": "Carbon dioxide" },
+      "proposer_roblox_id": "roblox:1002",
+      "votes": [
+        { "roblox_id": "roblox:1001", "verdict": "confirm" },
+        { "roblox_id": "roblox:1003", "verdict": "confirm" },
+        { "roblox_id": "roblox:1004", "verdict": "abstain" }
+      ]
+    },
+    {
+      "bond": { "formula": "NaCl2", "name": "Bogus salt" },
+      "proposer_roblox_id": "roblox:1003",
+      "votes": [
+        { "roblox_id": "roblox:1001", "verdict": "mismatch" },
+        { "roblox_id": "roblox:1002", "verdict": "mismatch" },
+        { "roblox_id": "roblox:1004", "verdict": "mismatch" }
+      ]
+    }
+  ]
+}
