@@ -201,8 +201,38 @@ footer{padding:22px;text-align:center;border-top:1px solid var(--line2);margin-t
 
 h2,h3{letter-spacing:.2px}
 
+/* 📡 Monitor tab — node/p2p status + the local woven knitweb (:8990) */
+.mon-nodes{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 14px}
+.mon-node{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line2);
+  border-radius:14px;padding:9px 14px;box-shadow:var(--shadow-3d)}
+.mdot{width:9px;height:9px;border-radius:50%;display:inline-block;box-shadow:0 0 8px currentColor}
+.mdot.up{background:var(--ok);color:var(--ok)}.mdot.down{background:var(--no);color:var(--no)}
+.pos{color:var(--ok)}.neg{color:var(--no)}
+.mon-grid{display:flex;gap:16px;margin-top:8px}
+.mon-side{display:flex;flex-direction:column;gap:14px;width:300px;min-width:280px}
+.mon-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px;
+  box-shadow:var(--shadow-3d)}
+.mon-card h4{margin:0 0 9px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.mon-card .row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;
+  border-bottom:1px dashed var(--line);gap:10px}
+.mon-card .row b{color:var(--accent2)}
+.mon-langs{display:flex;flex-direction:column;gap:4px}
+.mon-lang{display:flex;justify-content:space-between;align-items:center;padding:3px 0;
+  border-bottom:1px dashed var(--line)}
+.mon-lang b{color:var(--accent2)}
+.mon-hub{cursor:pointer}
+.sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.mon-graph{flex:1;min-width:0;position:relative;background:rgba(7,9,18,.6);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-3d)}
+#mon-net{width:100%;height:460px}
+.mon-legend{position:absolute;left:12px;bottom:12px;background:var(--panel);border:1px solid var(--line);
+  border-radius:11px;padding:7px 10px;font-size:12px;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.mon-legend span{display:inline-flex;align-items:center}
+
 /* reduce motion / 3D on phones for usability + perf */
 @media (max-width:600px){
+  .mon-grid{flex-direction:column}.mon-side{width:100%;min-width:0}
+  #mon-net{height:340px}
   header{padding:10px 13px;gap:8px}.brand{font-size:16px}
   .me{gap:6px}.bal{font-size:12px;padding:5px 9px}
   main,section{padding:16px 13px}

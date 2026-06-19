@@ -28,7 +28,8 @@ _CTYPE = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
           ".json": "application/json", ".svg": "image/svg+xml"}
 
 
-def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*"):
+def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*",
+                 monitor=None):
     class Handler(BaseHTTPRequestHandler):
         def _cors(self) -> None:
             # Let the static UI (e.g. https://5mart.ml/molgang/) hit this API cross-origin.
@@ -107,7 +108,42 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                     term=(q.get("term") or [None])[0],
                     frm=(q.get("from") or [None])[0],
                     to=(q.get("to") or [None])[0]))
+            if path.startswith("/api/monitor"):
+                return self._monitor(path)
             return self._static(path)
+
+        # -- 📡 Monitor: node/p2p status + the local woven knitweb (#59 #60) ----
+        def _monitor(self, path: str) -> None:
+            from urllib.parse import parse_qs, urlparse
+            if monitor is None:
+                return self._json(503, {"error": "monitor unavailable"})
+            q = parse_qs(urlparse(self.path).query)
+            if path == "/api/monitor":                      # one compact poll for the tab
+                return self._json(200, monitor.overview())
+            if path == "/api/monitor/status":               # node/p2p liveness + provenance
+                return self._json(200, monitor.node_status())
+            if path == "/api/monitor/kg/stats":             # nodes/edges/concepts/languages
+                return self._json(200, monitor.kg_stats())
+            if path == "/api/monitor/kg/hubs":
+                n = int((q.get("n") or ["12"])[0])
+                return self._json(200, monitor.kg_hubs(n))
+            if path == "/api/monitor/kg/tension":           # taut/slack/snapped bands
+                return self._json(200, monitor.kg_tension())
+            if path == "/api/monitor/kg/subgraph":          # focused graph for the viz
+                term = (q.get("term") or [""])[0]
+                depth = int((q.get("depth") or ["2"])[0])
+                langs = q.get("lang")
+                sg = monitor.kg_subgraph(term, depth, set(langs) if langs else None)
+                if sg is None:
+                    return self._json(404, {"error": f"term not in graph: {term!r}"})
+                return self._json(200, sg)
+            if path == "/api/monitor/kg/concept":
+                key = (q.get("key") or [""])[0]
+                c = monitor.kg_concept(key)
+                if c is None:
+                    return self._json(404, {"error": f"concept not in graph: {key!r}"})
+                return self._json(200, c)
+            return self._json(404, {"error": "not found"})
 
         def do_POST(self) -> None:  # noqa: N802
             try:
@@ -173,14 +209,22 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--cors", default="*",
                     help="Access-Control-Allow-Origin for the API (default '*'; "
                          "set e.g. https://5mart.ml to restrict, or '' to disable)")
+    ap.add_argument("--monitor-web", default=None,
+                    help="gateway.App store JSON for the 📡 Monitor tab's local-knitweb graph "
+                         "(default /tmp/chem_web.json if present, else the shared world)")
     a = ap.parse_args([x for x in argv[1:] if x != "serve"])
     from .registry import Registry
+    from .monitor import Monitor
     listen = f"0.0.0.0:{a.port}"
     pulse = bootstrap_host(a.wallet, listen=listen, genesis=a.host_genesis)
+    bar = Bar(a.world, Registry(a.db))
+    monitor = Monitor(bar, web=a.monitor_web, world=a.world, pulse_host=pulse)
     srv = ThreadingHTTPServer(("0.0.0.0", a.port),
-                              make_handler(Bar(a.world, Registry(a.db)), pulse, cors=a.cors or None))
+                              make_handler(bar, pulse, cors=a.cors or None, monitor=monitor))
     print(f"  🍸 MOLGANG bar open at http://localhost:{a.port}  (shared web: "
           f"{a.world or '~/.molgang/world.json'}) (Ctrl-C to close)")
+    print(f"  📡 Monitor: nodes {[n['label'] for n in monitor.nodes]} · "
+          f"local knitweb {monitor.source}")
     print(f"  pulse host {pulse['account']['address']} · wallet {pulse['wallet']}")
     try:
         srv.serve_forever()
