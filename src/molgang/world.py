@@ -54,7 +54,18 @@ class World:
         self.items: list[WovenItem] = []
         self._term_cid: dict[str, str] = {}
         self._beat = 0
+        # optional hook fired with each NEWLY-woven item (not on file-sync re-apply) — the
+        # relay-sync push (knitweb/molgang#44) subscribes here so every confirmed knit/spiral
+        # this install weaves is broadcast to the shared web. None ⇒ today's local-only behavior.
+        self.on_weave = None
         self._sync()
+
+    def _emit(self, item: WovenItem) -> None:
+        if self.on_weave is not None:
+            try:
+                self.on_weave(item)
+            except Exception:  # noqa: BLE001 — a relay hiccup must never break local weaving
+                pass
 
     # -- term de-dup + applying an item to the fabric -----------------------
     def _term_node(self, term: str) -> str:
@@ -102,13 +113,15 @@ class World:
     # -- the operation the game calls on a confirmed knit -------------------
     def weave_knit(self, parsed: dict, by: str, fiber_cid: str, confirmations: int) -> None:
         self._sync()
-        self._apply(WovenItem(
+        item = WovenItem(
             kind=parsed.get("kind", "term"), by=by, fiber_cid=fiber_cid, confirmations=confirmations,
             term=parsed.get("term", ""), subject=parsed.get("subject", ""),
             object=parsed.get("object", ""), relation=parsed.get("relation", ""),
-        ))
+        )
+        self._apply(item)
         if self.path:
             self._save()
+        self._emit(item)
 
     def weave_links(self, links: list[dict], by: str, fiber_cid: str, confirmations: int) -> None:
         """Weave every link of a one-to-many knit — each link → two term-nodes + one weighted
@@ -116,31 +129,38 @@ class World:
         node CID is canonical, so duplicate spellings hash to the same node automatically."""
         self._sync()
         seen: set[tuple[str, str, str]] = set()
+        woven: list[WovenItem] = []
         for pl in links:
             key = (pl["subject"].casefold(), pl.get("relation", "links"), pl["object"].casefold())
             if key in seen:                       # belt-and-suspenders dedup before weaving
                 continue
             seen.add(key)
-            self._apply(WovenItem(
+            item = WovenItem(
                 kind="link", by=by, fiber_cid=fiber_cid, confirmations=confirmations,
                 subject=pl["subject"], object=pl["object"], relation=pl.get("relation", "links"),
-            ))
+            )
+            self._apply(item)
+            woven.append(item)
         if self.path:
             self._save()
+        for item in woven:
+            self._emit(item)
 
     def weave_spiral(self, links: list[dict], by: str, fiber_cid: str, confirmations: int,
                      *, validators: int = 0, pls_staked: int = 0) -> None:
         """A captured spiral: weave every link (each → two term-nodes + a weighted edge) and
         record one kind='spiral' item for provenance/replay. One call, many edges."""
         self._sync()
-        self._apply(WovenItem(
+        item = WovenItem(
             kind="spiral", by=by, fiber_cid=fiber_cid, confirmations=confirmations,
             links=[{"subject": l["subject"], "object": l["object"],
                     "relation": l.get("relation", "links")} for l in links],
             validators=validators, pls_staked=pls_staked,
-        ))
+        )
+        self._apply(item)
         if self.path:
             self._save()
+        self._emit(item)
 
     # -- views --------------------------------------------------------------
     def size(self) -> tuple[int, int]:
