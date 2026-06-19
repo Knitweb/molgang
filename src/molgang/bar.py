@@ -52,6 +52,7 @@ class Proposal:
     term: str
     round: game.Round
     parsed: dict = field(default_factory=dict)  # parse_knit() result (term vs link)
+    links: list = field(default_factory=list)  # one-to-many knit: the full list of link dicts
     topic: str = ""                            # competing knits share a topic (default: the term)
     settled: bool = False
     outcome: str | None = None
@@ -266,12 +267,25 @@ class Bar:
         sess = self._require(sid)
         if not sess.table_id:
             raise RuntimeError("take a seat at a table first")
-        parsed = parse_knit(term)                         # term vs link; strips LaTeX/markup
-        rnd = game.propose_term(sess.player, parsed["label"])  # spends 1 silk
+        parsed = parse_knit(term)                         # term, link, or list of links
+        # a one-to-many knit ("X has A, B and C") parses to a list of link dicts — treat it
+        # as a mini-spiral: a synthesized headline label, the full link list woven on settle.
+        links: list = []
+        if isinstance(parsed, list):
+            links = parsed
+            subject, rel = links[0]["subject"], links[0]["relation"]
+            objs = ", ".join(l["object"] for l in links)
+            label = f"{subject} {rel} {{{objs}}}"
+            topic = subject.strip().lower()
+            head = {"kind": "link", "label": label}        # for parsed.get() lookups downstream
+        else:
+            label = parsed["label"]
+            topic = (parsed.get("subject") or parsed.get("term") or label).strip().lower()
+            head = parsed
+        rnd = game.propose_term(sess.player, label)        # spends 1 silk
         pid = f"p{next(self._pid)}"
         prop = Proposal(pid=pid, table_id=sess.table_id, by=sid, by_name=sess.name,
-                        term=parsed["label"], round=rnd, parsed=parsed,
-                        topic=(parsed.get("subject") or parsed.get("term") or parsed["label"]).strip().lower())
+                        term=label, round=rnd, parsed=head, links=links, topic=topic)
         self.proposals[pid] = prop
         self._bots_act()                                  # NPC table-mates weigh in immediately
         self._persist_balances()                          # proposer spent silk (+ any settle)
@@ -308,8 +322,12 @@ class Bar:
                 "fiber_cid": s.woven_fiber_cid, "confirmations": s.result.confirms,
                 "is_chemistry": prop.parsed.get("term", "") in MOLECULES,
             })
-            # extend the SHARED knitweb web — a term node, or a LINK edge between two terms
-            self.world.weave_knit(prop.parsed, prop.by_name, s.woven_fiber_cid, s.result.confirms)
+            # extend the SHARED knitweb web — a term node, a single LINK edge, or (one-to-many
+            # knit) every link of the enumeration woven as its own edge.
+            if prop.links:
+                self.world.weave_links(prop.links, prop.by_name, s.woven_fiber_cid, s.result.confirms)
+            else:
+                self.world.weave_knit(prop.parsed, prop.by_name, s.woven_fiber_cid, s.result.confirms)
 
     def web_view(self) -> dict:
         """The shared web's current state + its OriginTrail provenance anchor."""
