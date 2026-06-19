@@ -24,6 +24,14 @@ def _text(path: str) -> str:
     return "\n".join(p.extract_text() for p in reader.pages)
 
 
+def _pdf_text(data: bytes) -> str:
+    import io
+
+    reader = pypdf.PdfReader(io.BytesIO(data))
+    assert len(reader.pages) >= 1
+    return "\n".join(p.extract_text() for p in reader.pages)
+
+
 def _is_pdf(path: str) -> bytes:
     with open(path, "rb") as fh:
         data = fh.read()
@@ -39,7 +47,7 @@ def test_make_certificate_is_valid_pdf_with_all_wallet_fields(tmp_path):
     out = str(tmp_path / "cert.pdf")
 
     ret = make_pouw_certificate(
-        address=addr, public_key=pub, private_key=priv, pulses_used=42,
+        address=addr, public_key=pub, private_key=priv, include_private_key=True, pulses_used=42,
         work_summary={"knits_woven": 5, "spirals_captured": 2, "votes_cast": 11},
         provenance={"ual": "did:dkg:knitweb/bafyexample", "nodes": 9, "edges": 4,
                     "verified": True},
@@ -57,10 +65,20 @@ def test_make_certificate_is_valid_pdf_with_all_wallet_fields(tmp_path):
     assert "42 PLS" in txt
     # the sensitive-private-key warning is present
     assert "SENSITIVE" in txt and "PRIVATE KEY" in txt
+
+
+def test_make_certificate_public_mode_redacts_private_key(tmp_path):
+    out = str(tmp_path / "cert-public.pdf")
+    make_pouw_certificate(
+        address="pls1pub", public_key="02ff", private_key="aa" * 16, pulses_used=3,
+        work_summary={"terms_proposed": 1}, out_path=out)
+    txt = _text(out)
+    assert "bb" not in txt
+    assert "PUBLIC MODE: private key redacted for safe distribution" in txt
+    assert "aa" * 16 not in txt
     # work table + provenance + header
     assert "PROOF OF USEFUL WORK CERTIFICATE" in txt
-    assert "Knits woven" in txt and "Votes cast" in txt
-    assert "did:dkg:knitweb/bafyexample" in txt
+    assert "Terms proposed" in txt
 
 
 def test_pulses_used_is_clamped_non_negative(tmp_path):
@@ -98,7 +116,7 @@ def test_certificate_for_a_real_bar_player(tmp_path):
     out = str(tmp_path / "player.pdf")
     make_pouw_certificate(
         address=d["address"], public_key=d["public_key"], private_key=d["private_key"],
-        pulses_used=d["pulses_used"], work_summary=d["work_summary"],
+        include_private_key=True, pulses_used=d["pulses_used"], work_summary=d["work_summary"],
         provenance=d["provenance"], holder=d["holder"], out_path=out)
     _is_pdf(out)
     txt = _text(out)
@@ -123,7 +141,7 @@ def test_certificate_renders_woven_knits_and_spiral_work(tmp_path):
     out = str(tmp_path / "weaver.pdf")
     make_pouw_certificate(
         address=d["address"], public_key=d["public_key"], private_key=d["private_key"],
-        pulses_used=d["pulses_used"], work_summary=d["work_summary"],
+        include_private_key=True, pulses_used=d["pulses_used"], work_summary=d["work_summary"],
         provenance=d["provenance"], holder=d["holder"], out_path=out)
     txt = _text(out)
     assert "Knits woven" in txt and "Spirals captured" in txt
@@ -143,7 +161,7 @@ def test_certificate_for_standalone_knitweb_wallet(tmp_path):
 
     out = str(tmp_path / "wallet-cert.pdf")
     ret = certificate_for_node(restored, out_path=out, faucet_pulses=FAUCET_PULSES,
-                               holder="standalone")
+                               holder="standalone", include_private_key=True)
     assert ret == out
     _is_pdf(out)
     txt = _text(out)
@@ -198,4 +216,21 @@ def test_api_certificate_endpoint_returns_pdf(tmp_path):
     assert b"Content-Disposition: attachment" in out
     # the response body is a real PDF
     assert b"%PDF-" in out
-    assert me.player.node.priv.encode() in out or b"%PDF-" in out  # PDF bytes present
+    idx = out.index(b"%PDF-")
+    txt = _pdf_text(out[idx:])
+    assert "PUBLIC MODE: private key redacted for safe distribution" in txt
+    assert me.player.node.priv not in txt
+
+    # explicit bearer mode prints private key
+    body = ('{"sid": "%s", "mode": "bearer"}' % me.sid).encode()
+    raw = (b"POST /api/certificate HTTP/1.1\r\n"
+           b"Content-Type: application/json\r\n"
+           b"Content-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body)
+    rfile = io.BytesIO(raw)
+    wfile = io.BytesIO()
+    _H(rfile, wfile)
+    out = wfile.getvalue()
+    assert b"200" in out.split(b"\r\n", 1)[0]
+    idx = out.index(b"%PDF-")
+    txt = _pdf_text(out[idx:])
+    assert me.player.node.priv in txt

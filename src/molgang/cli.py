@@ -123,7 +123,8 @@ def serve(argv: list[str]) -> int:
 def certificate(argv: list[str]) -> int:
     """Generate a PoUW Certificate PDF for a standalone knitweb wallet (a persisted node).
 
-        molgang certificate --wallet wallet.json [--out cert.pdf] [--faucet 50] [--holder NAME]
+        molgang certificate --wallet wallet.json [--out cert.pdf] [--faucet 50]
+        [--holder NAME] [--private]
     """
     import argparse
 
@@ -137,15 +138,23 @@ def certificate(argv: list[str]) -> int:
     ap.add_argument("--wallet", required=True, help="path to a persisted AccountNode (knode.json)")
     ap.add_argument("--out", default="pouw_certificate.pdf", help="output PDF path")
     ap.add_argument("--holder", default=None, help="display name for the wallet holder")
+    ap.add_argument("--private", action="store_true",
+                    help="print wallet PRIVATE key in the PDF (bearer mode)")
     ap.add_argument("--faucet", type=int, default=FAUCET_PULSES,
                     help="faucet baseline for pulses_used = faucet - balance (default the molgang faucet)")
     a = ap.parse_args([x for x in argv if x != "certificate"])
     node = load_node(a.wallet)
-    out = certificate_for_node(node, out_path=a.out, faucet_pulses=a.faucet, holder=a.holder)
+    out = certificate_for_node(
+        node, out_path=a.out, faucet_pulses=a.faucet, holder=a.holder,
+        include_private_key=a.private,
+    )
     used = max(0, a.faucet - node.balance("PLS"))
     print(f"  🏅 PoUW certificate → {out}")
     print(f"     wallet {node.address}  ·  pulses used {used}  ·  PLS balance {node.balance('PLS')}")
-    print("  ⚠  this PDF exposes the wallet PRIVATE key — keep it secret (bearer key).")
+    if a.private:
+        print("  ⚠  bearer mode enabled: this PDF exposes the wallet PRIVATE key.")
+    else:
+        print("  🔓 public mode: private key redacted.")
     return 0
 
 
