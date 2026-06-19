@@ -186,7 +186,7 @@ function renderTable(s) {
   $("seats").innerHTML = t.seated.map((p) =>
     `<div class="seat ${p.you ? "you" : ""}">${avatarImg(p.avatar, "seat-av")}
       <div><b>${p.name}</b><br><span class="dim small">L${p.level} ${p.title} · ${p.woven}🧬</span></div></div>`).join("");
-  $("leave-table").onclick = () => { table = null; setActiveTab(); };
+  $("leave-table").onclick = () => { table = null; setActiveTab(); refresh(); };
   $("rename-table").onclick = async () => {
     const nextName = prompt("Rename this table", t.name);
     if (nextName === null) return;
