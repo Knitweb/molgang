@@ -40,7 +40,7 @@ DEFAULT_TABLES = [
     ("organic", "Organic Lounge"),
     ("noble", "Noble Corner"),
 ]
-SEATS_PER_TABLE = 6
+SEATS_PER_TABLE = 24
 
 
 @dataclass
@@ -90,6 +90,8 @@ class Session:
 class Table:
     id: str
     name: str
+    base_name: str
+    owner_sid: str | None = None
     seats: int = SEATS_PER_TABLE
 
 
@@ -121,7 +123,10 @@ class Bar:
 
     def __init__(self, world_path: str | None = None, registry=None) -> None:
         self.registry = registry               # optional device→wallet DB (knitweb Registry)
-        self.tables: dict[str, Table] = {tid: Table(tid, name) for tid, name in DEFAULT_TABLES}
+        self._next_table_num = 1
+        self.tables: dict[str, Table] = {}
+        for tid, name in DEFAULT_TABLES:
+            self._add_table(table_id=tid, name=name, seed_bots=False)
         self.sessions: dict[str, Session] = {}
         self.proposals: dict[str, Proposal] = {}
         self.spirals: dict[str, SpiralView] = {}         # auxiliary/capture spirals by id
@@ -131,18 +136,62 @@ class Bar:
         self._scid = itertools.count(1)                  # spiral ids
         # the SHARED knitweb web every confirmed knit extends (file-shared across instances)
         self.world = World(world_path or default_world_path())
-        self._seed_bots()                      # NPC table-mates so a solo human can reach quorum
+        self._seed_bots(seed_all=True)                      # NPC table-mates so a solo human can reach quorum
 
     _BOT_NAMES = ["Bea", "Cy", "Dex", "Vala", "Mo", "Pim"]
 
-    def _seed_bots(self, per_table: int = 3) -> None:
-        for tid in self.tables:
+    def _seed_bots(self, seed_all: bool = False, table_id: str | None = None,
+                   per_table: int = 3) -> None:
+        if table_id is not None:
+            target = [table_id]
+        elif seed_all:
+            target = list(self.tables)
+        else:
+            target = []
+        for tid in target:
             for _ in range(per_table):
                 sid = secrets.token_hex(8)
                 nm = self._BOT_NAMES[len(self.sessions) % len(self._BOT_NAMES)]
                 self.sessions[sid] = Session(
                     sid=sid, name=f"🤖 {nm}", player=Player.join(nm), table_id=tid, bot=True,
                     avatar=_AVATAR_IDS[len(self.sessions) % len(_AVATAR_IDS)])
+
+    def _next_table_id(self) -> str:
+        """Return a deterministic dynamic table id that is not in use yet."""
+        while True:
+            tid = f"table-{self._next_table_num}"
+            self._next_table_num += 1
+            if tid not in self.tables:
+                return tid
+
+    def _add_table(self, table_id: str | None = None, name: str | None = None,
+                   seed_bots: bool = True) -> Table:
+        """Create a new table and return it."""
+        tid = table_id or self._next_table_id()
+        base_name = name or f"Table {tid.split('-', 1)[-1]}"
+        tbl = Table(id=tid, name=base_name, base_name=base_name)
+        self.tables[tid] = tbl
+        if seed_bots:
+            self._seed_bots(table_id=tid)
+        return tbl
+
+    def _all_tables_full(self) -> bool:
+        return all(self._seated_count(t.id) >= t.seats for t in self.tables.values())
+
+    def _normalize_table_name(self, name: str) -> str:
+        n = (name or "").strip()
+        if not n:
+            raise ValueError("table name cannot be empty")
+        if len(n) > 64:
+            raise ValueError("table name is too long")
+        return n
+
+    def _release_table_owner(self, sid: str, table_id: str) -> None:
+        table = self.tables.get(table_id)
+        if not table or table.owner_sid != sid:
+            return
+        table.owner_sid = None
+        table.name = table.base_name
 
     def _bots_act(self) -> None:
         """Seated NPCs vote 'confirm' on open knits they haven't weighed in on yet."""
@@ -251,16 +300,40 @@ class Bar:
             self.sit(sid, table_id)
         return sess
 
+    def rename_table(self, sid: str, table_id: str, name: str) -> Table:
+        sess = self._require(sid)
+        if table_id not in self.tables:
+            raise KeyError(f"no such table: {table_id}")
+        table = self.tables[table_id]
+        if sess.bot:
+            raise RuntimeError("bots cannot rename tables")
+        if sess.table_id != table_id:
+            raise RuntimeError("take a seat at that table first")
+        if table.owner_sid and table.owner_sid != sid:
+            raise RuntimeError("only the current namer can rename this table")
+        table.owner_sid = sid
+        table.name = self._normalize_table_name(name)
+        return table
+
     def sit(self, sid: str, table_id: str) -> None:
         sess = self._require(sid)
         if table_id not in self.tables:
             raise KeyError(f"no such table: {table_id}")
-        if self._seated_count(table_id) >= self.tables[table_id].seats and sess.table_id != table_id:
-            raise RuntimeError("table is full")
-        sess.table_id = table_id
+        table = self.tables[table_id]
+        if self._seated_count(table_id) >= table.seats and sess.table_id != table_id:
+            if not self._all_tables_full():
+                raise RuntimeError("table is full")
+            table = self._add_table()
+        if sess.table_id and sess.table_id != table.id:
+            self._release_table_owner(sess.sid, sess.table_id)
+        sess.table_id = table.id
 
     def leave(self, sid: str) -> None:
-        self.sessions.pop(sid, None)
+        sess = self.sessions.pop(sid, None)
+        if not sess:
+            return
+        if sess.table_id:
+            self._release_table_owner(sess.sid, sess.table_id)
 
     # -- the knit loop -----------------------------------------------------
     def propose(self, sid: str, term: str, topic: str | None = None) -> Proposal:
@@ -404,7 +477,10 @@ class Bar:
         from . import progression
 
         tables = []
+        me = self.sessions.get(sid) if sid else None
         for t in self.tables.values():
+            can_rename = bool(me and not me.bot and me.table_id == t.id
+                              and (t.owner_sid is None or t.owner_sid == sid))
             seated = []
             for s in self.sessions.values():
                 if s.table_id != t.id:
@@ -426,10 +502,10 @@ class Bar:
                             for sv in self.spirals.values()
                             if sv.table_id == t.id and not sv.settled]
             tables.append({"id": t.id, "name": t.name, "seats": t.seats,
+                           "can_rename": can_rename,
                            "seated": seated, "open": opens, "spirals": spirals_open,
                            "spiral_record": self.spiral_record.get(t.id, 0),
                            "fabric": [w for w in self.woven if w["table"] == t.id]})
-        me = self.sessions.get(sid) if sid else None
         you = None
         if me:
             w = self._woven_by(sid)

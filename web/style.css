@@ -134,6 +134,9 @@ main,section{padding:24px 22px;max-width:1140px;margin:0 auto}
 
 /* TABLE VIEW — seats as 3D pucks */
 .table-view h2{margin:.2em 0;font-size:24px}
+.table-title{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.table-title h2{margin:.2em 0 0 0;font-size:24px}
+#rename-table{padding:.35rem .65rem; white-space:nowrap}
 .seats{display:flex;flex-wrap:wrap;gap:14px;margin:16px 0;perspective:1000px}
 .seat{display:flex;align-items:center;gap:11px;border-radius:16px;padding:12px 16px;transform-style:preserve-3d;
   background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line2);

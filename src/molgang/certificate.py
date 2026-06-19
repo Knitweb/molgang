@@ -2,9 +2,8 @@
 
 A PoUW certificate documents a single knitweb/molgang wallet:
 
-  * its **public key**, **address**, and — intentionally — its **PRIVATE key**
-    (the certificate deliberately exposes full wallet control; this is by design,
-    a future *paid* feature: the certificate IS the bearer key);
+  * its **public key**, **address**, and optionally its **PRIVATE key**
+    (public mode redacts private material; bearer mode prints it explicitly).
   * **how many pulses were used** — the proof-of-useful-work metric (faucet − remaining);
   * a summary of the *useful work* done (knits woven, spirals captured, votes cast);
   * the OriginTrail provenance UAL (if the wallet's world is anchored) + the issue date.
@@ -12,9 +11,8 @@ A PoUW certificate documents a single knitweb/molgang wallet:
 The single public entry point is :func:`make_pouw_certificate`, which writes a clean,
 official-looking A4 PDF with ``fpdf2`` (pure-Python, no native deps) and returns its path.
 
-SECURITY NOTE: the rendered PDF contains the wallet's private key in clear text. Anyone
-holding the PDF holds the wallet. Generate only for dev/throwaway wallets, or where the
-bearer-key exposure is the explicit intent (the planned paid feature).
+SECURITY NOTE: public mode redacts the private key. If this certificate
+serves as a bearer credential, enable private mode explicitly.
 """
 
 from __future__ import annotations
@@ -67,7 +65,7 @@ class _Cert(FPDF):
         self.cell(
             0, 5,
             _latin("Proof of Useful Work · knitweb/molgang · "
-                   "this certificate is a bearer key — keep it secret"),
+                   "private key shown only in bearer mode"),
             align="C",
         )
 
@@ -103,6 +101,7 @@ def make_pouw_certificate(
     address: str,
     public_key: str,
     private_key: str,
+    include_private_key: bool = False,
     pulses_used: int,
     work_summary: dict,
     provenance: dict | None = None,
@@ -115,7 +114,8 @@ def make_pouw_certificate(
     Args:
         address:      the wallet's knitweb address (``pls1...``).
         public_key:   the wallet's public key (hex).
-        private_key:  the wallet's PRIVATE key (hex) — INTENTIONALLY printed in clear text.
+        private_key:  the wallet's PRIVATE key (hex).
+        include_private_key: print private key in the PDF (bearer mode) or redact it (public mode).
         pulses_used:  the proof-of-useful-work metric (pulses spent doing useful work).
         work_summary: useful-work counts, e.g. ``{"knits_woven", "spirals_captured",
                       "votes_cast", "terms_proposed"}`` (any subset; extra keys are shown too).
@@ -210,26 +210,38 @@ def make_pouw_certificate(
     _kv(pdf, "Public key", public_key)
     _kv(pdf, "Address", address)
 
-    # ── PRIVATE KEY — the intentional sensitive exposure ──────────────────
+    # ── PRIVATE KEY — bearer vs public mode ───────────────────────────────
     pdf.ln(1)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.set_text_color(*_DANGER)
-    pdf.set_fill_color(*_DANGER_BG)
-    pdf.cell(0, 8, _latin("  !  SENSITIVE - exposes full wallet control"),
-             fill=True, new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(1)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*_DANGER)
-    pdf.cell(0, 5, _latin("PRIVATE KEY"), new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Courier", "", 10)
-    pdf.set_text_color(*_INK)
-    _para(pdf, 5, private_key)
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.set_text_color(*_MUTED)
-    _para(pdf, 4,
-          "Anyone holding this certificate holds the wallet. The private key is "
-          "printed by design (a future paid feature) — treat this document as a "
-          "bearer key and keep it secret.")
+    if include_private_key:
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(*_DANGER)
+        pdf.set_fill_color(*_DANGER_BG)
+        pdf.cell(0, 8, _latin("  !  SENSITIVE - exposes full wallet control"),
+                 fill=True, new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(*_DANGER)
+        pdf.cell(0, 5, _latin("PRIVATE KEY"), new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Courier", "", 10)
+        pdf.set_text_color(*_INK)
+        _para(pdf, 5, private_key)
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.set_text_color(*_MUTED)
+        _para(pdf, 4,
+              "Anyone holding this certificate holds the wallet. This is bearer mode "
+              "and the private key is intentionally printed.")
+    else:
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(*_DANGER)
+        pdf.set_fill_color(*_DANGER_BG)
+        pdf.cell(0, 7, _latin("  PUBLIC MODE: private key redacted for safe distribution"),
+                 fill=True, new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.set_text_color(*_MUTED)
+        _para(pdf, 4,
+              "For a bearer certificate, request private mode. "
+              "This document is safe to share as proof of useful work.")
     pdf.ln(3)
 
     # ── Provenance (OriginTrail UAL) ──────────────────────────────────────
@@ -276,7 +288,8 @@ def make_pouw_certificate(
 
 def certificate_for_node(node, *, out_path: str, pulses_used: int | None = None,
                          work_summary: dict | None = None, provenance: dict | None = None,
-                         holder: str | None = None, faucet_pulses: int | None = None) -> str:
+                         holder: str | None = None, faucet_pulses: int | None = None,
+                         include_private_key: bool = False) -> str:
     """Build a PoUW certificate from a knitweb ``AccountNode`` (e.g. a standalone wallet).
 
     ``pulses_used`` defaults to ``faucet_pulses - node.balance("PLS")`` (clamped >=0) when a
@@ -293,6 +306,7 @@ def certificate_for_node(node, *, out_path: str, pulses_used: int | None = None,
         address=node.address,
         public_key=node.pub,
         private_key=node.priv,
+        include_private_key=include_private_key,
         pulses_used=pulses_used,
         work_summary=work_summary or {"transfers_settled": int(getattr(node, "nonce", 0))},
         provenance=provenance,

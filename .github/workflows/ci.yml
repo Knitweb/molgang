@@ -27,3 +27,9 @@ jobs:
           PYTHONPATH=src:../pulse/src python examples/p2p_demo.py
           PYTHONPATH=.:src:../pulse/src python bridge/ingest.py bridge/sample_roblox_votes.json
           PYTHONPATH=src:../pulse/src python -m molgang.cli demo
+
+      - name: Run browser e2e
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+          PYTHONPATH=src:../pulse/src python tests/e2e/molgang_e2e.py

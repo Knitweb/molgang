@@ -64,6 +64,16 @@ PYTHONPATH=src python3 -m molgang.cli serve                # then open http://lo
 (See [`examples/`](examples/) for the headless `play_demo.py` / `p2p_demo.py`, and run the
 tests with `PYTHONPATH=.:src:../pulse/src python3 -m pytest -q`.)
 
+E2E browser smoke test (headless Playwright):
+
+```bash
+PYTHONPATH=src:../pulse/src python tests/e2e/molgang_e2e.py
+```
+
+The script starts a clean one-shot Molgang server in temporary files, runs:
+walk-in → sit → knit → woven, saves screenshots in `.artifacts/e2e/`, and exits
+non-zero when the flow does not complete.
+
 ## The browser bar
 
 `molgang serve` opens a **dapp-style** bar: take a seat at a table with an avatar, **brainstorm a
