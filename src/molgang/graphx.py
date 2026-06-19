@@ -14,24 +14,166 @@ import os
 
 import networkx as nx
 
+from . import tension as T
+
 # the four languages the chemistry web was woven in (label:<lang> edges)
 LANGS = ("en", "ru", "zh", "ar")
 
 
+def _fiber_for(it, *, mismatches: int = 0) -> T.Fiber:
+    """Build the integer :class:`tension.Fiber` carried on an edge woven from ``it``.
+
+    ``confirms`` IS the existing ``weight`` (confirm count); ``mismatches`` /
+    ``anchor_rel`` / ``anchor_ts`` / ``weaver`` come from the item when present (a plain
+    WovenItem has none, so they default — confirms-only fibers start NEUTRAL/forming).
+    """
+    return T.Fiber(
+        confirms=max(1, getattr(it, "confirmations", 1)),
+        mismatches=getattr(it, "mismatches", mismatches) or 0,
+        anchor_rel=getattr(it, "anchor_rel", T.DEFAULT_ANCHOR_REL),
+        anchor_ts=getattr(it, "anchor_ts", 0) or 0,
+        weaver=getattr(it, "by", "") or "",
+    )
+
+
 def build(items) -> nx.DiGraph:
-    """A directed graph from woven items: link → edge (subject→object), term → bare node."""
+    """A directed graph from woven items: link → edge (subject→object), term → bare node.
+
+    Every edge also carries a ``fiber`` attribute (the integer :class:`tension.Fiber`) so
+    tension-aware routing/pruning can read its taut/slack/snapped state.
+    """
     g = nx.DiGraph()
     for it in items:
         if it.kind == "link":
             g.add_edge(it.subject, it.object,
-                       relation=it.relation or "links", weight=max(1, it.confirmations))
+                       relation=it.relation or "links", weight=max(1, it.confirmations),
+                       fiber=_fiber_for(it))
         elif it.kind == "spiral":
             for pl in it.links:
                 g.add_edge(pl["subject"], pl["object"],
-                           relation=pl.get("relation", "links"), weight=max(1, it.confirmations))
+                           relation=pl.get("relation", "links"),
+                           weight=max(1, it.confirmations), fiber=_fiber_for(it))
         else:
             g.add_node(it.term)
     return g
+
+
+# -- FIBER TENSION: tension-weighted routing + slack pruning -------------------
+def _edge_fiber(data: dict) -> T.Fiber:
+    """The :class:`tension.Fiber` on an edge's attribute dict (synthesise one if absent).
+
+    Edges built from a gateway.App store carry only an integer ``weight`` (confirm count),
+    so a fiber is synthesised from it — back-compatible with "weight = confirm count".
+    """
+    f = data.get("fiber")
+    if isinstance(f, T.Fiber):
+        return f
+    return T.Fiber(confirms=max(1, int(data.get("weight", 1) or 1)),
+                   anchor_rel=T.DEFAULT_ANCHOR_REL)
+
+
+def tension_cost(g, u, v, data: dict, now: int = 0):
+    """Tension-weighted edge cost for NetworkX ``weight=`` (taut = cheap, slack = dear).
+
+    Returns ``None`` for a snapped / over-contested fiber so Dijkstra treats it as absent
+    (infinite cost). Usable as a ``weight`` callable: ``cost(u, v, data)``.
+    """
+    f = _edge_fiber(data)
+    if f.snapped or T.is_snap(f):
+        return None                         # snapped → excluded from routing
+    return T.edge_cost(f, now)
+
+
+def annotate(g, now: int = 0) -> "nx.DiGraph":
+    """Stamp every edge with its derived tension state (band/cost/tautness/…) in place.
+
+    Mutates ``g`` (and returns it) so the explorer / API can read per-edge ``band`` etc.
+    without recomputing. A snapped (or over-contested) fiber is flagged ``snapped=True``.
+    """
+    for u, v, data in g.edges(data=True):
+        f = _edge_fiber(data)
+        st = T.state(f, now)
+        if T.is_snap(f):
+            st["snapped"] = True
+            st["band"] = T.CONTESTED
+        data["tension_state"] = st
+    return g
+
+
+def taut_path(g, frm: str, to: str, now: int = 0) -> dict | None:
+    """Shortest path by TENSION cost — the *most-taut* route between two terms.
+
+    Minimises summed ``tension_cost`` (taut fibers ≈ free, slack ≈ expensive, snapped
+    excluded), so the returned path is the cheapest = tautest = lowest-token route the
+    riding pulse/SLM would take. Falls back to an undirected view (relations are woven
+    directionally but the web is explored both ways, matching :func:`path`). Returns the
+    path, hop count and total integer cost (the rider's token estimate).
+    """
+    frm, to = resolve(g, frm), resolve(g, to)
+    if frm is None or to is None:
+        return None
+    und = g.to_undirected(as_view=True)
+
+    def w(u, v, data):
+        return tension_cost(g, u, v, data, now)
+
+    try:
+        p = nx.shortest_path(und, frm, to, weight=w)
+    except nx.NetworkXNoPath:
+        return {"from": frm, "to": to, "path": None, "hops": None, "cost": None}
+    cost = 0
+    for a, b in zip(p, p[1:]):
+        c = w(a, b, und.get_edge_data(a, b))
+        cost += c if c is not None else 0
+    return {"from": frm, "to": to, "path": p, "hops": len(p) - 1, "cost": cost}
+
+
+def prune_slack(g, now: int = 0, *, remove_snapped: bool = True) -> dict:
+    """Reap SLACK + snapped fibers from the active fabric (the wobble/loop killer).
+
+    A fiber is removed when it is **SLACK** (``T < SLACK_T`` — outdated / un-voted, the
+    pulse is absorbed) or **snapped/over-contested** (failed the Quality Gate). TAUT and
+    NEUTRAL fibers are kept. Mutates ``g`` in place; returns a report of what was pruned
+    (so the explorer can flash slack-prune / over-snap). No slashing here — slack = neglect.
+    """
+    pruned_slack, pruned_snap = [], []
+    for u, v, data in list(g.edges(data=True)):
+        f = _edge_fiber(data)
+        snapped = f.snapped or (remove_snapped and T.is_snap(f))
+        if snapped:
+            pruned_snap.append({"from": u, "to": v})
+            g.remove_edge(u, v)
+        elif T.band(f, now) == T.SLACK:
+            pruned_slack.append({"from": u, "to": v})
+            g.remove_edge(u, v)
+    return {"pruned": len(pruned_slack) + len(pruned_snap),
+            "slack": pruned_slack, "snapped": pruned_snap}
+
+
+def tension_stats(g, now: int = 0) -> dict:
+    """Aggregate tension stats over the fabric — the ``/api/kg/tension`` payload.
+
+    Counts of fibers per band (taut/neutral/slack/contested) + average tautness/cost (all
+    integer) so the explorer can show how taut the web is overall.
+    """
+    bands = {T.TAUT: 0, T.NEUTRAL: 0, T.SLACK: 0, T.CONTESTED: 0}
+    taut_sum = cost_sum = counted = 0
+    for _, _, data in g.edges(data=True):
+        f = _edge_fiber(data)
+        b = T.CONTESTED if T.is_snap(f) else T.band(f, now)
+        bands[b] = bands.get(b, 0) + 1
+        taut_sum += T.tautness(f, now)
+        c = T.edge_cost(f, now)
+        cost_sum += c if c is not None else T.COST_MAX
+        counted += 1
+    return {
+        "edges": counted,
+        "bands": bands,
+        "avg_tautness": taut_sum // counted if counted else 0,
+        "avg_cost": cost_sum // counted if counted else 0,
+        "thresholds": {"taut": T.TAUT_T, "slack": T.SLACK_T,
+                       "snap_crit": T.SNAP_CRIT, "scale": T.S},
+    }
 
 
 def stats(g: nx.DiGraph) -> dict:
@@ -393,8 +535,11 @@ def subgraph(g: nx.DiGraph, term: str, depth: int = 2, *, langs=None,
             kind = "label"
         else:
             kind = "rel"
+        f = _edge_fiber(d)
         edges.append({"from": u, "to": v, "relation": rel,
-                      "weight": d.get("weight", 1), "kind": kind})
+                      "weight": d.get("weight", 1), "kind": kind,
+                      "tension_band": T.CONTESTED if T.is_snap(f) else T.band(f),
+                      "tautness": T.tautness(f), "cost": T.edge_cost(f)})
     return {"center": term, "depth": depth, "nodes": nodes, "edges": edges,
             "truncated": len(seen) >= max_nodes}
 
