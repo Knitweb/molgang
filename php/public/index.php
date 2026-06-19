@@ -5,13 +5,17 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../src/Bar.php';
+require_once __DIR__ . '/../src/Relay.php';     // knitweb HTTP relay + presence node (Refs #61)
+require_once __DIR__ . '/../src/Onboard.php';   // wallet-signed QR node onboarding (Refs #63)
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-// route = the path segment after "/api/" (works under any base, e.g. /molgang/)
+// route = the path segment(s) after "/api/" (works under any base, e.g. /molgang/).
+// Captures a top-level route plus an optional sub-route, e.g. /api/onboard/challenge.
 $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
 $route = preg_match('~/api/([a-z\-]+)~', $uri, $m) ? $m[1] : '';
+$sub   = preg_match('~/api/[a-z\-]+/([a-z\-]+)~', $uri, $m2) ? $m2[1] : '';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
 $body = [];
@@ -64,6 +68,57 @@ try {
             }
             $dev = (string) ($q['device'] ?? '');
             out($dev === '' ? ['error' => 'device required'] : ['peers' => Bar::presenceFor($dev)]);
+
+        // ---- knitweb p2p node: signed onboarding (#63) ----------------------
+        case 'onboard':
+            // GET  /api/onboard/challenge  → issue a challenge + QR (encodes challenge + submit URL)
+            // POST /api/onboard/register   → verify the wallet signature, then (and only then) write
+            // GET  /api/onboard/lookup?address=pls1…  → public read-only node card
+            if ($sub === 'challenge') {
+                out(Onboard::challenge());
+            }
+            if ($sub === 'register') {
+                if ($method !== 'POST') { http_response_code(405); out(['error' => 'POST required']); }
+                $res = Onboard::register($body);
+                if (empty($res['ok'])) http_response_code(400);   // signature-gated: reject = 400
+                out($res);
+            }
+            if ($sub === 'lookup') {
+                out(Onboard::lookup((string) ($q['address'] ?? '')));
+            }
+            http_response_code(404);
+            out(['error' => 'unknown onboard route']);
+
+        // ---- knitweb p2p node: HTTP relay + presence (#61) ------------------
+        case 'relay':
+            // GET  /api/relay/info                         → node health/identity card
+            // GET  /api/relay/online                       → roster of live nodes
+            // POST /api/relay/ping   {pubkey, endpoint?}   → heartbeat (registered nodes only)
+            // POST /api/relay/send   {from,to?,topic?,body,sig} → store a SIGNED message
+            // GET  /api/relay/fetch?to=&topic=&since=      → poll for messages
+            if ($sub === 'info' || $sub === '') {
+                out(Relay::info());
+            }
+            if ($sub === 'online') {
+                out(['online' => Relay::online()]);
+            }
+            if ($sub === 'ping') {
+                if ($method !== 'POST') { http_response_code(405); out(['error' => 'POST required']); }
+                $res = Relay::ping((string) ($body['pubkey'] ?? ''), isset($body['endpoint']) ? (string) $body['endpoint'] : null);
+                if (empty($res['ok'])) http_response_code(400);
+                out($res);
+            }
+            if ($sub === 'send') {
+                if ($method !== 'POST') { http_response_code(405); out(['error' => 'POST required']); }
+                $res = Relay::send($body);
+                if (empty($res['ok'])) http_response_code(400);   // signature-gated: reject = 400
+                out($res);
+            }
+            if ($sub === 'fetch') {
+                out(Relay::fetch($q));
+            }
+            http_response_code(404);
+            out(['error' => 'unknown relay route']);
 
         default:
             http_response_code(404);
