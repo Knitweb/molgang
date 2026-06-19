@@ -6,6 +6,7 @@ endpoints are used by humans (the browser) and machines (bots/agents) — dual p
     GET  /api/state?sid=…              full bar snapshot (tables, seats, avatars, open knits)
     POST /api/join     {name,avatar,table?}   walk in (free silk + pulses), optionally sit
     POST /api/sit      {sid,table}            take a seat at a table
+    POST /api/table/rename {sid,table,name}    rename a table you currently sit at
     POST /api/propose  {sid,term}             brainstorm + knit a term (spends silk)
     POST /api/vote     {sid,pid,verdict}      vote with a pulse ('confirm'|'mismatch'|'abstain')
     POST /api/certificate {sid}               download a PoUW Certificate PDF (exposes priv key!)
@@ -161,6 +162,9 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                                             "address": s.player.node.address})
                 if self.path == "/api/sit":
                     bar.sit(b["sid"], b["table"]); return self._json(200, bar.state(b["sid"]))
+                if self.path == "/api/table/rename":
+                    bar.rename_table(b["sid"], b["table"], b.get("name", ""))
+                    return self._json(200, bar.state(b["sid"]))
                 if self.path == "/api/propose":
                     p = bar.propose(b["sid"], b["term"]); return self._json(200, {"pid": p.pid})
                 if self.path == "/api/vote":

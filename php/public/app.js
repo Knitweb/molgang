@@ -170,8 +170,9 @@ function renderFloor(s) {
       <div class="dim small">${t.seated.length}/${t.seats} seated · ${t.fabric.length} woven</div>
       <button class="join-table">take a seat →</button>`;
     card.querySelector(".join-table").onclick = async () => {
-      await api("/api/sit", "POST", { sid, table: t.id });
-      table = t.id; view = "bar"; refresh();
+      const st = await api("/api/sit", "POST", { sid, table: t.id });
+      table = st.you ? st.you.table : t.id;
+      view = "bar"; refresh();
     };
     f.appendChild(card);
   });
@@ -181,10 +182,18 @@ function renderTable(s) {
   const t = s.tables.find((x) => x.id === table);
   if (!t) { table = null; return; }
   $("table-name").textContent = "🍸 " + t.name;
+  $("rename-table").classList.toggle("hidden", !t.can_rename);
   $("seats").innerHTML = t.seated.map((p) =>
     `<div class="seat ${p.you ? "you" : ""}">${avatarImg(p.avatar, "seat-av")}
       <div><b>${p.name}</b><br><span class="dim small">L${p.level} ${p.title} · ${p.woven}🧬</span></div></div>`).join("");
   $("leave-table").onclick = () => { table = null; setActiveTab(); };
+  $("rename-table").onclick = async () => {
+    const nextName = prompt("Rename this table", t.name);
+    if (nextName === null) return;
+    const r = await api("/api/table/rename", "POST", { sid, table: t.id, name: nextName });
+    if (r.error) alert(r.error);
+    else refresh();
+  };
   $("knit").onclick = async () => {
     const term = $("term").value.trim();
     if (!term) return;
