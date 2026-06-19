@@ -12,6 +12,12 @@ molgang shared world (``~/.molgang/world.json``) — into a `networkx.DiGraph` v
     GET  /api/kg/path?from=&to=             shortest path between two terms
     GET  /api/kg/concept?key=               a concept's 4 language labels (en/ru/zh/ar) + relations
     GET  /api/kg/subgraph?term=&depth=2     a focused subgraph (nodes+edges) for the viz
+    GET  /api/kg/names                      all node names (for the UI type-ahead datalist)
+
+Term lookups (neighbors/path/concept/subgraph) resolve **case-insensitively** (trimmed +
+casefolded), so ``v2o5`` / ``" V2O5 "`` / ``V2o5`` all hit the node ``V2O5``. On a miss the
+API returns ``{"missing":[…], "suggestions":[…]}`` (substring/prefix node-name matches) so
+the UI can offer "did you mean …".
 
     PYTHONPATH=src:/tmp/knitweb-py/src python3 -m molgang.explorer --web /tmp/chem_web.json --port 8990
 
@@ -115,24 +121,33 @@ def make_handler(g, source: str):
             if path == "/api/kg/hubs":
                 n = int((q.get("n") or ["12"])[0])
                 return self._json(200, {"hubs": graphx.centrality_hubs(g, n)})
+            if path == "/api/kg/names":
+                limit = int((q.get("limit") or ["0"])[0]) or None
+                return self._json(200, {"names": graphx.node_names(g, limit)})
             if path == "/api/kg/neighbors":
                 term = (q.get("term") or [""])[0]
                 nb = graphx.neighbors(g, term)
                 if nb is None:
-                    return self._json(404, {"error": f"term not in graph: {term!r}"})
+                    return self._json(404, {"error": f"term not in graph: {term!r}",
+                                            "missing": [term],
+                                            "suggestions": graphx.suggest(g, term)})
                 return self._json(200, nb)
             if path == "/api/kg/path":
                 frm, to = (q.get("from") or [""])[0], (q.get("to") or [""])[0]
                 res = graphx.path(g, frm, to)
                 if res is None:
-                    missing = [t for t in (frm, to) if t not in g]
-                    return self._json(404, {"error": "term(s) not in graph", "missing": missing})
+                    missing = [t for t in (frm, to) if graphx.resolve(g, t) is None]
+                    suggestions = sorted({s for t in missing for s in graphx.suggest(g, t)})
+                    return self._json(404, {"error": "term(s) not in graph",
+                                            "missing": missing, "suggestions": suggestions})
                 return self._json(200, res)
             if path == "/api/kg/concept":
                 key = (q.get("key") or [""])[0]
                 c = graphx.concept(g, key)
                 if c is None:
-                    return self._json(404, {"error": f"concept not in graph: {key!r}"})
+                    return self._json(404, {"error": f"concept not in graph: {key!r}",
+                                            "missing": [key],
+                                            "suggestions": graphx.suggest(g, key)})
                 return self._json(200, c)
             if path == "/api/kg/subgraph":
                 term = (q.get("term") or [""])[0]
@@ -141,7 +156,9 @@ def make_handler(g, source: str):
                 langset = set(langs) if langs else None
                 sg = graphx.subgraph(g, term, depth, langs=langset)
                 if sg is None:
-                    return self._json(404, {"error": f"term not in graph: {term!r}"})
+                    return self._json(404, {"error": f"term not in graph: {term!r}",
+                                            "missing": [term],
+                                            "suggestions": graphx.suggest(g, term)})
                 return self._json(200, sg)
             return self._json(404, {"error": "not found"})
 
@@ -206,6 +223,12 @@ button.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line)}
 #detail .lbl{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed rgba(120,140,180,.12)}
 #detail .lbl .v{font-weight:700}
 .muted{color:var(--dim);font-size:12px}
+.suggest{margin-top:7px;font-size:12px}.suggest:empty{display:none}
+.suggest .lead{color:var(--dim);margin-right:4px}
+.suggest a{display:inline-block;padding:2px 8px;margin:2px 4px 0 0;border-radius:99px;
+  border:1px solid var(--line);background:rgba(34,227,255,.10);color:var(--accent2);
+  text-decoration:none;font-weight:700;cursor:pointer}
+.suggest a:hover{border-color:var(--accent2);box-shadow:0 0 10px rgba(34,227,255,.35)}
 .legend{position:absolute;left:12px;bottom:12px;background:var(--panel);border:1px solid var(--line);
   border-radius:11px;padding:8px 10px;font-size:12px;z-index:5}
 .legend span{display:inline-flex;align-items:center;gap:5px;margin-right:10px}
@@ -222,11 +245,13 @@ button.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line)}
     <div class="card">
       <h3>Search a term</h3>
       <div class="row">
-        <input id="q" placeholder="e.g. H2O, oxygen, atom" />
+        <input id="q" list="names" autocomplete="off" placeholder="e.g. H2O, oxygen, V2O5" />
         <button onclick="focusTerm(document.getElementById('q').value.trim())" style="flex:0 0 auto">Go</button>
       </div>
-      <div class="muted" style="margin-top:6px">Renders a focused subgraph (expand on click).</div>
+      <div id="qsugg" class="suggest"></div>
+      <div class="muted" style="margin-top:6px">Case-insensitive — <span class="mono">v2o5</span> finds <span class="mono">V2O5</span>. Renders a focused subgraph (expand on click).</div>
     </div>
+    <datalist id="names"></datalist>
 
     <div class="card">
       <h3>Languages</h3>
@@ -241,9 +266,10 @@ button.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line)}
 
     <div class="card">
       <h3>Shortest path</h3>
-      <div class="row"><input id="pf" placeholder="from (H2O)"/><input id="pt" placeholder="to (oxygen)"/></div>
+      <div class="row"><input id="pf" list="names" autocomplete="off" placeholder="from (H2O)"/><input id="pt" list="names" autocomplete="off" placeholder="to (oxygen)"/></div>
       <button class="ghost" style="margin-top:8px;width:100%" onclick="findPath()">Find path</button>
       <div id="pathout" class="muted" style="margin-top:8px"></div>
+      <div id="pathsugg" class="suggest"></div>
     </div>
 
     <div class="card">
@@ -310,18 +336,35 @@ async function loadHubs(){
 
 function esc(s){const d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;}
 
+// render clickable "did you mean: …" suggestions into a box; onPick re-runs the search
+function renderSuggest(box, suggestions, onPick){
+  box.innerHTML='';
+  if(!suggestions || !suggestions.length) return;
+  let html='<span class="lead">did you mean:</span>';
+  html += suggestions.map(s=>`<a href="#" data-t="${esc(s)}">${esc(s)}</a>`).join('');
+  box.innerHTML=html;
+  box.querySelectorAll('a').forEach(a=>a.onclick=(e)=>{ e.preventDefault(); onPick(a.dataset.t); });
+}
+
 let currentCenter=null;
 async function focusTerm(term){
   if(!term) return;
-  currentCenter=term;
-  document.getElementById('q').value=term;
-  const langs=activeLangs();
-  const lq = langs.map(l=>'&lang='+l).join('');
-  const {ok,data}=await j('/api/kg/subgraph?depth=2&term='+encodeURIComponent(term)+lq);
-  if(!ok){ document.getElementById('pathout').textContent = data.error||'not found'; return; }
-  expanded=new Set([term]);
+  const sugg=document.getElementById('qsugg');
+  const {ok,data}=await j('/api/kg/subgraph?depth=2&term='+encodeURIComponent(term)
+    + activeLangs().map(l=>'&lang='+l).join(''));
+  if(!ok){
+    document.getElementById('q').value=term;
+    renderSuggest(sugg, data.suggestions, t=>{ document.getElementById('q').value=t; focusTerm(t); });
+    document.getElementById('pathout').textContent =
+      (data.suggestions && data.suggestions.length) ? '' : (data.error||'not found');
+    return;
+  }
+  sugg.innerHTML='';
+  currentCenter=data.center;               // the *resolved* node (e.g. V2O5 for "v2o5")
+  document.getElementById('q').value=data.center;
+  expanded=new Set([data.center]);
   render(data);
-  showConcept(term);
+  showConcept(data.center);
 }
 
 function nodeStyle(n){
@@ -399,18 +442,36 @@ async function showConcept(key){
 async function findPath(){
   const f=document.getElementById('pf').value.trim(), t=document.getElementById('pt').value.trim();
   if(!f||!t) return;
+  const out=document.getElementById('pathout'), sugg=document.getElementById('pathsugg');
   const {ok,data}=await j('/api/kg/path?from='+encodeURIComponent(f)+'&to='+encodeURIComponent(t));
-  const out=document.getElementById('pathout');
-  if(!ok){ out.innerHTML='<span style="color:#ff6f93">'+esc((data.missing||[]).join(', ')||data.error)+' not in graph</span>'; return; }
+  if(!ok){
+    out.innerHTML='<span style="color:#ff6f93">'+esc((data.missing||[]).join(', ')||data.error)+' not in graph</span>';
+    // clicking a suggestion fills whichever box is still unresolved, then retries
+    renderSuggest(sugg, data.suggestions, x=>{
+      const miss=data.missing||[];
+      if(miss.length && f.toLowerCase()===String(miss[0]).toLowerCase()) document.getElementById('pf').value=x;
+      else document.getElementById('pt').value=x;
+      findPath();
+    });
+    return;
+  }
+  sugg.innerHTML='';
   if(!data.path){ out.innerHTML='<span style="color:#ff6f93">no path</span>'; return; }
   out.innerHTML='<b style="color:var(--ok)">'+data.hops+' hops</b>: '+data.path.map(esc).join(' <span class="rel">→</span> ');
-  focusTerm(f);
+  document.getElementById('pf').value=data.from; document.getElementById('pt').value=data.to;
+  focusTerm(data.from);
 }
 
 document.getElementById('q').addEventListener('keydown',e=>{ if(e.key==='Enter') focusTerm(e.target.value.trim()); });
 
+async function loadNames(){
+  const {data}=await j('/api/kg/names');
+  const dl=document.getElementById('names');
+  dl.innerHTML=(data.names||[]).map(n=>`<option value="${esc(n)}"></option>`).join('');
+}
+
 (async function init(){
-  await loadStats(); await loadHubs();
+  await loadStats(); await loadHubs(); await loadNames();
   const {data}=await j('/api/kg/hubs?n=1');
   if(data.hubs && data.hubs.length) focusTerm(data.hubs[0].term);
 })();

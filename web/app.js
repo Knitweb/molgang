@@ -381,7 +381,21 @@ function renderWeb(w) {
   $("web-links").innerHTML = (w.links || []).map((l) =>
     `<div class="linkrow"><span class="chip">${l.subject}</span> <span class="dim small">${l.relation} →</span> <span class="chip">${l.object}</span></div>`).join("")
     || `<span class="dim">no links yet — knit two terms with "=" (e.g. <code>V2O5 = vanadium pentoxide</code>)</span>`;
+  // type-ahead datalist of the woven vocabulary (case-insensitive lookup means any case works)
+  $("gx-names").innerHTML = (w.terms || []).map((t) => `<option value="${t}"></option>`).join("");
   renderGraph();
+}
+
+// clickable "did you mean: …" suggestions; clicking one fills `input` and re-runs `rerun`
+function gxSuggest(suggestions, input, rerun) {
+  if (!suggestions || !suggestions.length) return "";
+  setTimeout(() => {
+    document.querySelectorAll("#gx-result a[data-t]").forEach((a) => {
+      a.onclick = (e) => { e.preventDefault(); input.value = a.dataset.t; rerun(); };
+    });
+  }, 0);
+  return ` <span class="dim small">did you mean:</span> ` +
+    suggestions.map((s) => `<a href="#" class="chip" data-t="${s}">${s}</a>`).join(" ");
 }
 
 async function renderGraph() {
@@ -398,17 +412,25 @@ async function renderGraph() {
     const t = $("gx-term").value.trim(); if (!t) return;
     const r = await api("/api/graph?term=" + encodeURIComponent(t));
     const n = r.neighbors;
-    $("gx-result").innerHTML = !n ? `<span class="dim">“${t}” isn't in the web yet.</span>`
-      : `<b>${t}</b> → ${(n.out.map((x) => `${x.relation} <span class="chip">${x.to}</span>`).join(", ") || "—")}<br>
-         <b>${t}</b> ← ${(n.in.map((x) => `<span class="chip">${x.from}</span> ${x.relation}`).join(", ") || "—")}`;
+    $("gx-result").innerHTML = !n
+      ? `<span class="dim">“${t}” isn't in the web yet.</span>` + gxSuggest(r.suggestions, $("gx-term"), $("gx-go").onclick)
+      : `<b>${n.term}</b> → ${(n.out.map((x) => `${x.relation} <span class="chip">${x.to}</span>`).join(", ") || "—")}<br>
+         <b>${n.term}</b> ← ${(n.in.map((x) => `<span class="chip">${x.from}</span> ${x.relation}`).join(", ") || "—")}`;
   };
   $("gx-path").onclick = async () => {
     const a = $("gx-a").value.trim(), b = $("gx-b").value.trim(); if (!a || !b) return;
     const r = await api(`/api/graph?from=${encodeURIComponent(a)}&to=${encodeURIComponent(b)}`);
     const p = r.path;
-    $("gx-result").innerHTML = !p ? `<span class="dim">one of those terms isn't woven yet.</span>`
-      : p.path ? `path (${p.hops} hops): ${p.path.map((x) => `<span class="chip">${x}</span>`).join(" → ")}`
-      : `<span class="dim">no path between “${a}” and “${b}” yet.</span>`;
+    if (!p) {
+      const miss = r.missing || [];
+      const box = (miss.length && a.toLowerCase() === String(miss[0]).toLowerCase()) ? $("gx-a") : $("gx-b");
+      $("gx-result").innerHTML = `<span class="dim">${(miss.join(", ") || "one of those terms")} isn't woven yet.</span>`
+        + gxSuggest(r.suggestions, box, $("gx-path").onclick);
+      return;
+    }
+    $("gx-result").innerHTML = p.path
+      ? `path (${p.hops} hops): ${p.path.map((x) => `<span class="chip">${x}</span>`).join(" → ")}`
+      : `<span class="dim">no path between “${p.from}” and “${p.to}” yet.</span>`;
   };
 }
 
