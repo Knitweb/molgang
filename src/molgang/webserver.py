@@ -29,7 +29,7 @@ _CTYPE = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
 
 
 def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*",
-                 monitor=None):
+                 monitor=None, relay=None):
     class Handler(BaseHTTPRequestHandler):
         def _cors(self) -> None:
             # Let the static UI (e.g. https://5mart.ml/molgang/) hit this API cross-origin.
@@ -110,6 +110,12 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                     to=(q.get("to") or [None])[0]))
             if path.startswith("/api/monitor"):
                 return self._monitor(path)
+            if path == "/api/relay":
+                if relay is None:
+                    return self._json(200, {"enabled": False})
+                return self._json(200, {"enabled": True, "base": relay.base,
+                                        "topic": relay.topic, "node": relay.signer.pub,
+                                        "address": relay.signer.address, "cursor": relay.cursor})
             return self._static(path)
 
         # -- 📡 Monitor: node/p2p status + the local woven knitweb (#59 #60) ----
@@ -170,6 +176,11 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                     sv = bar.vote_spiral(b["sid"], b["cid"], b.get("verdict", "confirm"))
                     return self._json(200, {"cid": sv.cid, "settled": sv.settled,
                                             "captured": sv.captured, "votes": sv.breakdown()})
+                if self.path == "/api/relay/pull":
+                    # on-demand drain of the shared web from the relay (knitweb/molgang#44)
+                    if relay is None:
+                        return self._json(400, {"error": "relay not enabled (start with --relay URL)"})
+                    return self._json(200, relay.pull())
                 if self.path == "/api/certificate":
                     import tempfile
 
@@ -197,6 +208,39 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
     return Handler
 
 
+def _start_relay(bar: Bar, base: str, wallet: str | None, interval: float):
+    """Wire relay-sync onto the bar's shared World (knitweb/molgang#44).
+
+    * a stable node identity (derived from the pulse-host wallet) signs every push;
+    * each newly-woven knit/spiral is PUSHED to the relay via ``world.on_weave``;
+    * an initial pull converges this fresh install on the shared web, then a daemon
+      timer keeps pulling so writes from other installs land here too.
+    """
+    import threading
+
+    from .relay_sync import RelaySync, signer_from_wallet
+
+    signer = signer_from_wallet(wallet)
+    relay = RelaySync(base, bar.world, signer)
+    bar.world.on_weave = relay.push          # PUSH every confirmed knit/spiral as it is woven
+    try:
+        relay.pull()                         # converge on the existing shared web at startup
+    except Exception as e:  # noqa: BLE001 — never let a relay outage block the bar opening
+        print(f"  ⚠ relay initial pull failed (continuing local): {e}")
+
+    def _loop() -> None:
+        import time
+        while True:
+            time.sleep(max(1.0, interval))
+            try:
+                relay.pull()
+            except Exception:  # noqa: BLE001 — transient relay errors must not kill the timer
+                pass
+
+    threading.Thread(target=_loop, daemon=True, name="relay-pull").start()
+    return relay
+
+
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="MOLGANG browser bar")
     ap.add_argument("--port", type=int, default=8765)
@@ -212,6 +256,11 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--monitor-web", default=None,
                     help="gateway.App store JSON for the 📡 Monitor tab's local-knitweb graph "
                          "(default /tmp/chem_web.json if present, else the shared world)")
+    ap.add_argument("--relay", default=None,
+                    help="relay API base to share the growing web across machines, e.g. "
+                         "https://5mart.ml/molgang/api/relay (OFF by default = local-only)")
+    ap.add_argument("--relay-interval", type=float, default=20.0,
+                    help="seconds between background relay pulls when --relay is set (default 20)")
     a = ap.parse_args([x for x in argv[1:] if x != "serve"])
     from .registry import Registry
     from .monitor import Monitor
@@ -219,13 +268,18 @@ def main(argv: list[str]) -> int:
     pulse = bootstrap_host(a.wallet, listen=listen, genesis=a.host_genesis)
     bar = Bar(a.world, Registry(a.db))
     monitor = Monitor(bar, web=a.monitor_web, world=a.world, pulse_host=pulse)
+    relay = _start_relay(bar, a.relay, a.wallet, a.relay_interval) if a.relay else None
     srv = ThreadingHTTPServer(("0.0.0.0", a.port),
-                              make_handler(bar, pulse, cors=a.cors or None, monitor=monitor))
+                              make_handler(bar, pulse, cors=a.cors or None, monitor=monitor,
+                                           relay=relay))
     print(f"  🍸 MOLGANG bar open at http://localhost:{a.port}  (shared web: "
           f"{a.world or '~/.molgang/world.json'}) (Ctrl-C to close)")
     print(f"  📡 Monitor: nodes {[n['label'] for n in monitor.nodes]} · "
           f"local knitweb {monitor.source}")
     print(f"  pulse host {pulse['account']['address']} · wallet {pulse['wallet']}")
+    if relay is not None:
+        print(f"  🌐 relay sync ON · {relay.base} · node {relay.signer.address} "
+              f"· pull every {a.relay_interval:g}s")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
