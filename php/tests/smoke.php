@@ -60,6 +60,20 @@ check('cross-client presence: web + desktop both active', $peers['web']['active'
 $own = Bar::vote($j['sid'], $p['pid'], 'confirm');
 check('cannot double-resolve a settled knit', isset($own['error']));
 
+// --- #53: an abandoned (stale) seat must be reaped so it can't inflate the quorum ---
+$now = microtime(true);
+$pdo->exec("INSERT INTO player(device_id,name,avatar,address,pulses,silk,xp,is_bot,created)
+            VALUES('ghost','Ghosty','gas-goblin','pls1ghost',50,10,0,0,$now)");           // a real player who vanished…
+$pdo->exec("INSERT INTO session(sid,device_id,table_id,last_seen) VALUES('gsid','ghost','organic'," . ($now - 9999) . ")"); // …hours ago, still 'seated'
+$g = Bar::join('Mara', 'hoodie-hacker', 'dev-mara');     // a fresh human sits at the same table and knits solo
+Bar::sit($g['sid'], 'organic');
+Bar::propose($g['sid'], 'CO2 is carbon dioxide');         // committee would be 3 (→quorum 3) WITH the ghost; only 2 bots vote
+$st2 = Bar::state($g['sid']);
+$organic = null;
+foreach ($st2['tables'] as $t) { if ($t['id'] === 'organic') { $organic = $t; } }
+check('#53: stale ghost seat reaped (not rendered)', !in_array('Ghosty', array_column($organic['seated'], 'name'), true));
+check('#53: solo knit weaves once the ghost no longer inflates the quorum', count($organic['fabric']) === 1);
+
 @unlink($dbfile);
 echo $fail === 0 ? "\nSMOKE: PASS ✅\n" : "\nSMOKE: $fail FAILED ❌\n";
 exit($fail === 0 ? 0 : 1);
