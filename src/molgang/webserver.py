@@ -8,6 +8,7 @@ endpoints are used by humans (the browser) and machines (bots/agents) — dual p
     POST /api/sit      {sid,table}            take a seat at a table
     POST /api/propose  {sid,term}             brainstorm + knit a term (spends silk)
     POST /api/vote     {sid,pid,verdict}      vote with a pulse ('confirm'|'mismatch'|'abstain')
+    POST /api/certificate {sid}               download a PoUW Certificate PDF (exposes priv key!)
 
     molgang serve --port 8765
 """
@@ -42,6 +43,15 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
             body = json.dumps(obj, ensure_ascii=False).encode()
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self._cors()
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _pdf(self, body: bytes, filename: str) -> None:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/pdf")
+            self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
             self.send_header("Content-Length", str(len(body)))
             self._cors()
             self.end_headers()
@@ -124,6 +134,23 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                     sv = bar.vote_spiral(b["sid"], b["cid"], b.get("verdict", "confirm"))
                     return self._json(200, {"cid": sv.cid, "settled": sv.settled,
                                             "captured": sv.captured, "votes": sv.breakdown()})
+                if self.path == "/api/certificate":
+                    import tempfile
+
+                    from .certificate import make_pouw_certificate
+                    d = bar.certificate_data(b["sid"])
+                    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as fh:
+                        out = fh.name
+                    make_pouw_certificate(
+                        address=d["address"], public_key=d["public_key"],
+                        private_key=d["private_key"], pulses_used=d["pulses_used"],
+                        work_summary=d["work_summary"], provenance=d["provenance"],
+                        holder=d["holder"], out_path=out)
+                    with open(out, "rb") as fh:
+                        body = fh.read()
+                    os.unlink(out)
+                    short = (d["address"] or "wallet")[:12]
+                    return self._pdf(body, f"pouw-certificate-{short}.pdf")
                 return self._json(404, {"error": "not found"})
             except (KeyError, RuntimeError, ValueError) as e:
                 return self._json(400, {"error": str(e)})

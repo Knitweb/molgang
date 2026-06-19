@@ -119,6 +119,35 @@ def serve(argv: list[str]) -> int:
     return serve_main(argv)
 
 
+def certificate(argv: list[str]) -> int:
+    """Generate a PoUW Certificate PDF for a standalone knitweb wallet (a persisted node).
+
+        molgang certificate --wallet wallet.json [--out cert.pdf] [--faucet 50] [--holder NAME]
+    """
+    import argparse
+
+    from knitweb.store import load_node
+
+    from .certificate import certificate_for_node
+    from .game import FAUCET_PULSES
+
+    ap = argparse.ArgumentParser(prog="molgang certificate",
+                                 description="PoUW Certificate PDF for a knitweb wallet")
+    ap.add_argument("--wallet", required=True, help="path to a persisted AccountNode (knode.json)")
+    ap.add_argument("--out", default="pouw_certificate.pdf", help="output PDF path")
+    ap.add_argument("--holder", default=None, help="display name for the wallet holder")
+    ap.add_argument("--faucet", type=int, default=FAUCET_PULSES,
+                    help="faucet baseline for pulses_used = faucet - balance (default the molgang faucet)")
+    a = ap.parse_args([x for x in argv if x != "certificate"])
+    node = load_node(a.wallet)
+    out = certificate_for_node(node, out_path=a.out, faucet_pulses=a.faucet, holder=a.holder)
+    used = max(0, a.faucet - node.balance("PLS"))
+    print(f"  🏅 PoUW certificate → {out}")
+    print(f"     wallet {node.address}  ·  pulses used {used}  ·  PLS balance {node.balance('PLS')}")
+    print("  ⚠  this PDF exposes the wallet PRIVATE key — keep it secret (bearer key).")
+    return 0
+
+
 def explore(argv: list[str]) -> int:
     from .explorer import main as explore_main
     return explore_main(argv)
@@ -135,6 +164,8 @@ def main(argv: list[str] | None = None) -> int:
         return serve(argv[1:])
     if cmd == "explore":
         return explore(argv[1:])
+    if cmd == "certificate":
+        return certificate(argv[2:])
     return demo()
 
 
