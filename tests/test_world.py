@@ -36,3 +36,34 @@ def test_bar_solo_play_confirms_and_combines(tmp_path):
     web = bar.web_view()
     assert web["edges"] >= 1 and any(link["subject"] == "V205" for link in web["links"])
     assert web["anchor"]["ual"].startswith("did:dkg:knitweb/")
+
+
+def test_weave_links_one_to_many_makes_multiple_edges(tmp_path):
+    w = World(str(tmp_path / "w.json"))
+    w.weave_links([
+        {"subject": "repo", "object": "molgang", "relation": "has"},
+        {"subject": "repo", "object": "monitor", "relation": "has"},
+        {"subject": "repo", "object": "pulse", "relation": "has"},
+    ], "alice", "f1", 3)
+    n, e = w.size()
+    assert e == 3 and n == 4                          # repo + 3 objects, 3 edges
+    subs = [l["subject"] for l in w.graph()["links"]]
+    assert subs.count("repo") == 3
+
+
+def test_ch4_unicode_dedupes_to_one_node(tmp_path):
+    w = World(str(tmp_path / "w.json"))
+    w.weave_knit({"kind": "term", "term": "CH₄"}, "a", "f1", 3)  # clean() folds ₄ -> 4
+    w.weave_knit({"kind": "term", "term": "CH4"}, "b", "f2", 3)
+    assert w.size()[0] == 1                            # one canonical node, not two
+
+
+def test_bar_proposes_one_to_many_weaves_all_links(tmp_path):
+    bar = Bar(str(tmp_path / "barworld.json"))
+    me = bar.join("Edwin", "laser-maxi", "periodic")
+    p = bar.propose(me.sid, "the repo has molgang, monitor and pulse")
+    assert p.woven
+    web = bar.web_view()
+    repo_links = [l for l in web["links"] if l["subject"] == "the repo"]
+    assert len(repo_links) == 3
+    assert {l["object"] for l in repo_links} == {"molgang", "monitor", "pulse"}

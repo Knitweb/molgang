@@ -14,6 +14,7 @@ import json
 import os
 from dataclasses import asdict, dataclass, field
 
+from .knit_parse import clean
 from knitweb.anchor import Notary
 from knitweb.anchor.origintrail import OriginTrailAnchorBackend
 from knitweb.core.pulse import Pulse
@@ -57,10 +58,12 @@ class World:
 
     # -- term de-dup + applying an item to the fabric -----------------------
     def _term_node(self, term: str) -> str:
-        key = term.casefold()
+        # canonicalise (fold CH₄→CH4, strip markup) so any entry path hashes to ONE node/CID
+        canon = clean(term) or term
+        key = canon.casefold()
         cid = self._term_cid.get(key)
         if cid is None:
-            cid = self.web.weave({"kind": "molgang-term", "term": term})
+            cid = self.web.weave({"kind": "molgang-term", "term": canon})
             self._term_cid[key] = cid
         return cid
 
@@ -104,6 +107,24 @@ class World:
             term=parsed.get("term", ""), subject=parsed.get("subject", ""),
             object=parsed.get("object", ""), relation=parsed.get("relation", ""),
         ))
+        if self.path:
+            self._save()
+
+    def weave_links(self, links: list[dict], by: str, fiber_cid: str, confirmations: int) -> None:
+        """Weave every link of a one-to-many knit — each link → two term-nodes + one weighted
+        edge (weight = max(1, confirmations), an INTEGER). Because clean() folds CH₄→CH4 the
+        node CID is canonical, so duplicate spellings hash to the same node automatically."""
+        self._sync()
+        seen: set[tuple[str, str, str]] = set()
+        for pl in links:
+            key = (pl["subject"].casefold(), pl.get("relation", "links"), pl["object"].casefold())
+            if key in seen:                       # belt-and-suspenders dedup before weaving
+                continue
+            seen.add(key)
+            self._apply(WovenItem(
+                kind="link", by=by, fiber_cid=fiber_cid, confirmations=confirmations,
+                subject=pl["subject"], object=pl["object"], relation=pl.get("relation", "links"),
+            ))
         if self.path:
             self._save()
 
