@@ -21,6 +21,10 @@ const api = async (path, method = "GET", body = null) => {
 };
 
 const avatarImg = (id, cls = "av-img") => `<img class="${cls}" src="avatars/${id}.svg" alt="" />`;
+// thousands-separated number + HTML-escape helpers (used by the Monitor tab)
+const fmt = (n) => (n == null ? 0 : Number(n)).toLocaleString();
+const esc = (s) => (s == null ? "" : String(s)).replace(/[&<>"]/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 let sid = localStorage.getItem("molgang_sid") || null;
 let chosenAvatar = null;
@@ -94,18 +98,19 @@ function resetSession() {
   refreshTimer = null;
   $("me").classList.add("hidden");
   $("tabs").classList.add("hidden");
-  ["floor", "table", "ledger", "explorer", "web", "records"].forEach((v) => $(v).classList.add("hidden"));
+  ["floor", "table", "ledger", "explorer", "web", "records", "monitor"].forEach((v) => $(v).classList.add("hidden"));
   $("enter").classList.remove("hidden");
 }
 
 function setActiveTab() {
   document.querySelectorAll("#tabs button").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === view));
-  ["floor", "table", "ledger", "explorer", "web", "records"].forEach((v) => $(v).classList.add("hidden"));
+  ["floor", "table", "ledger", "explorer", "web", "records", "monitor"].forEach((v) => $(v).classList.add("hidden"));
   if (view === "ledger") $("ledger").classList.remove("hidden");
   else if (view === "explorer") $("explorer").classList.remove("hidden");
   else if (view === "web") $("web").classList.remove("hidden");
   else if (view === "records") $("records").classList.remove("hidden");
+  else if (view === "monitor") $("monitor").classList.remove("hidden");
   else $(table ? "table" : "floor").classList.remove("hidden");
 }
 
@@ -137,6 +142,7 @@ async function refresh() {
   else if (view === "explorer") renderExplorer(s.explorer);
   else if (view === "web") renderWeb(await api("/api/web"));
   else if (view === "records") renderRecords(s);
+  else if (view === "monitor") renderMonitor();
   else if (table) renderTable(s);
   else renderFloor(s);
   setActiveTab();
@@ -466,6 +472,103 @@ async function renderGraph() {
       ? `path (${p.hops} hops): ${p.path.map((x) => `<span class="chip">${x}</span>`).join(" → ")}`
       : `<span class="dim">no path between “${p.from}” and “${p.to}” yet.</span>`;
   };
+}
+
+// ---- 📡 Monitor: node/p2p status + the local woven knitweb (:8990) ----
+const MON_LANGS = [["en", "🇬🇧 EN"], ["ru", "🇷🇺 RU"], ["zh", "🇨🇳 ZH"], ["ar", "🇸🇦 AR"]];
+const MON_TENSION = { taut: "#22e3ff", neutral: "#ff5cf0", slack: "#6b7689", contested: "#ff7a18" };
+let monNet = null, monCenter = null;
+
+async function renderMonitor() {
+  const m = await api("/api/monitor");
+  if (!m || m.error) { $("mon-nodes").innerHTML = `<span class="dim">monitor unavailable</span>`; return; }
+  renderMonStatus(m.status);
+  renderMonKg(m.kg);
+  // centre the compact graph on the top hub once (then leave it; it polls on its own cadence).
+  if (!monCenter && m.kg.hubs && m.kg.hubs.length) monFocus(m.kg.hubs[0].term);
+}
+
+function renderMonStatus(st) {
+  $("mon-nodes").innerHTML = (st.nodes || []).map((n) => {
+    const dot = n.live ? `<span class="mdot up"></span>` : `<span class="mdot down"></span>`;
+    const port = n.port ? `<span class="dim small">:${n.port}</span>` : "";
+    return `<div class="mon-node">${dot}<b>${n.label}</b> ${port}
+      <span class="${n.live ? "pos" : "neg"} small">${n.live ? "● live" : "● down"}</span></div>`;
+  }).join("") || `<span class="dim">no nodes configured</span>`;
+  const w = st.web || {}, h = st.pulse_host;
+  $("mon-web").innerHTML =
+    `<span class="bal">🔵 <b>${w.nodes || 0}</b> web nodes</span>
+     <span class="bal">🔗 <b>${w.edges || 0}</b> edges</span>
+     <span class="bal mono small">root ${(w.state_root || "").slice(0, 14)}…</span>` +
+    (h && h.address ? `<span class="bal mono small" title="${h.address}">📡 host ${h.address.slice(0, 10)}… · ${h.balance_pls || 0} PLS</span>` : "");
+  const a = st.anchor || {};
+  $("mon-anchor").innerHTML = a.ual
+    ? `🔗 OriginTrail: <span class="mono small">${a.ual}</span>
+       <span class="dim small">· ${a.nodes}n/${a.edges}e · ${a.verified ? '<span class="pos">✓ verified</span>' : "unverified"}</span>`
+    : `<span class="dim">shared web not yet anchored</span>`;
+}
+
+function renderMonKg(kg) {
+  $("mon-src").textContent = kg.source ? "⛓ " + kg.source : "";
+  $("mon-kg-stats").innerHTML =
+    `<span class="bal">🔵 <b>${fmt(kg.nodes)}</b> nodes</span>
+     <span class="bal">🔗 <b>${fmt(kg.edges)}</b> edges</span>
+     <span class="bal">🔵 <b>${fmt(kg.concepts)}</b> concepts</span>
+     <span class="bal">🧩 <b>${kg.clusters}</b> clusters</span>
+     <span class="bal">density <b>${kg.density}</b></span>`;
+  const L = kg.languages || {};
+  $("mon-langs").innerHTML = MON_LANGS.map(([code, lbl]) =>
+    `<span class="mon-lang"><span>${lbl}</span><b>${fmt(L[code] || 0)}</b></span>`).join("");
+  const t = kg.tension || {}, b = t.bands || {};
+  const sw = (c) => `<i class="sw" style="background:${c}"></i>`;
+  $("mon-tension").innerHTML =
+    `<div class="row"><span>${sw(MON_TENSION.taut)}taut</span><b>${fmt(b.taut || 0)}</b></div>
+     <div class="row"><span>${sw(MON_TENSION.neutral)}neutral</span><b>${fmt(b.neutral || 0)}</b></div>
+     <div class="row"><span>${sw(MON_TENSION.slack)}slack</span><b>${fmt(b.slack || 0)}</b></div>
+     <div class="row"><span>${sw(MON_TENSION.contested)}snapped</span><b>${fmt(b.contested || 0)}</b></div>
+     <div class="row"><span class="dim">avg tautness</span><b>${t.avg_tautness ?? "–"} / ${(t.thresholds || {}).scale || 1000}</b></div>`;
+  $("mon-hubs").innerHTML = (kg.hubs || []).map((h) =>
+    `<span class="chip mon-hub" data-t="${esc(h.term)}" title="centrality ${h.centrality}">${esc(h.term)} <span class="dim">·${h.degree}</span></span>`).join("");
+  $("mon-hubs").querySelectorAll(".mon-hub").forEach((c) => { c.onclick = () => monFocus(c.dataset.t); });
+}
+
+function monNodeStyle(n) {
+  if (n.center) return { color: { background: "#ffd24a", border: "#fff" }, font: { color: "#fff", size: 16 } };
+  if (n.concept) return { color: { background: "#8b5cff", border: "#c4b5ff" }, font: { color: "#eaf1fb" } };
+  return { color: { background: "#123", border: "#22e3ff" }, font: { color: "#bfe9f5" }, shape: "box" };
+}
+
+async function monFocus(term) {
+  if (!term || typeof vis === "undefined") return;
+  const sg = await api("/api/monitor/kg/subgraph?depth=2&term=" + encodeURIComponent(term));
+  if (!sg || sg.error || !sg.nodes) return;
+  monCenter = sg.center;
+  const nodes = new vis.DataSet(sg.nodes.map((n) => ({
+    id: n.id, label: n.id, title: (n.definition || "") + (n.formula ? " [" + n.formula + "]" : ""),
+    ...monNodeStyle(n),
+  })));
+  const edges = new vis.DataSet(sg.edges.map((e, i) => {
+    const col = MON_TENSION[e.tension_band || "neutral"] || "#ff5cf0";
+    const slack = e.tension_band === "slack" || e.tension_band === "contested";
+    return {
+      id: i, from: e.from, to: e.to, label: e.relation, arrows: "to",
+      width: 1 + Math.round((typeof e.tautness === "number" ? e.tautness : 500) / 250),
+      dashes: slack, color: { color: col, opacity: 0.7 },
+      title: "tension: " + (e.tension_band || "neutral") + " · tautness " + (e.tautness ?? "?") + " · cost " + (e.cost ?? "?"),
+      font: { color: "#7e8aa8", size: 10, strokeWidth: 0 },
+    };
+  }));
+  if (!monNet) {
+    monNet = new vis.Network($("mon-net"), { nodes, edges }, {
+      physics: { stabilization: { iterations: 140 }, barnesHut: { springLength: 120, avoidOverlap: 0.4 } },
+      interaction: { hover: true, tooltipDelay: 120 },
+      nodes: { shape: "dot", size: 14, borderWidth: 2 },
+      edges: { smooth: { type: "continuous" } },
+    });
+    monNet.on("click", (p) => { if (p.nodes.length) monFocus(p.nodes[0]); });
+  } else {
+    monNet.setData({ nodes, edges });
+  }
 }
 
 boot();

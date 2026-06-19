@@ -26,6 +26,7 @@
       <button data-view="explorer">🔭 Explorer</button>
       <button data-view="web">🌐 Web</button>
       <button data-view="records">🕸 Spirals</button>
+      <button data-view="monitor">📡 Monitor</button>
     </nav>
   </header>
 
@@ -125,6 +126,48 @@
     <div id="records-board" class="records-board"></div>
   </section>
 
+  <!-- 📡 Monitor — node/p2p status + the local woven knitweb (:8990) -->
+  <section id="monitor" class="view hidden">
+    <h2>📡 Monitor <span class="dim small">— node & p2p status · the local woven knitweb</span></h2>
+
+    <h3>Nodes &amp; p2p</h3>
+    <div id="mon-nodes" class="mon-nodes"></div>
+    <div id="mon-web" class="summary"></div>
+    <div id="mon-anchor" class="anchor-bar"></div>
+
+    <h3>🕸 Local woven knitweb <span class="dim small" id="mon-src"></span></h3>
+    <div id="mon-kg-stats" class="summary"></div>
+    <div class="mon-grid">
+      <div class="mon-side">
+        <div class="mon-card">
+          <h4>Languages <span class="dim small">— label edges</span></h4>
+          <div id="mon-langs" class="mon-langs"></div>
+        </div>
+        <div class="mon-card">
+          <h4>Fiber tension</h4>
+          <div id="mon-tension" class="dim small">loading…</div>
+        </div>
+        <div class="mon-card">
+          <h4>Top hubs <span class="dim small">— click to centre</span></h4>
+          <div id="mon-hubs" class="dim small">loading…</div>
+        </div>
+      </div>
+      <div class="mon-graph">
+        <div id="mon-net"></div>
+        <div class="mon-legend">
+          <span><i class="sw" style="background:#ffd24a"></i>centre</span>
+          <span><i class="sw" style="background:#8b5cff"></i>concept</span>
+          <span><i class="sw" style="background:#22e3ff"></i>label</span>
+          <span class="dim">· tension:</span>
+          <span><i class="sw" style="background:#22e3ff"></i>taut</span>
+          <span><i class="sw" style="background:#ff5cf0"></i>neutral</span>
+          <span><i class="sw" style="background:#6b7689"></i>slack</span>
+          <span><i class="sw" style="background:#ff7a18"></i>snapped</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- start-a-spiral modal -->
   <div id="spiral-modal" class="overlay hidden">
     <div class="card">
@@ -142,6 +185,7 @@
   </div>
 
   <footer class="dim small">bar woven: <b id="bar-woven">0</b> terms · bonds are Knits · molecules are Fibers · peers validate with pulses · <b>no NFTs</b> · <a href="https://www.binance.com/en/square/post/23850171083089" target="_blank" rel="noopener" title="MOLGANG epic faucet">⚡ epic Faucet</a></footer>
+  <script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
