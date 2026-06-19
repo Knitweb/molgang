@@ -351,6 +351,37 @@ class Bar:
         caps = sorted((sv for sv in self.spirals.values() if sv.captured), key=lambda x: -x.length)
         return [{"by": sv.by_name, "length": sv.length, "table": sv.table_id} for sv in caps[:10]]
 
+    def certificate_data(self, sid: str) -> dict:
+        """Everything a PoUW certificate needs for the player behind ``sid``.
+
+        ``pulses_used`` is the proof-of-useful-work metric: the free faucet grant minus the
+        pulses the player still holds (clamped >=0) — i.e. what they *spent* staking votes and
+        weaving spirals. ``work_summary`` counts their useful work (terms proposed, knits woven,
+        spirals captured, votes cast). ``provenance`` is the shared web's OriginTrail anchor.
+        """
+        sess = self._require(sid)
+        player = sess.player
+        pulses_used = max(0, game.FAUCET_PULSES - player.pulses)
+        my_props = [p for p in self.proposals.values() if p.by == sid]
+        my_spirals = [sv for sv in self.spirals.values() if sv.by == sid]
+        votes_cast = (sum(1 for p in self.proposals.values() if sid in p.voters)
+                      + sum(1 for sv in self.spirals.values() if sid in sv.voters))
+        work_summary = {
+            "terms_proposed": len(my_props),
+            "knits_woven": sum(1 for p in my_props if p.woven),
+            "spirals_captured": sum(1 for sv in my_spirals if sv.captured),
+            "votes_cast": votes_cast,
+        }
+        return {
+            "holder": sess.name,
+            "address": player.node.address,
+            "public_key": player.node.pub,
+            "private_key": player.node.priv,
+            "pulses_used": pulses_used,
+            "work_summary": work_summary,
+            "provenance": self.web_view().get("anchor"),
+        }
+
     def state(self, sid: str | None = None) -> dict:
         from . import progression
 

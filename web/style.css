@@ -44,6 +44,9 @@ button{cursor:pointer;border:0;border-radius:13px;padding:10px 16px;font:inherit
 button:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 14px 30px -10px var(--accent),0 0 22px -4px var(--accent2)}
 button:active{transform:translateY(0) scale(.98)}
 button.ghost{background:var(--glass);color:var(--ink);border:1px solid var(--line2);box-shadow:none;backdrop-filter:blur(6px)}
+button.cert-btn{padding:6px 11px;font-size:.82rem;border-radius:10px;
+  background:linear-gradient(135deg,#b01c2c,#e0564a);box-shadow:0 6px 16px -8px #b01c2c}
+button.cert-btn:hover{box-shadow:0 10px 22px -8px #e0564a}
 input{background:rgba(8,11,20,.72);border:1px solid var(--line);border-radius:13px;color:var(--ink);
   padding:12px 14px;width:100%;transition:.18s;backdrop-filter:blur(4px)}
 input:focus{outline:0;border-color:var(--accent2);box-shadow:0 0 0 3px rgba(34,227,255,.16),var(--glow) rgba(34,227,255,.25)}

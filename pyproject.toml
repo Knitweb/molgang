@@ -17,6 +17,7 @@ keywords = ["chemistry", "scheikunde", "education", "game", "p2p", "knitweb", "d
 dependencies = [
     "knitweb>=0.6",
     "networkx>=3",   # explore the woven graph (hubs, neighbours, shortest path)
+    "fpdf2>=2.8",    # pure-Python PDF engine for PoUW certificates (no native deps)
 ]
 
 [project.urls]
@@ -27,7 +28,7 @@ Repository = "https://github.com/knitweb/molgang"
 molgang = "molgang.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "pypdf>=4"]   # pypdf: assert the certificate PDF text layer in tests
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/molgang"]

@@ -76,6 +76,7 @@ function start() {
   });
   $("spiral-close").onclick = closeSpiralModal;
   $("spiral-submit").onclick = submitSpiral;
+  $("me-cert").onclick = requestCertificate;
   $("spiral-links").oninput = updateSpiralCost;
   $("spiral-modal").onclick = (e) => { if (e.target.id === "spiral-modal") closeSpiralModal(); };
   setActiveTab();
@@ -333,6 +334,39 @@ function showToast(msg) {
   el.classList.remove("hidden");
   if (_toastTimer) clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => el.classList.add("hidden"), 3200);
+}
+
+// Download a PoUW Certificate PDF for the current wallet. The PDF intentionally
+// contains the PRIVATE key, so warn before fetching (planned paid feature).
+async function requestCertificate() {
+  if (!sid) return;
+  const ok = confirm(
+    "Download your Proof of Useful Work certificate?\n\n" +
+    "⚠ WARNING: this PDF exposes your wallet's PRIVATE key in clear text — " +
+    "anyone with the file controls your wallet. It is a bearer key; keep it secret. " +
+    "(This private-key export is a future paid feature.)");
+  if (!ok) return;
+  showToast("🏅 Generating your PoUW certificate…");
+  try {
+    const r = await fetch(BASE + "/api/certificate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sid }),
+    });
+    if (!r.ok) { showToast("Could not generate certificate."); return; }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "pouw-certificate.pdf";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast("🏅 Certificate downloaded (keep the private key secret!)");
+  } catch (e) {
+    showToast("Could not generate certificate.");
+  }
 }
 
 function renderLedger(mk) {
