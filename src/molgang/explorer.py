@@ -8,6 +8,7 @@ molgang shared world (``~/.molgang/world.json``) — into a `networkx.DiGraph` v
     GET  /                                  the interactive single-page UI
     GET  /api/kg/stats                      nodes/edges/clusters/density + per-language label counts
     GET  /api/kg/hubs                       top terms by degree + centrality (NetworkX)
+    GET  /api/kg/tension                    fiber-tension stats: per-band edge counts + avg tautness/cost
     GET  /api/kg/neighbors?term=            in/out neighbours (with relations)
     GET  /api/kg/path?from=&to=             shortest path between two terms
     GET  /api/kg/concept?key=               a concept's 4 language labels (en/ru/zh/ar) + relations
@@ -121,6 +122,8 @@ def make_handler(g, source: str):
             if path == "/api/kg/hubs":
                 n = int((q.get("n") or ["12"])[0])
                 return self._json(200, {"hubs": graphx.centrality_hubs(g, n)})
+            if path == "/api/kg/tension":
+                return self._json(200, graphx.tension_stats(g))
             if path == "/api/kg/names":
                 limit = int((q.get("limit") or ["0"])[0]) or None
                 return self._json(200, {"names": graphx.node_names(g, limit)})
@@ -278,6 +281,11 @@ button.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line)}
     </div>
 
     <div class="card">
+      <h3>Fiber tension</h3>
+      <div id="tension" class="muted">loading…</div>
+    </div>
+
+    <div class="card">
       <h3>Top hubs</h3>
       <div id="hubs" class="muted">loading…</div>
     </div>
@@ -294,7 +302,12 @@ button.ghost{background:rgba(255,255,255,.06);border:1px solid var(--line)}
       <span><span class="dot" style="background:#ffd24a"></span>centre</span>
       <span><span class="dot" style="background:#8b5cff"></span>concept</span>
       <span><span class="dot" style="background:#22e3ff"></span>label</span>
-      <span style="color:var(--accent3)">— relation</span>
+      <br/>
+      <span class="dim" style="margin-right:6px">fiber tension:</span>
+      <span><span class="dot" style="background:#22e3ff"></span>taut</span>
+      <span><span class="dot" style="background:#ff5cf0"></span>neutral</span>
+      <span><span class="dot" style="background:#6b7689"></span>slack</span>
+      <span><span class="dot" style="background:#ff7a18"></span>contested</span>
     </div>
   </div>
 </main>
@@ -325,6 +338,20 @@ async function loadStats(){
     `<div class="stat"><span>density</span><b>${data.density}</b></div>`+
     `<div style="margin-top:8px" class="muted">label edges per language</div>`+
     LANGS.map(l=>`<div class="stat"><span>${l.toUpperCase()}</span><b>${L[l]||0}</b></div>`).join('');
+}
+
+async function loadTension(){
+  const {data}=await j('/api/kg/tension');
+  const b=data.bands||{};
+  const swatch=c=>`<span class="dot" style="background:${c};margin-right:5px"></span>`;
+  document.getElementById('tension').innerHTML =
+    `<div class="stat"><span>${swatch('#22e3ff')}taut</span><b>${b.taut||0}</b></div>`+
+    `<div class="stat"><span>${swatch('#ff5cf0')}neutral</span><b>${b.neutral||0}</b></div>`+
+    `<div class="stat"><span>${swatch('#6b7689')}slack</span><b>${b.slack||0}</b></div>`+
+    `<div class="stat"><span>${swatch('#ff7a18')}contested</span><b>${b.contested||0}</b></div>`+
+    `<div class="stat"><span>avg tautness</span><b>${data.avg_tautness} / ${(data.thresholds||{}).scale||1000}</b></div>`+
+    `<div class="stat"><span>avg cost</span><b>${data.avg_cost}</b></div>`+
+    `<div class="muted" style="margin-top:6px">taut = low cost (preferred) · slack = high cost · contested → snap</div>`;
 }
 
 async function loadHubs(){
@@ -374,17 +401,32 @@ function nodeStyle(n){
 }
 function isAr(label){ return /[؀-ۿ]/.test(label); }
 
+// fiber-tension visual: colour + width by the edge's taut/slack/snapped state
+const TENSION_COLOR = {taut:'#22e3ff', neutral:'#ff5cf0', slack:'#6b7689', contested:'#ff7a18'};
+function tensionStyle(e){
+  const band = e.tension_band || 'neutral';
+  // width scales with tautness (taut = thick conductor; slack = thin wobble)
+  const taut = (typeof e.tautness === 'number') ? e.tautness : 500;
+  const width = 1 + Math.round(taut/250);          // 1..5px, integer-ish
+  return {color: TENSION_COLOR[band] || '#ff5cf0', width,
+          dashes: band==='slack' || band==='contested'};
+}
+
 function render(sg){
   nodes=new vis.DataSet(sg.nodes.map(n=>({
     id:n.id, label:n.id, title:(n.definition||'')+(n.formula?(' ['+n.formula+']'):''),
     ...nodeStyle(n), font:{...(nodeStyle(n).font||{}), face: isAr(n.id)?'Tahoma':undefined}
   })));
-  edges=new vis.DataSet(sg.edges.map((e,i)=>({
-    id:i, from:e.from, to:e.to, label:e.relation, arrows:'to',
-    color:{color: e.kind==='label'?'#22e3ff':'#ff5cf0', opacity:0.55},
-    font:{color:'#7e8aa8',size:10,strokeWidth:0,align:'middle'},
-    dashes: e.kind==='label'
-  })));
+  edges=new vis.DataSet(sg.edges.map((e,i)=>{
+    const ts=tensionStyle(e);
+    return {
+      id:i, from:e.from, to:e.to, label:e.relation, arrows:'to',
+      width: ts.width, dashes: ts.dashes,
+      title:'tension: '+(e.tension_band||'neutral')+' · tautness '+(e.tautness??'?')+' · cost '+(e.cost??'?'),
+      color:{color: ts.color, opacity:0.7},
+      font:{color:'#7e8aa8',size:10,strokeWidth:0,align:'middle'},
+    };
+  }));
   if(!net){
     net=new vis.Network(document.getElementById('net'), {nodes,edges}, {
       physics:{stabilization:{iterations:160}, barnesHut:{springLength:130,avoidOverlap:.4}},
@@ -409,8 +451,9 @@ async function expand(id){
   if(!ok) return;
   data.nodes.forEach(n=>{ if(!nodes.get(n.id)) nodes.add({id:n.id,label:n.id,...nodeStyle({...n,center:false})}); });
   let mx=edges.length;
-  data.edges.forEach(e=>{ edges.add({id:'x'+(mx++), from:e.from,to:e.to,label:e.relation,arrows:'to',
-    color:{color:e.kind==='label'?'#22e3ff':'#ff5cf0',opacity:.5}, dashes:e.kind==='label',
+  data.edges.forEach(e=>{ const ts=tensionStyle(e); edges.add({id:'x'+(mx++), from:e.from,to:e.to,label:e.relation,arrows:'to',
+    width:ts.width, color:{color:ts.color,opacity:.65}, dashes:ts.dashes,
+    title:'tension: '+(e.tension_band||'neutral')+' · tautness '+(e.tautness??'?'),
     font:{color:'#7e8aa8',size:10}}); });
 }
 
@@ -471,7 +514,7 @@ async function loadNames(){
 }
 
 (async function init(){
-  await loadStats(); await loadHubs(); await loadNames();
+  await loadStats(); await loadTension(); await loadHubs(); await loadNames();
   const {data}=await j('/api/kg/hubs?n=1');
   if(data.hubs && data.hubs.length) focusTerm(data.hubs[0].term);
 })();
