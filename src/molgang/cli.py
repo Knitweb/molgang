@@ -3,6 +3,7 @@
     molgang            a narrated demo session (faucet → propose → vote → woven Fiber →
                        collection/XP → leaderboard → OriginTrail anchor)
     molgang play       interactive: propose bonds, a class of peers votes, you collect molecules
+    molgang merge      merge every locally-woven knitwork into ONE combined knitweb + anchor it
 """
 
 from __future__ import annotations
@@ -153,6 +154,12 @@ def explore(argv: list[str]) -> int:
     return explore_main(argv)
 
 
+def merge(argv: list[str]) -> int:
+    """Merge locally-woven knitworks into ONE knitweb (see molgang.merge)."""
+    from .merge import main as merge_main
+    return merge_main(argv)
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv if argv is None else argv)
     cmd = argv[1] if len(argv) > 1 else "demo"
@@ -164,6 +171,8 @@ def main(argv: list[str] | None = None) -> int:
         return serve(argv[1:])
     if cmd == "explore":
         return explore(argv[1:])
+    if cmd == "merge":
+        return merge(argv[2:])
     if cmd == "certificate":
         return certificate(argv[2:])
     return demo()
