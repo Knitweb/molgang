@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import shlex
 import subprocess
-from pathlib import Path
+import sys
 
 
 def default_wallet_path() -> str:
@@ -19,17 +20,8 @@ def _pulse_cli() -> list[str]:
     """Return the Pulse CLI command Molgang should call."""
     override = os.environ.get("PULSE_CLI")
     if override:
-        return override.split()
-    here = Path(__file__).resolve()
-    candidates = [
-        here.parents[3] / "pulse" / "tools" / "cli" / "index.mjs",
-        here.parents[4] / "pulse" / "tools" / "cli" / "index.mjs",
-        Path.home() / "repo" / "pulse" / "tools" / "cli" / "index.mjs",
-    ]
-    for path in candidates:
-        if path.exists():
-            return ["node", str(path)]
-    raise RuntimeError("Pulse CLI not found; set PULSE_CLI or check out knitweb/pulse next to molgang")
+        return shlex.split(override)
+    return [sys.executable, "-m", "knitweb.app.cli"]
 
 
 def _run_pulse(args: list[str]) -> dict:
