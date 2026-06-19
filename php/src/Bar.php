@@ -17,6 +17,7 @@ final class Bar
     public const SEATS_PER_TABLE = 6;
     public const BOTS_PER_TABLE = 2;
     public const PRESENCE_ACTIVE_S = 30;   // a client is "active" if it beat within this window
+    public const SEAT_TTL_S = 120;         // a non-bot seat is reaped if its session goes silent this long
 
     public const AVATARS = [
         ['id' => 'laser-maxi', 'name' => 'Laser-Eyes Maxi'],
@@ -172,6 +173,7 @@ final class Bar
         $s = self::session($sid);
         if ($s === null) return ['error' => 'unknown session'];
         if (!in_array($tableId, array_column(self::TABLES, 'id'), true)) return ['error' => 'no such table'];
+        self::reapStale();                          // a stale-full table should still admit a real player
         if (self::seatedCount($tableId) >= self::SEATS_PER_TABLE && $s['table_id'] !== $tableId) {
             return ['error' => 'table full'];
         }
@@ -182,6 +184,22 @@ final class Bar
     private static function seatedCount(string $tableId): int
     {
         return (int) (Db::one('SELECT COUNT(*) c FROM session WHERE table_id=?', [$tableId])['c'] ?? 0);
+    }
+
+    /**
+     * Free seats whose session has gone silent past SEAT_TTL_S. Active clients
+     * bump session.last_seen on every poll (see session()), so only abandoned
+     * tabs/test sessions go stale. Bots never poll, so they are never reaped —
+     * otherwise the 2 NPC table-mates would vanish and a solo human could never
+     * reach quorum. Without this, stale seats inflate the seat-scaled quorum in
+     * settle() and a solo knit never weaves (issue #53).
+     */
+    private static function reapStale(): void
+    {
+        Db::run(
+            'DELETE FROM session WHERE last_seen < ? AND device_id NOT IN (SELECT device_id FROM player WHERE is_bot=1)',
+            [self::now() - self::SEAT_TTL_S]
+        );
     }
 
     // ---- knit / vote / settle ----------------------------------------------
@@ -264,6 +282,7 @@ final class Bar
     {
         $prop = Db::one('SELECT * FROM proposal WHERE pid=?', [$pid]);
         if ($prop === null || (int) $prop['settled'] === 1) return;
+        self::reapStale();                          // committee must reflect *active* seats, not ghosts (#53)
         $v = self::voteBreakdown($pid);
         $committee = max(1, self::seatedCount($prop['table_id']) - 1);   // seated minus the proposer
         $quorum = max(2, intdiv(2 * $committee, 3) + 1);                 // BFT supermajority, floor 2
@@ -291,6 +310,7 @@ final class Bar
     public static function state(?string $sid): array
     {
         self::ensureBots();
+        self::reapStale();                          // drop abandoned seats before rendering the floor
         $me = $sid ? self::session($sid) : null;
         $meDev = $me['device_id'] ?? null;
         if ($meDev) self::beat($meDev, 'web');
