@@ -27,7 +27,7 @@ def _seed_anchor_rel(confirmations: int) -> int:
     neutral anchor, and every additional confirm rapidly moves toward R_MAX.
     """
     confirms = max(1, int(confirmations))
-    rel = 4 * T.DEFAULT_ANCHOR_REL
+    rel = 5 * T.DEFAULT_ANCHOR_REL
     rel <<= min(confirms - 1, 3)
     return min(T.R_MAX, rel)
 

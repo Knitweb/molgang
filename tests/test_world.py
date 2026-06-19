@@ -46,7 +46,7 @@ def test_anchor_reliability_grows_with_more_confirmations():
     low = w.items[-1].anchor_rel
     w.weave_links([{"subject": "C", "object": "D", "relation": "is"}], "alice", "f2", 3)
     high = w.items[-1].anchor_rel
-    assert low >= T.DEFAULT_ANCHOR_REL
+    assert low >= 5 * T.DEFAULT_ANCHOR_REL
     assert high > low
 
 

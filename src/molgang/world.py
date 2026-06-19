@@ -33,7 +33,7 @@ def _seed_anchor_rel(confirmations: int) -> int:
     while extra confirms quickly move fibers toward strong reliability.
     """
     confirms = max(1, int(confirmations))
-    rel = 4 * T.DEFAULT_ANCHOR_REL  # confirmations=1 starts at neutral-leaning reliability
+    rel = 5 * T.DEFAULT_ANCHOR_REL  # confirmations=1 starts neutral (>=300 on SLAUT threshold)
     rel <<= min(confirms - 1, 3)    # grow fast, then saturate
     return min(T.R_MAX, rel)
 
