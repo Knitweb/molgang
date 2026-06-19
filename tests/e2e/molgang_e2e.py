@@ -71,7 +71,7 @@ def _click(page, selector: str) -> None:
     )
 
 
-def _serve_process(base_dir: Path, port: int) -> subprocess.Popen[str]:
+def _serve_process(base_dir: Path, host: str, port: int) -> subprocess.Popen[str]:
     world = base_dir / "world.json"
     db = base_dir / "registry.db"
     wallet = base_dir / "pulse-identity.cbor"
@@ -81,6 +81,8 @@ def _serve_process(base_dir: Path, port: int) -> subprocess.Popen[str]:
         "-m",
         "molgang.cli",
         "serve",
+        "--host",
+        host,
         "--port",
         str(port),
         "--world",
@@ -178,7 +180,9 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="MOLGANG browser e2e smoke test")
-    parser.add_argument("--base", default="http://127.0.0.1:8765", help="Molgang base URL")
+    parser.add_argument("--host", default="127.0.0.1",
+                        help="Host used for launching local server")
+    parser.add_argument("--base", default="", help="Molgang base URL (defaults to http://{host}:{port})")
     parser.add_argument("--term", default="H2O", help="Term to knit")
     parser.add_argument("--shots", default=str(_repo_root() / ".artifacts/e2e"),
                         help="Screenshot output directory")
@@ -187,6 +191,9 @@ def main() -> int:
                         help="Reuse an already-running server at --base")
     args = parser.parse_args()
 
+    host_for_base = args.host if args.host not in {"0.0.0.0", "::"} else "127.0.0.1"
+    base = args.base or f"http://{host_for_base}:{args.port}"
+
     shots = Path(args.shots).resolve()
     failures: list[str] = []
     proc: subprocess.Popen[str] | None = None
@@ -194,16 +201,16 @@ def main() -> int:
     try:
         if not args.reuse:
             tmp = tempfile.TemporaryDirectory(prefix="molgang-e2e-")
-            proc = _serve_process(Path(tmp.name), port=args.port)
+            proc = _serve_process(Path(tmp.name), host=args.host, port=args.port)
             try:
-                _wait_for_api(args.base, timeout_s=20)
-                failures = run_flow(args.base, shots, args.term)
+                _wait_for_api(base, timeout_s=20)
+                failures = run_flow(base, shots, args.term)
             finally:
                 _stop_process(proc)
                 tmp.cleanup()
         else:
-            _wait_for_api(args.base, timeout_s=20)
-            failures = run_flow(args.base, shots, args.term)
+            _wait_for_api(base, timeout_s=20)
+            failures = run_flow(base, shots, args.term)
     except Exception as e:
         print(f"E2E PLAYWRIGHT: failed ({e})")
         if proc and proc.stdout:

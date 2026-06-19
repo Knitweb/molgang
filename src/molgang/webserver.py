@@ -252,6 +252,7 @@ def _start_relay(bar: Bar, base: str, wallet: str | None, interval: float):
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="MOLGANG browser bar")
     ap.add_argument("--port", type=int, default=8765)
+    ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--world", default=None, help="shared world file (default ~/.molgang/world.json)")
     ap.add_argument("--db", default=None, help="device→wallet registry sqlite (default ~/.molgang/registry.db)")
     ap.add_argument("--wallet", default=default_wallet_path(),
@@ -272,15 +273,15 @@ def main(argv: list[str]) -> int:
     a = ap.parse_args([x for x in argv[1:] if x != "serve"])
     from .registry import Registry
     from .monitor import Monitor
-    listen = f"0.0.0.0:{a.port}"
+    listen = f"{a.host}:{a.port}"
     pulse = bootstrap_host(a.wallet, listen=listen, genesis=a.host_genesis)
     bar = Bar(a.world, Registry(a.db))
     monitor = Monitor(bar, web=a.monitor_web, world=a.world, pulse_host=pulse)
     relay = _start_relay(bar, a.relay, a.wallet, a.relay_interval) if a.relay else None
-    srv = ThreadingHTTPServer(("0.0.0.0", a.port),
+    srv = ThreadingHTTPServer((a.host, a.port),
                               make_handler(bar, pulse, cors=a.cors or None, monitor=monitor,
                                            relay=relay))
-    print(f"  🍸 MOLGANG bar open at http://localhost:{a.port}  (shared web: "
+    print(f"  🍸 MOLGANG bar open at http://{a.host}:{a.port}  (shared web: "
           f"{a.world or '~/.molgang/world.json'}) (Ctrl-C to close)")
     print(f"  📡 Monitor: nodes {[n['label'] for n in monitor.nodes]} · "
           f"local knitweb {monitor.source}")
