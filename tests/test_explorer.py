@@ -143,6 +143,25 @@ def test_suggest_on_miss_prefix_then_substring():
     assert graphx.suggest(g, "") == []
 
 
+def test_resolve_zero_o_formula_typo_tolerance():
+    """0↔o typo fallback resolves 'v205' → 'V2O5', but never mangles a normal word."""
+    g = graphx.build_from_web(_vweb())
+    # the typo (digit zero) resolves to the real node (letter O), case-insensitively too
+    assert graphx.resolve(g, "v205") == "V2O5"
+    assert graphx.resolve(g, "V205") == "V2O5"
+    assert graphx.resolve(g, "  v205  ") == "V2O5"
+    # the fallback is a fallback only — a genuine formula miss still resolves to None
+    assert graphx.resolve(g, "v999") is None
+    # GUARD: a digit-free word is never formula-like, so its o's are never swapped to 0
+    # ('oxygen' has no digit → no 0↔o variant is ever generated → it can't false-match a node)
+    assert graphx.resolve(g, "oxygen") == "oxygen"
+    assert not graphx._is_formula_like("oxygen")   # the guard: digit-free word is not a formula
+    assert graphx._is_formula_like("v205")          # but a formula-like token is
+    assert not graphx._is_formula_like("v2 o5")     # ...and a multi-word phrase is not
+    # 'v205' surfaces V2O5 as a suggestion (0↔o variant considered in the needle)
+    assert "V2O5" in graphx.suggest(g, "v205")
+
+
 def test_node_names_sorted_caseless():
     g = graphx.build_from_web(_vweb())
     names = graphx.node_names(g)

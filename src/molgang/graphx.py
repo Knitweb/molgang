@@ -66,6 +66,30 @@ def _rels(g, u, v) -> list[str]:
 _RESOLVE_ATTR = "_molgang_resolve_index"
 
 
+def _is_formula_like(folded: str) -> bool:
+    """True for a chemistry-formula-ish token: no whitespace, alnum-only, ≥1 digit.
+
+    The guard for the 0↔o fallback — so the swap only ever touches things like ``v205``
+    and never normal words (which carry no digit) or multi-word phrases.
+    """
+    return (bool(folded) and not any(c.isspace() for c in folded)
+            and folded.isalnum() and any(c.isdigit() for c in folded))
+
+
+def _zero_o_variants(folded: str) -> list[str]:
+    """0↔o swap variants of a (casefolded) formula-like token, excluding the original.
+
+    Treats digit ``0`` and letter ``o`` as interchangeable, so ``v205`` yields ``v2o5``
+    (and ``v2o5`` yields ``v205``). Returns the two single-direction swaps — folding all
+    zeros to ``o`` and all ``o`` to ``0`` — which covers the realistic typo both ways.
+    """
+    out = []
+    for variant in (folded.replace("0", "o"), folded.replace("o", "0")):
+        if variant != folded and variant not in out:
+            out.append(variant)
+    return out
+
+
 def _resolve_index(g) -> dict[str, str]:
     """A ``casefold(name) → actual node`` index, built once and cached on the graph.
 
@@ -89,8 +113,10 @@ def resolve(g, term: str | None) -> str | None:
     """Resolve a user-supplied ``term`` to the real node, case-insensitively.
 
     Trims surrounding whitespace and casefolds, so ``v2o5`` / ``" V2O5 "`` / ``V2o5`` all
-    resolve to the node ``V2O5``. An exact (already-correct) term is returned as-is. Returns
-    ``None`` when nothing matches.
+    resolve to the node ``V2O5``. An exact (already-correct) term is returned as-is. When the
+    case-insensitive lookup misses *and* the term looks like a chemistry formula (alnum, no
+    whitespace, ≥1 digit), a 0↔o typo fallback is tried — so ``v205`` (digit zero) resolves
+    to ``V2O5`` (letter O). Returns ``None`` when nothing matches.
     """
     if not term:
         return None
@@ -99,7 +125,17 @@ def resolve(g, term: str | None) -> str | None:
         return None
     if term in g:                       # exact hit — cheapest path
         return term
-    return _resolve_index(g).get(term.casefold())
+    idx = _resolve_index(g)
+    folded = term.casefold()
+    hit = idx.get(folded)
+    if hit is not None:                  # case-insensitive hit
+        return hit
+    if _is_formula_like(folded):         # fallback: 0↔o typo on a formula-like token only
+        for variant in _zero_o_variants(folded):
+            hit = idx.get(variant)
+            if hit is not None:
+                return hit
+    return None
 
 
 def suggest(g, term: str | None, limit: int = 8) -> list[str]:
@@ -115,17 +151,21 @@ def suggest(g, term: str | None, limit: int = 8) -> list[str]:
     needle = term.strip().casefold()
     if not needle:
         return []
+    # also match the 0↔o variant of a formula-like query, so 'v205' surfaces 'V2O5'
+    needles = [needle]
+    if _is_formula_like(needle):
+        needles.extend(_zero_o_variants(needle))
     prefix: list[str] = []
     contains: list[str] = []
     for node in g.nodes():
         if not isinstance(node, str):
             continue
         folded = node.casefold()
-        if folded == needle:
+        if folded == needle:            # exclude only the typed term itself (variants may hit)
             continue
-        if folded.startswith(needle):
+        if any(folded.startswith(n) for n in needles):
             prefix.append(node)
-        elif needle in folded:
+        elif any(n in folded for n in needles):
             contains.append(node)
     prefix.sort(key=lambda s: (len(s), s.casefold()))
     contains.sort(key=lambda s: (len(s), s.casefold()))
