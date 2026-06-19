@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import time
+
 from molgang.bar import Bar
+from molgang import tension as T
 from molgang.world import World
 
 
@@ -25,6 +28,26 @@ def test_two_instances_share_one_file(tmp_path):
     g = b.graph()                                  # b syncs from the file a just wrote
     assert any(r["label"] == "NaCl" for r in g["recent"])
     assert b.size() == a.size() and b.state_root() == a.state_root()
+
+
+def test_weave_knit_sets_anchor_fields():
+    w = World()
+    now = int(time.time()) - 1
+    w.weave_knit({"kind": "term", "term": "H2O"}, "alice", "f1", 1)
+    item = w.items[-1]
+    assert item.anchor_rel > 0
+    assert item.anchor_ts >= now
+    assert item.anchor_ts <= int(time.time())
+
+
+def test_anchor_reliability_grows_with_more_confirmations():
+    w = World()
+    w.weave_links([{"subject": "A", "object": "B", "relation": "is"}], "alice", "f1", 1)
+    low = w.items[-1].anchor_rel
+    w.weave_links([{"subject": "C", "object": "D", "relation": "is"}], "alice", "f2", 3)
+    high = w.items[-1].anchor_rel
+    assert low >= T.DEFAULT_ANCHOR_REL
+    assert high > low
 
 
 def test_bar_solo_play_confirms_and_combines(tmp_path):

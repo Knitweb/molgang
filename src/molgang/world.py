@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import asdict, dataclass, field
 
 from .knit_parse import clean
+from . import tension as T
 from knitweb.anchor import Notary
 from knitweb.anchor.origintrail import OriginTrailAnchorBackend
 from knitweb.core.pulse import Pulse
@@ -22,6 +24,18 @@ from knitweb.fabric.items import checkpoint, web_state_root
 from knitweb.fabric.web import Web
 
 _NOTARY_PRIV = "0" * 63 + "1"  # fixed dev notary so the UAL is reproducible per web state
+
+
+def _seed_anchor_rel(confirmations: int) -> int:
+    """Seed a non-zero anchor reliability from confirm count.
+
+    Use a capped exponential ramp so fresh one-confirm links are already non-slack,
+    while extra confirms quickly move fibers toward strong reliability.
+    """
+    confirms = max(1, int(confirmations))
+    rel = 4 * T.DEFAULT_ANCHOR_REL  # confirmations=1 starts at neutral-leaning reliability
+    rel <<= min(confirms - 1, 3)    # grow fast, then saturate
+    return min(T.R_MAX, rel)
 
 
 @dataclass
@@ -37,6 +51,8 @@ class WovenItem:
     links: list = field(default_factory=list)   # kind="spiral": ordered link dicts
     validators: int = 0
     pls_staked: int = 0
+    anchor_rel: int = 0
+    anchor_ts: int = 0
 
     @property
     def label(self) -> str:
@@ -117,6 +133,7 @@ class World:
             kind=parsed.get("kind", "term"), by=by, fiber_cid=fiber_cid, confirmations=confirmations,
             term=parsed.get("term", ""), subject=parsed.get("subject", ""),
             object=parsed.get("object", ""), relation=parsed.get("relation", ""),
+            anchor_rel=_seed_anchor_rel(confirmations), anchor_ts=int(time.time()),
         )
         self._apply(item)
         if self.path:
@@ -138,6 +155,7 @@ class World:
             item = WovenItem(
                 kind="link", by=by, fiber_cid=fiber_cid, confirmations=confirmations,
                 subject=pl["subject"], object=pl["object"], relation=pl.get("relation", "links"),
+                anchor_rel=_seed_anchor_rel(confirmations), anchor_ts=int(time.time()),
             )
             self._apply(item)
             woven.append(item)
@@ -156,6 +174,7 @@ class World:
             links=[{"subject": l["subject"], "object": l["object"],
                     "relation": l.get("relation", "links")} for l in links],
             validators=validators, pls_staked=pls_staked,
+            anchor_rel=_seed_anchor_rel(confirmations), anchor_ts=int(time.time()),
         )
         self._apply(item)
         if self.path:

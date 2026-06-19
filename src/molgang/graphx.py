@@ -20,6 +20,18 @@ from . import tension as T
 LANGS = ("en", "ru", "zh", "ar")
 
 
+def _seed_anchor_rel(confirmations: int) -> int:
+    """Match the world-side default seed so backfilled/fallback fibers keep behavior.
+
+    Same cap and exponent as world._seed_anchor_rel: confirm=1 starts from a usable
+    neutral anchor, and every additional confirm rapidly moves toward R_MAX.
+    """
+    confirms = max(1, int(confirmations))
+    rel = 4 * T.DEFAULT_ANCHOR_REL
+    rel <<= min(confirms - 1, 3)
+    return min(T.R_MAX, rel)
+
+
 def _fiber_for(it, *, mismatches: int = 0) -> T.Fiber:
     """Build the integer :class:`tension.Fiber` carried on an edge woven from ``it``.
 
@@ -27,10 +39,14 @@ def _fiber_for(it, *, mismatches: int = 0) -> T.Fiber:
     ``anchor_rel`` / ``anchor_ts`` / ``weaver`` come from the item when present (a plain
     WovenItem has none, so they default — confirms-only fibers start NEUTRAL/forming).
     """
+    confirms = max(1, getattr(it, "confirmations", 1))
+    anchor_rel = getattr(it, "anchor_rel", 0)
+    if anchor_rel <= 0:
+        anchor_rel = _seed_anchor_rel(confirms)
     return T.Fiber(
-        confirms=max(1, getattr(it, "confirmations", 1)),
+        confirms=confirms,
         mismatches=getattr(it, "mismatches", mismatches) or 0,
-        anchor_rel=getattr(it, "anchor_rel", T.DEFAULT_ANCHOR_REL),
+        anchor_rel=anchor_rel,
         anchor_ts=getattr(it, "anchor_ts", 0) or 0,
         weaver=getattr(it, "by", "") or "",
     )
@@ -68,8 +84,12 @@ def _edge_fiber(data: dict) -> T.Fiber:
     f = data.get("fiber")
     if isinstance(f, T.Fiber):
         return f
-    return T.Fiber(confirms=max(1, int(data.get("weight", 1) or 1)),
-                   anchor_rel=T.DEFAULT_ANCHOR_REL)
+    confirms = max(1, int(data.get("weight", 1) or 1))
+    return T.Fiber(
+        confirms=confirms,
+        anchor_rel=_seed_anchor_rel(confirms),
+        anchor_ts=0,
+    )
 
 
 def tension_cost(g, u, v, data: dict, now: int = 0):
