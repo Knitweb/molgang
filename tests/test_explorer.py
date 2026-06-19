@@ -84,6 +84,88 @@ def test_load_graph_falls_back_to_sample(tmp_path):
     assert graphx.concept(g, "H2O")["labels"]["zh"] == "水"
 
 
+def _vweb():
+    """A store with a mixed-case key (``V2O5``) + its multilingual labels, for resolution tests."""
+    return {"name": "v", "balances": {}, "records": [
+        {"t": "record", "data": {"kind": "concept", "key": "V2O5", "formula": "V2O5",
+                                 "definition": "Vanadium(V) oxide.", "by": "seed"}},
+        {"t": "link", "subject": "V2O5", "object": "Vanadium pentoxide", "relation": "label:en", "weight": 1},
+        {"t": "link", "subject": "V2O5", "object": "Оксид ванадия(V)", "relation": "label:ru", "weight": 1},
+        {"t": "link", "subject": "V2O5", "object": "五氧化二钒", "relation": "label:zh", "weight": 1},
+        {"t": "link", "subject": "V2O5", "object": "أكسيد الفناديوم", "relation": "label:ar", "weight": 1},
+        {"t": "link", "subject": "V2O5", "object": "oxygen", "relation": "contains", "weight": 1},
+        {"t": "record", "data": {"kind": "concept", "key": "oxygen", "by": "seed"}},
+    ]}
+
+
+def test_resolve_is_case_insensitive_and_trims():
+    g = graphx.build_from_web(_vweb())
+    # exact, lower, mixed, and surrounding whitespace all hit the real node V2O5
+    assert graphx.resolve(g, "V2O5") == "V2O5"
+    assert graphx.resolve(g, "v2o5") == "V2O5"
+    assert graphx.resolve(g, "V2o5") == "V2O5"
+    assert graphx.resolve(g, "  v2o5  ") == "V2O5"
+    # a genuine miss / blank input resolves to None
+    assert graphx.resolve(g, "nope") is None
+    assert graphx.resolve(g, "") is None
+    assert graphx.resolve(g, None) is None
+
+
+def test_neighbors_path_concept_resolve_case_insensitively():
+    g = graphx.build_from_web(_vweb())
+    # neighbours of the lowercase term land on the real node and its real out-edges
+    nb = graphx.neighbors(g, " v2o5 ")
+    assert nb["term"] == "V2O5"
+    assert {(n["relation"], n["to"]) for n in nb["out"]} >= {
+        ("contains", "oxygen"), ("label:en", "Vanadium pentoxide")}
+    # path resolves both endpoints case-insensitively
+    p = graphx.path(g, "v2o5", "OXYGEN")
+    assert p["from"] == "V2O5" and p["to"] == "oxygen"
+    assert p["path"] == ["V2O5", "oxygen"]
+    # concept lookup is case-insensitive and returns the multilingual labels
+    c = graphx.concept(g, "v2o5")
+    assert c["key"] == "V2O5"
+    assert c["labels"]["en"] == "Vanadium pentoxide" and c["labels"]["zh"] == "五氧化二钒"
+    # subgraph centres on the resolved node
+    assert graphx.subgraph(g, "v2o5", depth=1)["center"] == "V2O5"
+
+
+def test_suggest_on_miss_prefix_then_substring():
+    g = graphx.build_from_web(_vweb())
+    # a bare 'v' surfaces V2O5 (Vanadium…) — prefix matches lead, shortest-first
+    sugg = graphx.suggest(g, "v")
+    assert "V2O5" in sugg
+    assert all(s.casefold() != "v" for s in sugg)          # the term itself is excluded
+    assert len(sugg) <= 8
+    # substring-only matches are found too ('xy' is inside 'oxygen')
+    assert "oxygen" in graphx.suggest(g, "xy")
+    # a resolvable term needs no suggestion path, and blank input yields none
+    assert graphx.suggest(g, "") == []
+
+
+def test_node_names_sorted_caseless():
+    g = graphx.build_from_web(_vweb())
+    names = graphx.node_names(g)
+    assert "V2O5" in names and "oxygen" in names
+    assert names == sorted(names, key=str.casefold)
+
+
+def test_explore_returns_suggestions_on_miss():
+    """The in-game Graph tab path: graphx.explore (used by world.explore) suggests on a miss."""
+    class _It:                          # a minimal WovenItem stand-in for graphx.build()
+        def __init__(self, **k):
+            self.__dict__.update(k)
+            self.confirmations = k.get("confirmations", 1)
+
+    items = [_It(kind="link", subject="V2O5", object="oxygen", relation="contains")]
+    res = graphx.explore(items, term="v")               # missed term → suggestions
+    assert res["neighbors"] is None
+    assert res["missing"] == ["v"] and "V2O5" in res["suggestions"]
+    res2 = graphx.explore(items, frm="v2o5", to="zzz")  # one endpoint resolves, one misses
+    assert res2["path"] is None
+    assert res2["missing"] == ["zzz"]                   # v2o5 resolved to V2O5; only zzz missing
+
+
 def test_world_to_store_roundtrips(tmp_path):
     world = {"items": [
         {"kind": "term", "by": "x", "fiber_cid": "f", "confirmations": 1, "term": "acid"},

@@ -62,8 +62,85 @@ def _rels(g, u, v) -> list[str]:
     return [data.get("relation", "links")]
 
 
+# -- case-insensitive term resolution + suggestions -------------------------
+_RESOLVE_ATTR = "_molgang_resolve_index"
+
+
+def _resolve_index(g) -> dict[str, str]:
+    """A ``casefold(name) → actual node`` index, built once and cached on the graph.
+
+    ``casefold`` (not ``lower``) so it folds the full Unicode case map; it is a no-op for
+    zh/ar node labels (correct — they are caseless) but resolves en/ru regardless of case.
+    The cache is invalidated when the node count changes (graphs here are built once and
+    read-only, but this keeps the index correct if a node is ever added).
+    """
+    idx = g.graph.get(_RESOLVE_ATTR)
+    if idx is not None and idx.get("__n__") == g.number_of_nodes():
+        return idx
+    idx = {"__n__": g.number_of_nodes()}
+    for node in g.nodes():
+        if isinstance(node, str):
+            idx.setdefault(node.casefold(), node)
+    g.graph[_RESOLVE_ATTR] = idx
+    return idx
+
+
+def resolve(g, term: str | None) -> str | None:
+    """Resolve a user-supplied ``term`` to the real node, case-insensitively.
+
+    Trims surrounding whitespace and casefolds, so ``v2o5`` / ``" V2O5 "`` / ``V2o5`` all
+    resolve to the node ``V2O5``. An exact (already-correct) term is returned as-is. Returns
+    ``None`` when nothing matches.
+    """
+    if not term:
+        return None
+    term = term.strip()
+    if not term:
+        return None
+    if term in g:                       # exact hit — cheapest path
+        return term
+    return _resolve_index(g).get(term.casefold())
+
+
+def suggest(g, term: str | None, limit: int = 8) -> list[str]:
+    """Up to ``limit`` node-name suggestions for a term that didn't resolve.
+
+    Case-insensitive: substring matches first (the needle appears anywhere in the node
+    name), then prefix matches, then any remaining names containing the needle — so a bare
+    ``v`` surfaces ``V2O5``, ``valence electron``, ``vanadium…`` etc. Sorted shortest-first
+    so the closest/tightest names float to the top. An empty/blank ``term`` returns ``[]``.
+    """
+    if not term:
+        return []
+    needle = term.strip().casefold()
+    if not needle:
+        return []
+    prefix: list[str] = []
+    contains: list[str] = []
+    for node in g.nodes():
+        if not isinstance(node, str):
+            continue
+        folded = node.casefold()
+        if folded == needle:
+            continue
+        if folded.startswith(needle):
+            prefix.append(node)
+        elif needle in folded:
+            contains.append(node)
+    prefix.sort(key=lambda s: (len(s), s.casefold()))
+    contains.sort(key=lambda s: (len(s), s.casefold()))
+    return (prefix + contains)[:limit]
+
+
+def node_names(g, limit: int | None = None) -> list[str]:
+    """Sorted node names — for the UI's type-ahead ``<datalist>``."""
+    names = sorted((n for n in g.nodes() if isinstance(n, str)), key=lambda s: s.casefold())
+    return names[:limit] if limit else names
+
+
 def neighbors(g: nx.DiGraph, term: str) -> dict | None:
-    if term not in g:
+    term = resolve(g, term)
+    if term is None:
         return None
     out, inn = [], []
     for v in g.successors(term):
@@ -76,7 +153,8 @@ def neighbors(g: nx.DiGraph, term: str) -> dict | None:
 
 
 def path(g: nx.DiGraph, frm: str, to: str) -> dict | None:
-    if frm not in g or to not in g:
+    frm, to = resolve(g, frm), resolve(g, to)
+    if frm is None or to is None:
         return None
     try:
         p = nx.shortest_path(g.to_undirected(as_view=True), frm, to)
@@ -91,9 +169,18 @@ def explore(items, *, term: str | None = None, frm: str | None = None,
     g = build(items)
     out: dict = {"stats": stats(g), "hubs": hubs(g)}
     if term:
-        out["neighbors"] = neighbors(g, term)
+        nb = neighbors(g, term)
+        out["neighbors"] = nb
+        if nb is None:                  # case-insensitive miss → offer suggestions
+            out["missing"] = [term]
+            out["suggestions"] = suggest(g, term)
     if frm and to:
-        out["path"] = path(g, frm, to)
+        res = path(g, frm, to)
+        out["path"] = res
+        if res is None:
+            missing = [t for t in (frm, to) if resolve(g, t) is None]
+            out["missing"] = missing
+            out["suggestions"] = sorted({s for t in missing for s in suggest(g, t)})
     return out
 
 
@@ -179,7 +266,8 @@ def centrality_hubs(g: nx.DiGraph, n: int = 12) -> list[dict]:
 
 def concept(g: nx.DiGraph, key: str) -> dict | None:
     """A concept's 4 language labels (en/ru/zh/ar) + its concept (non-label) relations."""
-    if key not in g:
+    key = resolve(g, key)
+    if key is None:
         return None
     data = dict(g.nodes[key])
     labels: dict[str, str] = {}
@@ -219,7 +307,8 @@ def subgraph(g: nx.DiGraph, term: str, depth: int = 2, *, langs=None,
     client stays interactive. If ``langs`` is given (a set of language codes), only
     ``label:<lang>`` edges for those languages are kept (concept relations always kept).
     """
-    if term not in g:
+    term = resolve(g, term)
+    if term is None:
         return None
     und = g.to_undirected(as_view=True)
     seen = {term}

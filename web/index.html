@@ -106,12 +106,13 @@
     <div id="gx-stats" class="summary"></div>
     <div id="gx-hubs"></div>
     <div class="knit-box">
-      <input id="gx-term" placeholder="explore a term's links — e.g. V2O5" />
+      <input id="gx-term" list="gx-names" autocomplete="off" placeholder="explore a term's links — e.g. V2O5 (case-insensitive)" />
       <button id="gx-go">explore</button>
-      <input id="gx-a" placeholder="from" style="max-width:150px" />
-      <input id="gx-b" placeholder="to" style="max-width:150px" />
+      <input id="gx-a" list="gx-names" autocomplete="off" placeholder="from" style="max-width:150px" />
+      <input id="gx-b" list="gx-names" autocomplete="off" placeholder="to" style="max-width:150px" />
       <button id="gx-path">shortest path</button>
     </div>
+    <datalist id="gx-names"></datalist>
     <div id="gx-result" class="dim"></div>
   </section>
 
