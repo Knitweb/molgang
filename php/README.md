@@ -61,6 +61,54 @@ KNODE_DAPP=https://5mart.ml/molgang MOLGANG_DEVICE=<device-id> python3 php/deskt
 The browser then shows **🖥️ desktop active**; the desktop prints whether the **browser** is
 active/used-before. Both resolve to the same device→wallet identity.
 
+## Live knitweb node — HTTP relay + signed onboarding (Refs #61 #62 #63)
+
+5mart.ml also runs as an **always-on knitweb presence + relay node**. Because shared hosting
+**blocks all inbound TCP** (a process can `bind()` but the perimeter firewall drops inbound from
+the internet — see [`PORTCHECK.md`](PORTCHECK.md)), the transport is **HTTP through the
+always-on nginx**, request-driven like the rest of the dapp. Peers rendezvous via 5mart.ml: a
+node POSTs a **signed** message, the relay stores it (MySQL), and the recipient polls for it.
+
+### Wallet-signed QR onboarding (#63)
+A node joins by proving control of its **knitweb wallet** (secp256k1 / the exact
+`knitweb.core.crypto` scheme: ECDSA over SHA-256, 33-byte compressed pubkey hex, DER sig hex).
+
+1. `GET /api/onboard/challenge` → `{ challenge, endpoint, qr, qr_image, … }`. The **QR** encodes
+   `knitweb://onboard?endpoint=…&challenge=…` so a phone/desktop wallet can scan it.
+2. The wallet **signs the exact `challenge` string** and `POST`s
+   `/api/onboard/register` `{ pubkey, sig, device_fp, challenge, endpoint? }`.
+3. PHP **verifies the signature** (`src/Crypto.php`, via the bundled OpenSSL — a compressed
+   secp256k1 point is wrapped into an SPKI PEM, no GMP/native lib needed). **Only on a valid
+   signature** is the node's `(pubkey, derived pls1 address, device_fp)` written to the new
+   **`node_registry`** table. Missing/forged/expired/replayed signatures are rejected (`400`),
+   and the challenge is one-time-use (burned in `node_challenge`). **Signature-gated writes only.**
+
+### HTTP relay + presence (#61)
+Registered nodes talk through 5mart.ml. Every relayed message carries the sender's signature so
+the reader re-verifies it end-to-end (the relay is dumb store-and-forward).
+
+| route | method | purpose |
+|---|---|---|
+| `/api/relay/info`   | GET  | node identity/health card (online count, etc.) |
+| `/api/relay/online` | GET  | roster of currently-live nodes |
+| `/api/relay/ping`   | POST | `{pubkey, endpoint?}` heartbeat (registered only) |
+| `/api/relay/send`   | POST | `{from, to?, topic?, body, sig}` store a **signed** message |
+| `/api/relay/fetch`  | GET  | `?to=&topic=&since=` poll for messages (broadcast + addressed) |
+
+The signed preimage for relay is `"knitweb-relay:v1\n<to>\n<topic>\n<body>"`.
+
+### Schema + tests
+```bash
+mysql -h HOST -u USER -p DBNAME < php/node_registry.sql   # additive: node_registry, node_challenge, relay_message
+php php/tests/relay_smoke.php    # signature-gate proof (SQLite, no server): onboard/relay accept-valid, reject-forged/replayed
+```
+
+> **Why OpenSSL and not a pure-PHP secp256k1 lib:** PHP 8.1's bundled OpenSSL supports secp256k1,
+> ECDSA-SHA256 and DER signatures, and parses **compressed** SEC1 points directly into an SPKI
+> PEM. A real signature produced by Python's `cryptography` (the same lib `knitweb.core.crypto`
+> uses) verifies under this PHP path, and the PHP-derived `pls1` address byte-matches
+> `knitweb.core.crypto.address`. No native build, no vendored lib.
+
 ## Test
 ```bash
 php php/tests/smoke.php     # join → sit → knit → quorum → woven → web → presence (SQLite, no DB needed)
