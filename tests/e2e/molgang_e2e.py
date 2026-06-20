@@ -49,7 +49,7 @@ def _wait_for_api(base: str, timeout_s: float = 20.0) -> None:
 
 def _wait_for_text(page, selector: str, expected: str, timeout_ms: int = 10_000) -> bool:
     return page.wait_for_function(
-        "(s, v) => (document.querySelector(s)?.textContent || '').trim() === v",
+        "([s, v]) => (document.querySelector(s)?.textContent || '').trim() === v",
         arg=(selector, expected),
         timeout=timeout_ms,
     ) is not None
@@ -57,7 +57,7 @@ def _wait_for_text(page, selector: str, expected: str, timeout_ms: int = 10_000)
 
 def _wait_for_contains(page, selector: str, expected: str, timeout_ms: int = 15_000) -> bool:
     return page.wait_for_function(
-        "(s, v) => (document.querySelector(s)?.textContent || '').includes(v)",
+        "([s, v]) => (document.querySelector(s)?.textContent || '').includes(v)",
         arg=(selector, expected),
         timeout=timeout_ms,
     ) is not None
@@ -163,8 +163,11 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
 
             if not _wait_for_contains(page, "#fabric", term, timeout_ms=15_000):
                 failures.append(f"term '{term}' never appeared in table fabric")
-            if not _wait_for_text(page, "#me-silk", "9", timeout_ms=8_000):
-                failures.append("silk did not spend 1 on successful knit")
+            if not _wait_for_text(page, "#me-knits", "1", timeout_ms=8_000):
+                failures.append("successful knit did not increment the knit counter")
+            silk_after = int((page.text_content("#me-silk") or "0").strip() or "0")
+            if silk_after < 10:
+                failures.append("successful useful work did not restore enough silk to keep knitting")
 
             open_block = (page.text_content("#open") or "")
             if term in open_block and "✓" not in open_block:
