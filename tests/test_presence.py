@@ -1,13 +1,74 @@
+"""Sprint 3 #17 presence coverage.
+
+The pure presence core stays importable without the knitweb engine. The Bar/webserver
+regressions import lazily so this file still proves that boundary.
+"""
 from __future__ import annotations
 
+import importlib.util
 import io
 import json
+from pathlib import Path
 
-from molgang.bar import Bar
-from molgang.webserver import make_handler
+import pytest
+
+_spec = importlib.util.spec_from_file_location(
+    "molgang_presence",
+    Path(__file__).resolve().parent.parent / "src/molgang/presence.py",
+)
+m = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(m)
+Presence, ONLINE, AWAY, GONE = m.Presence, m.ONLINE, m.AWAY, m.GONE
+
+
+def test_status_transitions():
+    p = Presence(away_after=30, gone_after=90)
+    p.beat("a", now=1000.0)
+    assert p.status("a", 1010.0) == ONLINE
+    assert p.status("a", 1040.0) == AWAY
+    assert p.status("a", 1100.0) == GONE
+    assert p.status("unknown", 1000.0) == GONE
+
+
+def test_beat_refreshes():
+    p = Presence(away_after=30, gone_after=90)
+    p.beat("a", 1000.0)
+    p.beat("a", 1080.0)
+    assert p.status("a", 1090.0) == ONLINE
+
+
+def test_reap_returns_and_removes_gone():
+    p = Presence(away_after=30, gone_after=90)
+    p.beat("ghost", 1000.0)
+    p.beat("live", 1000.0)
+    p.beat("live", 1200.0)
+    assert p.reap(now=1200.0) == ["ghost"]
+    assert p.reap(now=1200.0) == []
+    assert p.status("live", 1200.0) == ONLINE
+
+
+def test_online_and_snapshot():
+    p = Presence(away_after=30, gone_after=90)
+    p.beat("a", 1000.0)
+    p.beat("b", 940.0)
+    assert set(p.online(1000.0)) == {"a", "b"}
+    snap = p.snapshot(1000.0)
+    assert snap["a"] == ONLINE and snap["b"] == AWAY
+
+
+def test_drop_and_validation():
+    p = Presence()
+    p.beat("a", 1.0)
+    p.drop("a")
+    p.drop("a")
+    assert p.status("a", 1.0) == GONE
+    with pytest.raises(ValueError):
+        Presence(away_after=90, gone_after=30)
 
 
 def test_device_reconnect_reuses_live_session_and_table(tmp_path):
+    from molgang.bar import Bar
+
     now = [1000.0]
     bar = Bar(str(tmp_path / "w.json"), stale_session_s=30, clock=lambda: now[0])
 
@@ -22,6 +83,8 @@ def test_device_reconnect_reuses_live_session_and_table(tmp_path):
 
 
 def test_stale_human_session_is_reaped_and_frees_table_owner(tmp_path):
+    from molgang.bar import Bar
+
     now = [1000.0]
     bar = Bar(str(tmp_path / "w.json"), stale_session_s=10, clock=lambda: now[0])
     player = bar.join("Owner", "laser-maxi", "periodic", device="phone-2")
@@ -58,21 +121,30 @@ def _request(handler, raw: bytes) -> tuple[bytes, dict]:
 
 def _post(handler, path: str, body: dict) -> tuple[bytes, dict]:
     payload = json.dumps(body).encode()
-    raw = (f"POST {path} HTTP/1.1\r\nContent-Type: application/json\r\n"
-           f"Content-Length: {len(payload)}\r\n\r\n").encode() + payload
+    raw = (
+        f"POST {path} HTTP/1.1\r\nContent-Type: application/json\r\n"
+        f"Content-Length: {len(payload)}\r\n\r\n"
+    ).encode() + payload
     return _request(handler, raw)
 
 
 def test_presence_http_routes_heartbeat_stand_and_leave(tmp_path):
+    from molgang.bar import Bar
+    from molgang.webserver import make_handler
+
     bar = Bar(str(tmp_path / "w.json"))
     handler = make_handler(bar)
 
-    status, joined = _post(handler, "/api/join", {
-        "name": "Browser",
-        "avatar": "laser-maxi",
-        "table": "periodic",
-        "device": "browser-1",
-    })
+    status, joined = _post(
+        handler,
+        "/api/join",
+        {
+            "name": "Browser",
+            "avatar": "laser-maxi",
+            "table": "periodic",
+            "device": "browser-1",
+        },
+    )
     assert b"200" in status
     sid = joined["sid"]
     assert bar.sessions[sid].table_id == "periodic"
