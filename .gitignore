@@ -8,3 +8,6 @@ build/
 .DS_Store
 .molgang/
 .artifacts/
+
+# Generated weave plan emitted by scripts/weave_multilingual_terms.py (source is multilingual_terms.json)
+data/chemistry/multilingual_links.json
