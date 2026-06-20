@@ -4,7 +4,14 @@ The bar is a single Python process (`molgang serve`) that serves the `web/` UI *
 API. The browser client (`app.js`) is **path-prefix-safe** *and* can point at a **remote** API:
 it reads `window.MOLGANG_API` from [`web/config.js`](web/config.js).
 
-So there are two parts:
+For the full p2p deployment there are two game hosts:
+
+| Host | Role |
+|------|------|
+| **5mart.ml / TransIP** | PHP/MySQL dapp plus HTTPS relay/presence node (`/api/onboard/*`, `/api/relay/*`) |
+| **Port-forwarded Python server** | Live `molgang serve` game API registered into the same relay fabric |
+
+For the browser/backend split there are two parts:
 
 | Part            | What                                   | Where it can live                               |
 |-----------------|----------------------------------------|-------------------------------------------------|
@@ -64,6 +71,26 @@ pip install -e . -e ../pulse
 molgang serve --port 8765 --world ~/.molgang/world.json --db ~/.molgang/registry.db
 # keep alive with systemd / pm2 / tmux (see unit at the bottom)
 ```
+
+### Always-on relay convergence
+After TCP `8765` is forwarded to the Python server and reachable from the internet, point the
+server at the 5mart relay:
+
+```bash
+molgang serve \
+  --port 8765 \
+  --world ~/.molgang/world.json \
+  --db ~/.molgang/registry.db \
+  --relay https://5mart.ml/molgang/api/relay \
+  --relay-wallet ~/.molgang/server-node.cbor \
+  --relay-interval 60 \
+  --monitor \
+  --monitor-nodes alice=8900,bob=8901
+```
+
+That process pulls relayed world items on startup, pushes each local woven knit back to the
+relay, keeps `/api/monitor` available for the dashboard, and exposes `/api/relay` with the
+local relay status. Use `POST /api/relay/pull` for an immediate manual pull.
 
 ---
 
