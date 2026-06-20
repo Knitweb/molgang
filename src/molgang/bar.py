@@ -109,6 +109,9 @@ class SpiralView:
     by_name: str
     round: "game.SpiralRound"
     voters: set = field(default_factory=set)
+    shared_votes: dict = field(default_factory=dict)  # stable voter key -> verdict
+    leader_key: str = ""
+    shared: bool = False
     settled: bool = False
     captured: bool = False
 
@@ -233,34 +236,102 @@ class Bar:
                         pass
 
     # -- the spiral loop ---------------------------------------------------
+    def _player_key(self, sess: Session) -> str:
+        return sess.device or sess.player.node.address
+
+    def _spiral_record(self, sv: SpiralView) -> dict:
+        return {
+            "cid": sv.cid,
+            "table_id": sv.table_id,
+            "by_name": sv.by_name,
+            "leader_key": sv.leader_key,
+            "links": [{"subject": l["subject"], "object": l["object"],
+                       "relation": l.get("relation", "links")} for l in sv.round.links],
+            "votes": [{"voter": k, "verdict": v} for k, v in sorted(sv.shared_votes.items())],
+        }
+
+    def _fake_spiral_voter(self, key: str) -> Player:
+        return Player.from_device(f"spiral-voter:{key}", f"peer:{key[:8]}")
+
+    def _apply_shared_votes(self, sv: SpiralView, record: dict) -> None:
+        for row in record.get("votes", []):
+            key = str(row.get("voter", ""))
+            verdict = str(row.get("verdict", "confirm"))
+            if not key or key in sv.shared_votes:
+                continue
+            try:
+                game.cast_spiral_vote(sv.round, self._fake_spiral_voter(key),
+                                      quorum.Verdict(verdict))
+            except RuntimeError:
+                continue
+            sv.shared_votes[key] = verdict
+
+    def _spiral_from_record(self, record: dict) -> SpiralView:
+        leader_key = str(record.get("leader_key") or record.get("by_name") or record["cid"])
+        leader = Player.from_device(f"spiral-leader:{leader_key}",
+                                    str(record.get("by_name") or "remote"),
+                                    silk=100)
+        rnd = game.SpiralRound(leader=leader, escrow=game.AccountNode(),
+                               links=list(record.get("links", [])))
+        sv = SpiralView(
+            cid=str(record["cid"]),
+            table_id=str(record["table_id"]),
+            by=f"shared:{leader_key}",
+            by_name=str(record.get("by_name") or "remote"),
+            round=rnd,
+            leader_key=leader_key,
+            shared=True,
+        )
+        self._apply_shared_votes(sv, record)
+        return sv
+
+    def _sync_shared_spirals(self) -> None:
+        records = {str(r["cid"]): r for r in self.world.list_open_spirals()}
+        for cid, record in records.items():
+            sv = self.spirals.get(cid)
+            if sv is None:
+                self.spirals[cid] = self._spiral_from_record(record)
+            elif not sv.settled:
+                self._apply_shared_votes(sv, record)
+        for cid, sv in list(self.spirals.items()):
+            if sv.leader_key and not sv.settled and cid not in records:
+                self.spirals.pop(cid, None)
+
     def propose_spiral(self, sid: str, lines: list[str]) -> SpiralView:
         sess = self._require(sid)
         if not sess.table_id:
             raise RuntimeError("take a seat at a table first")
+        self._sync_shared_spirals()
         open_here = [s for s in self.spirals.values()
                      if s.table_id == sess.table_id and not s.settled]
         if len(open_here) >= 2:
             raise RuntimeError("too many open spirals at this table (max 2)")
         links = spiral_links(lines)                       # raises if not all links
         rnd = game.propose_spiral(sess.player, links)     # spends escalating silk
-        cid = f"s{next(self._scid)}"
-        sv = SpiralView(cid=cid, table_id=sess.table_id, by=sid, by_name=sess.name, round=rnd)
+        cid = f"s{secrets.token_hex(6)}"
+        sv = SpiralView(cid=cid, table_id=sess.table_id, by=sid, by_name=sess.name, round=rnd,
+                        leader_key=self._player_key(sess))
         self.spirals[cid] = sv
+        self.world.publish_open_spiral(self._spiral_record(sv))
         self._bots_spiral_act()                           # NPCs back it immediately
         self._persist_balances()                          # leader spent silk (+ any settle)
         return sv
 
     def vote_spiral(self, sid: str, cid: str, verdict: str) -> SpiralView:
         sess = self._require(sid)
+        self._sync_shared_spirals()
         sv = self.spirals.get(cid)
         if not sv or sv.settled:
             raise RuntimeError("no open spiral with that id")
-        if sid == sv.by:
+        voter_key = self._player_key(sess)
+        if sid == sv.by or (sv.leader_key and voter_key == sv.leader_key):
             raise RuntimeError("you cannot back your own spiral")
-        if sid in sv.voters:
+        if sid in sv.voters or voter_key in sv.shared_votes:
             raise RuntimeError("you already backed this spiral")
         game.cast_spiral_vote(sv.round, sess.player, quorum.Verdict(verdict))
         sv.voters.add(sid)
+        sv.shared_votes[voter_key] = verdict
+        self.world.publish_open_spiral(self._spiral_record(sv))
         others = self._seated_count(sv.table_id) - 1
         if len(sv.round.votes) >= max(game.MIN_SPIRAL_VOTERS, others):
             self._settle_spiral(sv)
@@ -275,6 +346,7 @@ class Bar:
         k = progression.reputation_threshold(levels, len(sv.round.votes))
         s = game.settle_spiral(sv.round, threshold=k)
         sv.settled, sv.captured = True, s.captured
+        self.world.remove_open_spiral(sv.cid)
         if s.captured:
             self.world.weave_spiral(sv.round.links, sv.by_name, s.leader_fiber_cid,
                                     s.result.confirms, validators=len(sv.round.votes),
@@ -533,6 +605,7 @@ class Bar:
         self.reap_stale()
         if sid in self.sessions:
             self.touch(sid)
+        self._sync_shared_spirals()
         tables = []
         me = self.sessions.get(sid) if sid else None
         for t in self.tables.values():
