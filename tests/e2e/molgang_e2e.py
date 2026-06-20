@@ -163,8 +163,17 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
 
             if not _wait_for_contains(page, "#fabric", term, timeout_ms=15_000):
                 failures.append(f"term '{term}' never appeared in table fabric")
-            if not _wait_for_text(page, "#me-silk", "9", timeout_ms=8_000):
-                failures.append("silk did not spend 1 on successful knit")
+            # A WOVEN knit RESTORES the proposer's silk: propose spends 1 (10->9), then a confirm
+            # quorum refunds it on settle (game.settle: proposer.silk += SILK_PER_BOND), so silk is
+            # back to 10. Seeded NPC table-mates back the knit SYNCHRONOUSLY inside propose()
+            # (bar._bots_act), so weaving — and the refund — happen before the client can ever poll
+            # the transient "9". Assert the post-weave value (10), and degrade to a failure (not a
+            # hard wait_for_function crash) if it never settles. (Fixes #154 — the stale "9" check
+            # broke when #80 made bot backing synchronous.)
+            try:
+                _wait_for_text(page, "#me-silk", "10", timeout_ms=8_000)
+            except Exception:
+                failures.append("silk not restored to 10 after a woven knit (knit may not have settled)")
 
             open_block = (page.text_content("#open") or "")
             if term in open_block and "✓" not in open_block:
