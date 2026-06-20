@@ -8,10 +8,14 @@ proves Django delegates correctly to a shared ``Bar`` singleton.
 from __future__ import annotations
 
 import json
+from unittest.mock import call, patch
 
+from asgiref.sync import async_to_sync
+from channels.testing import WebsocketCommunicator
 from django.test import Client, TestCase
 
 from . import engine
+from .events import world_state_event
 from .serializers import account_pill_from_state
 
 
@@ -108,6 +112,57 @@ class ApiSmokeTest(TestCase):
         html = r.content.decode()
         self.assertIn("data-account-pill", html)
         self.assertIn("Walk in", html)
+
+    def test_world_state_event_uses_canonical_api_shape(self):
+        sid = self._post("/api/join", {"name": "Ada", "device": "dev-ws-shape"}).json()["sid"]
+        event = world_state_event(sid, {"kind": "test"})
+
+        self.assertEqual(event["type"], "world.state")
+        self.assertEqual(event["trigger"]["kind"], "test")
+        self.assertEqual(event["state"]["you"]["sid"], sid)
+        for key in ("tables", "avatars", "you", "explorer", "bar_woven", "pulse_host"):
+            self.assertIn(key, event["state"])
+
+    def test_world_websocket_sends_initial_state_for_sid(self):
+        sid = self._post("/api/join", {"name": "Ada", "device": "dev-ws-1"}).json()["sid"]
+
+        async def run():
+            from molgang_web.asgi import application
+
+            communicator = WebsocketCommunicator(application, f"/ws/world/?sid={sid}")
+            connected, _ = await communicator.connect()
+            payload = await communicator.receive_json_from()
+            await communicator.disconnect()
+            return connected, payload
+
+        connected, payload = async_to_sync(run)()
+        self.assertTrue(connected)
+        self.assertEqual(payload["type"], "world.state")
+        self.assertEqual(payload["trigger"]["kind"], "connect")
+        self.assertEqual(payload["state"]["you"]["sid"], sid)
+
+    def test_write_endpoints_broadcast_world_updates(self):
+        with patch("bar.views.broadcast_world") as broadcast:
+            sid = self._post(
+                "/api/join",
+                {"name": "Ada", "avatar": "laser-maxi", "device": "dev-ws-2"},
+            ).json()["sid"]
+            self._post("/api/sit", {"sid": sid, "table": "periodic"})
+            self._post("/api/propose", {"sid": sid, "term": "H2O"})
+            self._post(
+                "/api/spiral/propose",
+                {"sid": sid, "links": ["H2O -> O2", "O2 -> O3", "O3 -> H2O"]},
+            )
+
+        broadcast.assert_has_calls(
+            [
+                call("join", sid),
+                call("sit", sid),
+                call("propose", sid),
+                call("spiral.propose", sid),
+            ],
+            any_order=False,
+        )
 
     def test_propose_requires_seat(self):
         sid = self._post("/api/join", {"name": "Lin"}).json()["sid"]

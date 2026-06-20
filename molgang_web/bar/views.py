@@ -33,13 +33,9 @@ from rest_framework.response import Response
 
 from molgang.bar import suggested_terms
 
-from .engine import get_bar
+from .engine import get_bar, pulse_host, state_snapshot
+from .events import broadcast_world
 from .serializers import account_pill_from_state
-
-# This Django wrapper does not bootstrap a host Pulse identity (that needs the external Pulse
-# CLI/node). The stdlib server attaches its host status here; we attach None, which the
-# client and state shape already tolerate (`state["pulse_host"] = pulse_host`).
-PULSE_HOST: dict | None = None
 
 
 def _error(exc: Exception):
@@ -49,16 +45,12 @@ def _error(exc: Exception):
 # ---- read endpoints --------------------------------------------------------
 @api_view(["GET"])
 def state(request):
-    bar = get_bar()
-    sid = request.GET.get("sid")
-    snapshot = bar.state(sid)
-    snapshot["pulse_host"] = PULSE_HOST
-    return Response(snapshot)
+    return Response(state_snapshot(request.GET.get("sid")))
 
 
 @api_view(["GET"])
 def pulse(request):
-    return Response(PULSE_HOST or {})
+    return Response(pulse_host() or {})
 
 
 @api_view(["GET"])
@@ -106,7 +98,7 @@ def account_pill(request):
     This is the first #28 HTMX slice: Django renders a partial, but the account
     facts still come from ``Bar.state`` and the underlying knitweb braid.
     """
-    snapshot = get_bar().state(request.GET.get("sid"))
+    snapshot = state_snapshot(request.GET.get("sid"))
     return render(
         request,
         "bar/partials/account_pill.html",
@@ -128,6 +120,7 @@ def join(request):
         )
     except (KeyError, RuntimeError, ValueError) as exc:
         return _error(exc)
+    broadcast_world("join", s.sid)
     return Response(
         {"sid": s.sid, "avatar": s.avatar, "address": s.player.node.address}
     )
@@ -139,7 +132,9 @@ def sit(request):
     b = request.data or {}
     try:
         bar.sit(b["sid"], b["table"])
-        return Response(bar.state(b["sid"]))
+        snapshot = state_snapshot(b["sid"])
+        broadcast_world("sit", b["sid"])
+        return Response(snapshot)
     except (KeyError, RuntimeError, ValueError) as exc:
         return _error(exc)
 
@@ -150,6 +145,7 @@ def propose(request):
     b = request.data or {}
     try:
         p = bar.propose(b["sid"], b["term"])
+        broadcast_world("propose", b["sid"])
         return Response({"pid": p.pid})
     except (KeyError, RuntimeError, ValueError) as exc:
         return _error(exc)
@@ -163,6 +159,7 @@ def vote(request):
         p = bar.vote(b["sid"], b["pid"], b.get("verdict", "confirm"))
     except (KeyError, RuntimeError, ValueError) as exc:
         return _error(exc)
+    broadcast_world("vote", b["sid"])
     return Response(
         {"pid": p.pid, "settled": p.settled, "outcome": p.outcome, "woven": p.woven}
     )
@@ -177,6 +174,7 @@ def spiral_propose(request):
         sv = bar.propose_spiral(b["sid"], links)
     except (KeyError, RuntimeError, ValueError) as exc:
         return _error(exc)
+    broadcast_world("spiral.propose", b["sid"])
     return Response({"cid": sv.cid, "length": sv.length, "state": sv.round.state})
 
 
@@ -188,6 +186,7 @@ def spiral_vote(request):
         sv = bar.vote_spiral(b["sid"], b["cid"], b.get("verdict", "confirm"))
     except (KeyError, RuntimeError, ValueError) as exc:
         return _error(exc)
+    broadcast_world("spiral.vote", b["sid"])
     return Response(
         {
             "cid": sv.cid,

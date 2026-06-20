@@ -1,15 +1,21 @@
-"""ASGI entrypoint for the MOLGANG web front-end.
-
-Plain Django ASGI for now. Live updates (Channels/websockets) are deferred to a
-follow-up increment; this file gives that work a home to grow into.
-"""
+"""ASGI entrypoint for the MOLGANG web front-end."""
 
 from __future__ import annotations
 
 import os
 
+from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "molgang_web.settings")
 
-application = get_asgi_application()
+django_asgi_app = get_asgi_application()
+
+from bar.routing import websocket_urlpatterns  # noqa: E402
+
+application = ProtocolTypeRouter(
+    {
+        "http": django_asgi_app,
+        "websocket": URLRouter(websocket_urlpatterns),
+    }
+)
