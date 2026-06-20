@@ -68,6 +68,7 @@ class World:
         self._mtime = 0.0
         self.web = Web()
         self.items: list[WovenItem] = []
+        self.open_spirals: dict[str, dict] = {}
         self._term_cid: dict[str, str] = {}
         self._beat = 0
         # optional hook fired with each NEWLY-woven item (not on file-sync re-apply) — the
@@ -116,6 +117,13 @@ class World:
         with open(self.path, encoding="utf-8") as fh:
             data = json.load(fh)
         self.web, self.items, self._term_cid = Web(), [], {}
+        raw_spirals = data.get("open_spirals", {})
+        if isinstance(raw_spirals, list):
+            self.open_spirals = {str(s.get("cid")): s for s in raw_spirals if s.get("cid")}
+        elif isinstance(raw_spirals, dict):
+            self.open_spirals = dict(raw_spirals)
+        else:
+            self.open_spirals = {}
         for d in data.get("items", []):
             self._apply(WovenItem(**d))
         self._mtime = mt
@@ -123,8 +131,31 @@ class World:
     def _save(self) -> None:
         os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
         with open(self.path, "w", encoding="utf-8") as fh:
-            json.dump({"items": [asdict(i) for i in self.items]}, fh, indent=2, ensure_ascii=False)
+            json.dump({"items": [asdict(i) for i in self.items],
+                       "open_spirals": list(self.open_spirals.values())},
+                      fh, indent=2, ensure_ascii=False)
         self._mtime = os.path.getmtime(self.path)
+
+    # -- open spiral board (non-settlement, shared game coordination) -------
+    def list_open_spirals(self, table_id: str | None = None) -> list[dict]:
+        self._sync()
+        rows = [dict(v) for v in self.open_spirals.values()]
+        if table_id is not None:
+            rows = [r for r in rows if r.get("table_id") == table_id]
+        return sorted(rows, key=lambda r: str(r.get("cid", "")))
+
+    def publish_open_spiral(self, record: dict) -> None:
+        self._sync()
+        cid = str(record["cid"])
+        self.open_spirals[cid] = dict(record)
+        if self.path:
+            self._save()
+
+    def remove_open_spiral(self, cid: str) -> None:
+        self._sync()
+        self.open_spirals.pop(str(cid), None)
+        if self.path:
+            self._save()
 
     # -- the operation the game calls on a confirmed knit -------------------
     def weave_knit(self, parsed: dict, by: str, fiber_cid: str, confirmations: int) -> None:
