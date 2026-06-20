@@ -9,7 +9,7 @@
 
 ## Versioning policy
 
-- Every engine SHOULD expose `GET /api/version` returning `{"api_version": "1", "engine": "<python|django|php>", "molgang": "<pkg version>", "knitweb": "<engine version>"}`. A client detects drift by comparing `api_version`. _(Implemented in the canonical Python bar — `webserver.api_version_info()`; Django/PHP parity is a Sprint 3 follow-up. `1` is the current contract.)_
+- Every engine SHOULD expose `GET /api/version` returning `{"api_version": "1", "engine": "<python|django|php>", "molgang": "<pkg version>", "knitweb": "<engine version>"}`. A client detects drift by comparing `api_version`. _(Implemented in the canonical Python bar — `webserver.api_version_info()` — and the PHP node (`php/public/index.php` `case 'version'`); Django parity is the remaining follow-up. `1` is the current contract.)_
 - **Backwards-compatible** changes (new optional response fields, new endpoints) keep `api_version`. **Breaking** changes (renamed/removed fields, changed types) bump it.
 - Clients MUST ignore unknown response fields and MUST NOT depend on field ordering.
 - Balances shown to a player (`PLS`, silk, knits) are the **knitweb account braid** truth, not an independent counter — PHP/Django projections reconcile to the braid.
