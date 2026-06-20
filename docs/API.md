@@ -30,6 +30,7 @@
 | `/api/pulse` | — | The host Pulse identity (`{}` if none). |
 | `/api/suggested` | — | `{"terms": [string]}` — brainstorm suggestions. |
 | `/api/web` | — | `bar.web_view()` — the woven web (knits → Fibers) for the current world. |
+| `/api/quests` | `player*` | `{player, active, all, quest_xp}` — tier-graded quest goals derived from woven molecules (#110). Read-only/pure; omit `player` for the whole bar. |
 | `/api/device` | `id` | `{"registered": bool, "wallet": object|null}` — wallet-signed device lookup. |
 | `/api/graph` | `term` \| `from` \| `to` | Knowledge-graph slice (`world.explore`): a term's neighborhood or a path. |
 | `/api/relay` | — | `{"enabled": bool, "base", "topic", "node", "address", "cursor"}` — relay status. |

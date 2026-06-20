@@ -116,6 +116,18 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return self._json(200, {"terms": suggested_terms()})
             if path == "/api/web":
                 return self._json(200, bar.web_view())
+            if path == "/api/quests":
+                # Tier-graded goals derived from a player's woven molecules (#110). Read-only;
+                # ?player=<name> scopes to one peer (omit for the whole bar). Pure derived state.
+                from urllib.parse import parse_qs, urlparse
+                from . import quests
+                player = (parse_qs(urlparse(self.path).query).get("player") or [None])[0]
+                return self._json(200, {
+                    "player": player,
+                    "active": quests.active_quests(bar.woven, player),
+                    "all": quests.quest_progress(bar.woven, player),
+                    "quest_xp": quests.quest_xp(bar.woven, player),
+                })
             if path == "/api/device":
                 from urllib.parse import parse_qs, urlparse
                 did = (parse_qs(urlparse(self.path).query).get("id") or [""])[0]
