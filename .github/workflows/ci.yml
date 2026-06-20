@@ -21,6 +21,10 @@ jobs:
           python -m pip install -e ../pulse -e . "pytest>=8"
       - name: Tests
         run: PYTHONPATH=.:src:../pulse/src python -m pytest -q
+      - name: Django wrapper tests
+        run: |
+          python -m pip install -r molgang_web/requirements.txt
+          PYTHONPATH=src:../pulse/src python molgang_web/manage.py test bar
       - name: Demos + bridge run green
         run: |
           PYTHONPATH=src:../pulse/src python examples/play_demo.py
