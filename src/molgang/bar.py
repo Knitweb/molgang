@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import itertools
 import secrets
+import time
 from dataclasses import dataclass, field
+from typing import Callable
 
 from knitweb.pouw import quorum
 
@@ -41,6 +43,7 @@ DEFAULT_TABLES = [
     ("noble", "Noble Corner"),
 ]
 SEATS_PER_TABLE = 24
+STALE_SESSION_SECONDS = 45.0
 
 
 @dataclass
@@ -84,6 +87,7 @@ class Session:
     table_id: str | None = None
     bot: bool = False                          # an NPC table-mate (so solo humans get votes)
     device: str | None = None                  # the device id this session's wallet is bound to
+    last_seen: float = 0.0                     # heartbeat timestamp; bots are never reaped
 
 
 @dataclass
@@ -121,8 +125,12 @@ class SpiralView:
 class Bar:
     """In-memory, single-process bar. Real knitweb accounts under the hood."""
 
-    def __init__(self, world_path: str | None = None, registry=None) -> None:
+    def __init__(self, world_path: str | None = None, registry=None, *,
+                 stale_session_s: float = STALE_SESSION_SECONDS,
+                 clock: Callable[[], float] | None = None) -> None:
         self.registry = registry               # optional device→wallet DB (knitweb Registry)
+        self.stale_session_s = float(stale_session_s)
+        self._clock = clock or time.time
         self._next_table_num = 1
         self.tables: dict[str, Table] = {}
         for tid, name in DEFAULT_TABLES:
@@ -140,6 +148,9 @@ class Bar:
 
     _BOT_NAMES = ["Bea", "Cy", "Dex", "Vala", "Mo", "Pim"]
 
+    def _now(self) -> float:
+        return float(self._clock())
+
     def _seed_bots(self, seed_all: bool = False, table_id: str | None = None,
                    per_table: int = 3) -> None:
         if table_id is not None:
@@ -154,7 +165,8 @@ class Bar:
                 nm = self._BOT_NAMES[len(self.sessions) % len(self._BOT_NAMES)]
                 self.sessions[sid] = Session(
                     sid=sid, name=f"🤖 {nm}", player=Player.join(nm), table_id=tid, bot=True,
-                    avatar=_AVATAR_IDS[len(self.sessions) % len(_AVATAR_IDS)])
+                    avatar=_AVATAR_IDS[len(self.sessions) % len(_AVATAR_IDS)],
+                    last_seen=self._now())
 
     def _next_table_id(self) -> str:
         """Return a deterministic dynamic table id that is not in use yet."""
@@ -276,6 +288,17 @@ class Bar:
     # -- presence ----------------------------------------------------------
     def join(self, name: str, avatar: str | None = None, table_id: str | None = None,
              device: str | None = None) -> Session:
+        self.reap_stale()
+        if device:
+            for sess in self.sessions.values():
+                if not sess.bot and sess.device == device:
+                    sess.name = (name or sess.name or "guest")[:24]
+                    if avatar in _AVATAR_IDS:
+                        sess.avatar = avatar
+                    self.touch(sess.sid)
+                    if table_id:
+                        self.sit(sess.sid, table_id)
+                    return sess
         sid = secrets.token_hex(8)
         avatar = avatar if avatar in _AVATAR_IDS else _AVATAR_IDS[len(self.sessions) % len(_AVATAR_IDS)]
         nm = (name or "guest")[:24]
@@ -294,11 +317,32 @@ class Bar:
                     self.registry.save_balance(device, player.pulses, player.silk)
         else:
             player = Player.join(nm)
-        sess = Session(sid=sid, name=nm, avatar=avatar, player=player, device=device)
+        sess = Session(sid=sid, name=nm, avatar=avatar, player=player, device=device,
+                       last_seen=self._now())
         self.sessions[sid] = sess
         if table_id:
             self.sit(sid, table_id)
         return sess
+
+    def touch(self, sid: str) -> dict:
+        sess = self.sessions.get(sid)
+        if not sess:
+            raise KeyError("unknown session — join the bar first")
+        if not sess.bot:
+            sess.last_seen = self._now()
+        return {"sid": sess.sid, "last_seen": sess.last_seen, "table": sess.table_id}
+
+    def reap_stale(self, max_age: float | None = None) -> list[str]:
+        """Remove inactive human sessions and free their table seats."""
+        max_age = self.stale_session_s if max_age is None else float(max_age)
+        if max_age <= 0:
+            return []
+        cutoff = self._now() - max_age
+        stale = [sid for sid, s in self.sessions.items()
+                 if not s.bot and s.last_seen and s.last_seen < cutoff]
+        for sid in stale:
+            self.leave(sid)
+        return stale
 
     def rename_table(self, sid: str, table_id: str, name: str) -> Table:
         sess = self._require(sid)
@@ -334,6 +378,12 @@ class Bar:
             return
         if sess.table_id:
             self._release_table_owner(sess.sid, sess.table_id)
+
+    def stand(self, sid: str) -> None:
+        sess = self._require(sid)
+        if sess.table_id:
+            self._release_table_owner(sess.sid, sess.table_id)
+        sess.table_id = None
 
     # -- the knit loop -----------------------------------------------------
     def propose(self, sid: str, term: str, topic: str | None = None) -> Proposal:
@@ -476,6 +526,9 @@ class Bar:
     def state(self, sid: str | None = None) -> dict:
         from . import progression
 
+        self.reap_stale()
+        if sid in self.sessions:
+            self.touch(sid)
         tables = []
         me = self.sessions.get(sid) if sid else None
         for t in self.tables.values():
@@ -488,7 +541,8 @@ class Bar:
                 w = self._woven_by(s.sid)
                 lvl = progression.level_for(w * progression.XP_PER_WOVEN)
                 seated.append({"name": s.name, "avatar": s.avatar, "you": s.sid == sid,
-                               "woven": w, "level": lvl, "title": progression.title_for(lvl)})
+                               "woven": w, "level": lvl, "title": progression.title_for(lvl),
+                               "live": True, "last_seen": s.last_seen if not s.bot else None})
             opens = [{"pid": p.pid, "term": p.term, "by": p.by_name, "topic": p.topic,
                       "votes": p.vote_breakdown(), "net": p.net,
                       "mine": p.by == sid, "voted": sid in p.voters}
@@ -515,7 +569,7 @@ class Bar:
                    "pulses": me.player.pulses, "silk": me.player.silk,
                    "knits_made": sum(1 for p in self.proposals.values() if p.by == sid),
                    "woven": w, "level": lvl, "title": progression.title_for(lvl),
-                   "xp": w * progression.XP_PER_WOVEN}
+                   "xp": w * progression.XP_PER_WOVEN, "last_seen": me.last_seen}
         return {
             "tables": tables,
             "avatars": AVATARS,
@@ -540,8 +594,10 @@ class Bar:
                 self.registry.save_balance(s.device, s.player.pulses, s.player.silk)
 
     def _require(self, sid: str) -> Session:
+        self.reap_stale()
         if sid not in self.sessions:
             raise KeyError("unknown session — join the bar first")
+        self.touch(sid)
         return self.sessions[sid]
 
     def _seated_count(self, table_id: str) -> int:

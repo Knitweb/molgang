@@ -68,8 +68,21 @@ async function walkIn() {
   const name = $("name").value.trim() || "guest";
   const res = await api("/api/join", "POST", { name, avatar: chosenAvatar, device: DEVICE_ID });
   sid = res.sid; localStorage.setItem("molgang_sid", sid);
+  localStorage.setItem("molgang_name", name);
+  if (chosenAvatar) localStorage.setItem("molgang_avatar", chosenAvatar);
   $("enter").classList.add("hidden");
   start();
+}
+
+async function reconnectDevice() {
+  const name = localStorage.getItem("molgang_name") || $("name").value.trim() || "guest";
+  const avatar = localStorage.getItem("molgang_avatar") || chosenAvatar;
+  const res = await api("/api/join", "POST", { name, avatar, device: DEVICE_ID });
+  if (!res || !res.sid) return false;
+  sid = res.sid;
+  localStorage.setItem("molgang_sid", sid);
+  if (avatar) localStorage.setItem("molgang_avatar", avatar);
+  return true;
 }
 
 function start() {
@@ -119,6 +132,9 @@ async function refresh() {
   const s = await api("/api/state?sid=" + encodeURIComponent(sid));
   renderPulseHost(s.pulse_host);
   if (sid && !s.you) {
+    if (await reconnectDevice()) {
+      return refresh();
+    }
     resetSession();
     return;
   }
@@ -189,7 +205,13 @@ function renderTable(s) {
   $("seats").innerHTML = t.seated.map((p) =>
     `<div class="seat ${p.you ? "you" : ""}">${avatarImg(p.avatar, "seat-av")}
       <div><b>${p.name}</b><br><span class="dim small">L${p.level} ${p.title} · ${p.woven}🧬</span></div></div>`).join("");
-  $("leave-table").onclick = () => { table = null; setActiveTab(); refresh(); };
+  $("leave-table").onclick = async () => {
+    await api("/api/stand", "POST", { sid });
+    table = null;
+    localStorage.removeItem("molgang_table");
+    setActiveTab();
+    refresh();
+  };
   $("rename-table").onclick = async () => {
     const nextName = prompt("Rename this table", t.name);
     if (nextName === null) return;
