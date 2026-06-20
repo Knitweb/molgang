@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 import os
+import sys
+import types
 
 import pytest
 
@@ -210,6 +212,73 @@ def test_spiral_converges_with_every_link(tmp_path):
     # every spiral link became a real woven edge → same node-set & edge-set as A
     assert b.size() == a.size()
     assert b.state_root() == a.state_root()
+
+
+def test_webserver_main_accepts_operator_flags(monkeypatch, tmp_path):
+    from molgang import webserver
+
+    captured = {}
+
+    monkeypatch.setattr(webserver, "bootstrap_host", lambda *a, **k: {
+        "account": {"address": "pls1host", "balance_pls": 0},
+        "listen": "127.0.0.1:0",
+        "wallet": "host.cbor",
+    })
+
+    class FakeMonitor:
+        def __init__(self, bar, *, web=None, world=None, pulse_host=None, nodes=None):
+            captured["monitor_nodes"] = nodes
+            self.nodes = [{"label": "alice"}]
+            self.source = "fake"
+
+    fake_monitor_mod = types.ModuleType("molgang.monitor")
+    fake_monitor_mod.Monitor = FakeMonitor
+    monkeypatch.setitem(sys.modules, "molgang.monitor", fake_monitor_mod)
+
+    class FakeSigner:
+        address = "pls1relay"
+
+    class FakeRelay:
+        def __init__(self, base):
+            self.base = base
+            self.signer = FakeSigner()
+
+    def fake_start_relay(bar, base, wallet, interval):
+        captured["relay_base"] = base
+        captured["relay_wallet"] = wallet
+        captured["relay_interval"] = interval
+        return FakeRelay(base)
+
+    class FakeServer:
+        def __init__(self, addr, handler):
+            captured["addr"] = addr
+            captured["handler"] = handler
+
+        def serve_forever(self):
+            raise KeyboardInterrupt
+
+    monkeypatch.setattr(webserver, "_start_relay", fake_start_relay)
+    monkeypatch.setattr(webserver, "ThreadingHTTPServer", FakeServer)
+
+    code = webserver.main([
+        "molgang", "serve",
+        "--host", "127.0.0.1",
+        "--port", "0",
+        "--world", str(tmp_path / "world.json"),
+        "--db", str(tmp_path / "registry.db"),
+        "--relay", "https://5mart.ml/molgang/api/relay",
+        "--relay-wallet", str(tmp_path / "server-node.cbor"),
+        "--relay-interval", "7",
+        "--monitor",
+        "--monitor-nodes", "alice=59000",
+    ])
+
+    assert code == 0
+    assert captured["addr"] == ("127.0.0.1", 0)
+    assert captured["relay_base"] == "https://5mart.ml/molgang/api/relay"
+    assert captured["relay_wallet"] == str(tmp_path / "server-node.cbor")
+    assert captured["relay_interval"] == 7.0
+    assert captured["monitor_nodes"] == "alice=59000"
 
 
 # -- ONE opt-in, read-only live round-trip (no write → cannot spam) ----------

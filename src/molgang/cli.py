@@ -4,6 +4,8 @@
                        collection/XP → leaderboard → OriginTrail anchor)
     molgang play       interactive: propose bonds, a class of peers votes, you collect molecules
     molgang merge      merge every locally-woven knitwork into ONE combined knitweb + anchor it
+    molgang serve      browser bar; supports --relay, --relay-wallet, --relay-interval,
+                       --monitor and --monitor-nodes for operator convergence
 """
 
 from __future__ import annotations

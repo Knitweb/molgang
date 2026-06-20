@@ -329,9 +329,17 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--monitor-web", default=None,
                     help="gateway.App store JSON for the 📡 Monitor tab's local-knitweb graph "
                          "(default /tmp/chem_web.json if present, else the shared world)")
+    ap.add_argument("--monitor", dest="monitor", action="store_true", default=True,
+                    help="enable /api/monitor endpoints (default on)")
+    ap.add_argument("--no-monitor", dest="monitor", action="store_false",
+                    help="disable /api/monitor endpoints")
+    ap.add_argument("--monitor-nodes", default=None,
+                    help="comma list label=port for monitor liveness, e.g. alice=8900,bob=8901")
     ap.add_argument("--relay", default=None,
                     help="relay API base to share the growing web across machines, e.g. "
                          "https://5mart.ml/molgang/api/relay (OFF by default = local-only)")
+    ap.add_argument("--relay-wallet", default=None,
+                    help="node wallet identity used to sign relay pushes (default --wallet)")
     ap.add_argument("--relay-interval", type=float, default=20.0,
                     help="seconds between background relay pulls when --relay is set (default 20)")
     a = ap.parse_args([x for x in argv[1:] if x != "serve"])
@@ -340,15 +348,20 @@ def main(argv: list[str]) -> int:
     listen = f"{a.host}:{a.port}"
     pulse = bootstrap_host(a.wallet, listen=listen, genesis=a.host_genesis)
     bar = Bar(a.world, Registry(a.db))
-    monitor = Monitor(bar, web=a.monitor_web, world=a.world, pulse_host=pulse)
-    relay = _start_relay(bar, a.relay, a.wallet, a.relay_interval) if a.relay else None
+    monitor = None
+    if a.monitor:
+        monitor = Monitor(bar, web=a.monitor_web, world=a.world, pulse_host=pulse,
+                          nodes=a.monitor_nodes)
+    relay_wallet = a.relay_wallet or a.wallet
+    relay = _start_relay(bar, a.relay, relay_wallet, a.relay_interval) if a.relay else None
     srv = ThreadingHTTPServer((a.host, a.port),
                               make_handler(bar, pulse, cors=a.cors or None, monitor=monitor,
                                            relay=relay))
     print(f"  🍸 MOLGANG bar open at http://{a.host}:{a.port}  (shared web: "
           f"{a.world or '~/.molgang/world.json'}) (Ctrl-C to close)")
-    print(f"  📡 Monitor: nodes {[n['label'] for n in monitor.nodes]} · "
-          f"local knitweb {monitor.source}")
+    if monitor:
+        print(f"  📡 Monitor: nodes {[n['label'] for n in monitor.nodes]} · "
+              f"local knitweb {monitor.source}")
     print(f"  pulse host {pulse['account']['address']} · wallet {pulse['wallet']}")
     if relay is not None:
         print(f"  🌐 relay sync ON · {relay.base} · node {relay.signer.address} "
