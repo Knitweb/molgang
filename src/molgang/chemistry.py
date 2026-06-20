@@ -54,6 +54,35 @@ MOLECULES: dict[str, tuple[str, str]] = {
     "H3PO4": ("Phosphoric acid", "Fosforzuur"),
 }
 
+# Curriculum tiers (scheikunde), ordered easiest → hardest, so quests, missions, and the
+# seasonal ladder can grade content (#108). `tier_of()` queries a symbol/formula's level without
+# touching `is_correct()` semantics. Mirrored 1:1 in roblox/Chemistry.lua and php/src/Chemistry.php.
+TIERS: tuple[str, ...] = ("elementary", "middle", "high")
+
+# symbol/formula -> curriculum tier. Covers every key in ELEMENTS and MOLECULES.
+_TIER_OF: dict[str, str] = {
+    # elements
+    "H": "elementary", "O": "elementary", "C": "elementary", "N": "elementary", "He": "elementary",
+    "Na": "middle", "Cl": "middle", "Ca": "middle", "Fe": "middle", "Mg": "middle",
+    "S": "high", "Al": "high", "P": "high", "K": "high",
+    # molecules
+    "H2O": "elementary", "O2": "elementary", "CO2": "elementary", "H2": "elementary",
+    "NaCl": "middle", "CH4": "middle", "NH3": "middle", "HCl": "middle", "CaCO3": "middle",
+    "N2": "middle", "CO": "middle",
+    "C6H12O6": "high", "SO2": "high", "H2SO4": "high", "NaOH": "high", "CaO": "high",
+    "MgO": "high", "Al2O3": "high", "KCl": "high", "H3PO4": "high",
+}
+
+
+def tier_of(key: str) -> str | None:
+    """Curriculum tier of an element symbol or molecule formula, or ``None`` if unknown.
+
+    Pure lookup — does not parse or validate; ``is_correct()`` stays the authority on correctness.
+    Every entry in ``ELEMENTS`` and ``MOLECULES`` has a tier in ``TIERS``.
+    """
+    return _TIER_OF.get((key or "").strip())
+
+
 _TOKEN = re.compile(r"([A-Z][a-z]?)(\d*)")
 
 

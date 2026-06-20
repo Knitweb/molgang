@@ -30,6 +30,27 @@ Chemistry.MOLECULES = {
 	KCl = {"Potassium chloride", "Kaliumchloride"}, H3PO4 = {"Phosphoric acid", "Fosforzuur"},
 }
 
+-- Curriculum tiers (easiest -> hardest) so quests/missions/ladder can grade content. Mirrors
+-- src/molgang/chemistry.py TIERS/_TIER_OF 1:1. symbol/formula -> tier.
+Chemistry.TIERS = {"elementary", "middle", "high"}
+Chemistry.TIER_OF = {
+	-- elements
+	H = "elementary", O = "elementary", C = "elementary", N = "elementary", He = "elementary",
+	Na = "middle", Cl = "middle", Ca = "middle", Fe = "middle", Mg = "middle",
+	S = "high", Al = "high", P = "high", K = "high",
+	-- molecules
+	H2O = "elementary", O2 = "elementary", CO2 = "elementary", H2 = "elementary",
+	NaCl = "middle", CH4 = "middle", NH3 = "middle", HCl = "middle", CaCO3 = "middle",
+	N2 = "middle", CO = "middle",
+	C6H12O6 = "high", SO2 = "high", H2SO4 = "high", NaOH = "high", CaO = "high",
+	MgO = "high", Al2O3 = "high", KCl = "high", H3PO4 = "high",
+}
+
+-- Curriculum tier of a symbol/formula, or nil if unknown. Pure lookup; isCorrect stays authority.
+function Chemistry.tierOf(key: string): string?
+	return Chemistry.TIER_OF[key]
+end
+
 -- Parse a flat formula (e.g. "C6H12O6") into {element = count}. Errors on unknown element.
 function Chemistry.parseFormula(formula: string): { [string]: number }
 	local atoms: { [string]: number } = {}
