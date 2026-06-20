@@ -12,6 +12,7 @@ import json
 from django.test import Client, TestCase
 
 from . import engine
+from .serializers import account_pill_from_state
 
 
 class ApiSmokeTest(TestCase):
@@ -65,6 +66,48 @@ class ApiSmokeTest(TestCase):
         body = self.client.get(f"/api/state?sid={sid}").json()
         self.assertGreaterEqual(body["bar_woven"], 1)
         self.assertEqual(body["you"]["woven"], 1)
+
+    def test_account_pill_serializer_uses_canonical_state(self):
+        sid = self._post(
+            "/api/join",
+            {"name": "Ada", "avatar": "laser-maxi", "device": "dev-pill-1"},
+        ).json()["sid"]
+        body = self.client.get(f"/api/state?sid={sid}").json()
+        pill = account_pill_from_state(body)
+
+        self.assertEqual(pill["name"], body["you"]["name"])
+        self.assertEqual(pill["wallet"], body["you"]["address"])
+        self.assertEqual(pill["pulses"], body["you"]["pulses"])
+        self.assertEqual(pill["silk"], body["you"]["silk"])
+        self.assertEqual(pill["knits"], body["you"]["knits_made"])
+        self.assertEqual(pill["level"], body["you"]["level"])
+        self.assertNotIn("owner", pill)
+        self.assertNotIn("token", pill)
+
+    def test_account_pill_partial_renders_server_side(self):
+        sid = self._post(
+            "/api/join",
+            {"name": "Ada", "avatar": "laser-maxi", "device": "dev-pill-2"},
+        ).json()["sid"]
+        r = self.client.get(f"/partials/account-pill?sid={sid}", HTTP_HX_REQUEST="true")
+
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertIn("data-account-pill", html)
+        self.assertIn("Ada", html)
+        self.assertIn("PLS", html)
+        self.assertIn("silk", html)
+        self.assertIn("knits", html)
+        self.assertIn("wallet pls1", html)
+        self.assertNotIn("NFT", html)
+
+    def test_account_pill_partial_handles_missing_session(self):
+        r = self.client.get("/partials/account-pill", HTTP_HX_REQUEST="true")
+
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertIn("data-account-pill", html)
+        self.assertIn("Walk in", html)
 
     def test_propose_requires_seat(self):
         sid = self._post("/api/join", {"name": "Lin"}).json()["sid"]

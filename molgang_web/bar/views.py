@@ -27,12 +27,14 @@ import os
 
 from django.conf import settings
 from django.http import FileResponse, Http404, JsonResponse
+from django.shortcuts import render
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from molgang.bar import suggested_terms
 
 from .engine import get_bar
+from .serializers import account_pill_from_state
 
 # This Django wrapper does not bootstrap a host Pulse identity (that needs the external Pulse
 # CLI/node). The stdlib server attaches its host status here; we attach None, which the
@@ -94,6 +96,21 @@ def graph(request):
             frm=request.GET.get("from"),
             to=request.GET.get("to"),
         )
+    )
+
+
+# ---- server-rendered HTMX partials -----------------------------------------
+def account_pill(request):
+    """Render the player's account pill from canonical Bar state.
+
+    This is the first #28 HTMX slice: Django renders a partial, but the account
+    facts still come from ``Bar.state`` and the underlying knitweb braid.
+    """
+    snapshot = get_bar().state(request.GET.get("sid"))
+    return render(
+        request,
+        "bar/partials/account_pill.html",
+        {"pill": account_pill_from_state(snapshot)},
     )
 
 

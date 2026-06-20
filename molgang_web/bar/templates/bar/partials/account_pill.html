@@ -1,0 +1,17 @@
+{% if pill %}
+<div class="account-pill" data-account-pill data-wallet="{{ pill.wallet }}" data-level="{{ pill.level }}">
+  <span class="account-pill__player">
+    {% if pill.avatar %}<span class="account-pill__avatar">{{ pill.avatar }}</span>{% endif %}
+    <strong>{{ pill.name }}</strong>
+  </span>
+  <span class="account-pill__wallet" title="device wallet: {{ pill.wallet }}">wallet {{ pill.wallet_short }}</span>
+  <span class="account-pill__metric"><strong>{{ pill.pulses }}</strong> PLS</span>
+  <span class="account-pill__metric"><strong>{{ pill.silk }}</strong> silk</span>
+  <span class="account-pill__metric"><strong>{{ pill.knits }}</strong> knits</span>
+  <span class="account-pill__metric">L{{ pill.level }} {{ pill.title }}</span>
+</div>
+{% else %}
+<div class="account-pill account-pill--empty" data-account-pill>
+  Walk in to see your PLS, silk, wallet, and reputation.
+</div>
+{% endif %}
