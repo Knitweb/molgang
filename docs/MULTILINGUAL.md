@@ -41,9 +41,12 @@ string table — and lets a client render each label with the correct directiona
 
 ## How it is woven
 
-The dataset is the source; a weave step (follow-up in this sprint) ingests each
-canonical-formula → multilingual-labels mapping into the shared fabric as language-tagged term-nodes,
-so a learner can knit/validate `Water` / `Вода` / `水` / `ماء` and have them resolve to the same Fiber.
+`scripts/weave_multilingual_terms.py` turns the dataset into alias **links** — one per localized name,
+`{subject: name, relation: "name:<lang>", object: <canonical>}` — so `Water` / `Вода` / `水` / `ماء`
+all connect to the same `H2O` concept (100 links for the current set). `build_links()` is pure and
+unit-tested; running the script emits the ready-to-weave plan, and `--weave` applies it to a live
+`World` via `world.weave_links(...)` (requires the knitweb engine). The relation carries the language;
+base direction is recovered from the `languages` table above.
 
 ## Conformance
 
