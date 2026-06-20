@@ -71,6 +71,44 @@ def _click(page, selector: str) -> None:
     )
 
 
+def _browser_diag(page, shots: Path, label: str) -> dict:
+    """Collect enough browser/server state to make CI timeouts actionable."""
+    try:
+        page.screenshot(path=str(shots / f"{label}.png"))
+    except Exception:
+        # Best-effort artifact: continue collecting diagnostics even if screenshot capture fails.
+        pass
+    try:
+        return page.evaluate(
+            """async () => {
+              const sid = localStorage.getItem("molgang_sid") || "";
+              const table = localStorage.getItem("molgang_table") || "";
+              let state = null;
+              try {
+                const res = await fetch("/api/state?sid=" + encodeURIComponent(sid));
+                state = await res.json();
+              } catch (e) {
+                state = {error: String(e)};
+              }
+              const current = state && state.tables && state.you
+                ? state.tables.find((t) => t.id === state.you.table)
+                : null;
+              return {
+                sid,
+                table,
+                term: document.querySelector("#term")?.value || "",
+                fabricText: document.querySelector("#fabric")?.textContent || "",
+                openText: document.querySelector("#open")?.textContent || "",
+                you: state ? state.you : null,
+                currentFabric: current ? current.fabric : null,
+                currentOpen: current ? current.open : null,
+              };
+            }"""
+        )
+    except Exception as e:
+        return {"diagnostic_error": str(e)}
+
+
 def _serve_process(base_dir: Path, host: str, port: int) -> subprocess.Popen[str]:
     world = base_dir / "world.json"
     db = base_dir / "registry.db"
@@ -161,13 +199,19 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
             page.fill("#term", term)
             _click(page, "#knit")
 
-            if not _wait_for_contains(page, "#fabric", term, timeout_ms=15_000):
+            try:
+                woven_visible = _wait_for_contains(page, "#fabric", term, timeout_ms=15_000)
+            except Exception as e:
+                failures.append(f"term '{term}' never appeared in table fabric; diag={_browser_diag(page, shots, '04-timeout')}; error={e}")
+                woven_visible = False
+            if not woven_visible:
                 failures.append(f"term '{term}' never appeared in table fabric")
-            if not _wait_for_text(page, "#me-knits", "1", timeout_ms=8_000):
-                failures.append("successful knit did not increment the knit counter")
-            silk_after = int((page.text_content("#me-silk") or "0").strip() or "0")
-            if silk_after < 10:
-                failures.append("successful useful work did not restore enough silk to keep knitting")
+            else:
+                if not _wait_for_text(page, "#me-knits", "1", timeout_ms=8_000):
+                    failures.append("successful knit did not increment the knit counter")
+                silk_after = int((page.text_content("#me-silk") or "0").strip() or "0")
+                if silk_after < 10:
+                    failures.append("successful useful work did not restore enough silk to keep knitting")
 
             open_block = (page.text_content("#open") or "")
             if term in open_block and "✓" not in open_block:
