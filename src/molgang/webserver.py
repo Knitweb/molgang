@@ -128,6 +128,19 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                     "all": quests.quest_progress(bar.woven, player),
                     "quest_xp": quests.quest_xp(bar.woven, player),
                 })
+            if path == "/api/achievements":
+                # Milestone badges derived from woven molecules (#111). Read-only/pure; reputation
+                # only (no tokens). ?player=<name> scopes to one peer. Vote-based badges stay locked
+                # until the bar records per-voter honesty (woven-based badges work today).
+                from urllib.parse import parse_qs, urlparse
+                from . import achievements
+                player = (parse_qs(urlparse(self.path).query).get("player") or [None])[0]
+                return self._json(200, {
+                    "player": player,
+                    "achievements": achievements.evaluate(bar.woven, [], player),
+                    "unlocked": achievements.unlocked_achievements(bar.woven, [], player),
+                    "count": achievements.achievement_count(bar.woven, [], player),
+                })
             if path == "/api/device":
                 from urllib.parse import parse_qs, urlparse
                 did = (parse_qs(urlparse(self.path).query).get("id") or [""])[0]

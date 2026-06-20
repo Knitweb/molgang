@@ -457,11 +457,14 @@ class Bar:
         my_spirals = [sv for sv in self.spirals.values() if sv.by == sid]
         votes_cast = (sum(1 for p in self.proposals.values() if sid in p.voters)
                       + sum(1 for sv in self.spirals.values() if sid in sv.voters))
+        from . import achievements
         work_summary = {
             "terms_proposed": len(my_props),
             "knits_woven": sum(1 for p in my_props if p.woven),
             "spirals_captured": sum(1 for sv in my_spirals if sv.captured),
             "votes_cast": votes_cast,
+            # woven-knowledge proof — reputation, not a bearer token (#111, no-NFT rule)
+            "achievements_unlocked": achievements.achievement_count(self.woven, [], sess.name),
         }
         return {
             "holder": sess.name,
