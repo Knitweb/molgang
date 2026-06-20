@@ -1,0 +1,1980 @@
+[
+ {
+  "number": 1,
+  "title": "Sprint 1 (this week)",
+  "description": "",
+  "state": "open",
+  "open_issues": 0,
+  "closed_issues": 13,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/1",
+  "issues": [
+   {
+    "number": 11,
+    "title": "Spiral browser UI (Start-Spiral modal + spiral card + leaderboard)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/11",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:high"
+    ],
+    "moscow": null,
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 12,
+    "title": "e2e browser proof (Selenium/Playwright, screenshots, CI-runnable)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/12",
+    "labels": [
+     "area:molgang",
+     "type:e2e",
+     "prio:high",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "e2e"
+   },
+   {
+    "number": 14,
+    "title": "Deploy MOLGANG to 5mart.ml",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/14",
+    "labels": [
+     "area:molgang",
+     "type:deploy",
+     "prio:high"
+    ],
+    "moscow": null,
+    "prio": "high",
+    "area": "molgang",
+    "type": "deploy"
+   },
+   {
+    "number": 15,
+    "title": "Fix or remove the broken CI workflow (ci.yml)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/15",
+    "labels": [
+     "area:molgang",
+     "type:ci",
+     "prio:high",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ci"
+   },
+   {
+    "number": 23,
+    "title": "bug: bridge two-way-sync reward off-by-one (expects 63, gets 62)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/23",
+    "labels": [
+     "bug",
+     "area:molgang",
+     "prio:med"
+    ],
+    "moscow": null,
+    "prio": "med",
+    "area": "molgang",
+    "type": null
+   },
+   {
+    "number": 48,
+    "title": "bug: test_pulse_host fails (installed knitweb CLI lacks 'identity' subcommand)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/48",
+    "labels": [
+     "bug",
+     "area:molgang",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": null
+   },
+   {
+    "number": 59,
+    "title": "Monitor tab in molgang (embed knitweb/monitor: node/p2p status + knowledge graph)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/59",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:high",
+     "source:monitor",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Could",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 60,
+    "title": "Surface the local woven knitweb (:8990 523-concept graph) in the Monitor tab",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/60",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:high",
+     "source:monitor",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Could",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 61,
+    "title": "5mart.ml as a live ~99%-uptime node (PHP/MySQL always-on presence + HTTP relay)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/61",
+    "labels": [
+     "area:molgang",
+     "type:deploy",
+     "prio:high",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "deploy"
+   },
+   {
+    "number": 62,
+    "title": "Check p2p ports on 5mart.ml; HTTP-relay fallback via PHP",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/62",
+    "labels": [
+     "area:molgang",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 63,
+    "title": "Wallet-signed QR node onboarding → 5mart.ml MySQL node registry",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/63",
+    "labels": [
+     "area:molgang",
+     "type:security",
+     "prio:high",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Could",
+    "prio": "high",
+    "area": "molgang",
+    "type": "security"
+   },
+   {
+    "number": 69,
+    "title": "Merge alice+bob woven knitwork + the :8990 NetworkX graph into one knitweb on the 5mart.ml node",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/69",
+    "labels": [
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 70,
+    "title": "PoUW accounting: every knitwork item → wallet + PLS + certificate in /cleopatra/knitweb/certificate",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/70",
+    "labels": [
+     "area:molgang",
+     "type:docs",
+     "prio:high"
+    ],
+    "moscow": null,
+    "prio": "high",
+    "area": "molgang",
+    "type": "docs"
+   }
+  ]
+ },
+ {
+  "number": 2,
+  "title": "Sprint 2",
+  "description": "",
+  "state": "open",
+  "open_issues": 0,
+  "closed_issues": 9,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/2",
+  "issues": [
+   {
+    "number": 13,
+    "title": "Django dapp front-end (molgang_web: HTMX + DRF + Channels)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/13",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:med"
+    ],
+    "moscow": null,
+    "prio": "med",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 16,
+    "title": "Balance persistence across server restarts",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/16",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "prio:med"
+    ],
+    "moscow": null,
+    "prio": "med",
+    "area": "molgang",
+    "type": null
+   },
+   {
+    "number": 24,
+    "title": "UX: delay NPC backing of spirals so the auxiliary card is visible",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/24",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:low"
+    ],
+    "moscow": null,
+    "prio": "low",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 34,
+    "title": "Knowledge-graph explorer at :8990 (NetworkX + interactive viz over the p2p web)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/34",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "type:p2p",
+     "prio:high"
+    ],
+    "moscow": null,
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 38,
+    "title": "Explorer term lookup: case-insensitive resolution + suggestions (v2o5 → V2O5)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/38",
+    "labels": [
+     "bug",
+     "area:molgang",
+     "type:ui",
+     "prio:high"
+    ],
+    "moscow": null,
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 41,
+    "title": "Explorer: chemistry-formula typo tolerance (v205 → V2O5, 0↔O)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/41",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:med"
+    ],
+    "moscow": null,
+    "prio": "med",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 44,
+    "title": "Wire molgang World onto the p2p FabricNode + peer bootstrap (cross-machine shared web)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/44",
+    "labels": [
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 45,
+    "title": "PoUW Certificate: request an official PDF (wallet keys + pulses used) — game item + engine",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/45",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:high"
+    ],
+    "moscow": null,
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 72,
+    "title": "Tension calibration: populate anchorRel/anchorTs on weave so fibers aren't uniformly slack",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/72",
+    "labels": [
+     "area:molgang",
+     "type:p2p",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "p2p"
+   }
+  ]
+ },
+ {
+  "number": 3,
+  "title": "Backlog",
+  "description": "",
+  "state": "open",
+  "open_issues": 3,
+  "closed_issues": 7,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/3",
+  "issues": [
+   {
+    "number": 18,
+    "title": "Roblox counterpart parity (boxed)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/18",
+    "labels": [
+     "area:molgang",
+     "prio:low"
+    ],
+    "moscow": null,
+    "prio": "low",
+    "area": "molgang",
+    "type": null
+   },
+   {
+    "number": 22,
+    "title": "Docs: tokenomics & no-NFT economy (pulses, silk, reputation)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/22",
+    "labels": [
+     "area:molgang",
+     "type:docs",
+     "prio:low",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "low",
+    "area": "molgang",
+    "type": "docs"
+   },
+   {
+    "number": 53,
+    "title": "bug: weave-quorum scales with seated count → crowded/stale tables never auto-weave a solo knit (prio:high)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/53",
+    "labels": [
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": null,
+    "area": null,
+    "type": null
+   },
+   {
+    "number": 55,
+    "title": "security: PoUW Certificate embeds the private key in clear text (bearer) — add a public/redacted mode (prio:high)",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/55",
+    "labels": [
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": null,
+    "area": null,
+    "type": null
+   },
+   {
+    "number": 57,
+    "title": "chore: merge faucet link (#49) + redeploy so 5mart.ml/molgang shows '⚡ epic Faucet'",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/57",
+    "labels": [
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": null,
+    "area": null,
+    "type": null
+   },
+   {
+    "number": 65,
+    "title": "[pulse #24] FabricNode hardening: equivocation quarantine + partial Merkle proofs + DHT discovery",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/65",
+    "labels": [
+     "area:molgang",
+     "type:p2p",
+     "prio:low",
+     "source:pulse",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "low",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 66,
+    "title": "[pulse #19] version drift: knitweb.__version__ vs pyproject",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/66",
+    "labels": [
+     "bug",
+     "area:molgang",
+     "prio:low",
+     "source:pulse",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "low",
+    "area": "molgang",
+    "type": null
+   },
+   {
+    "number": 67,
+    "title": "[pulse #22] JSON-LD export of the fabric Web",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/67",
+    "labels": [
+     "area:molgang",
+     "type:p2p",
+     "prio:med",
+     "source:pulse",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 68,
+    "title": "[pulse #23] Unify FabricNode transport with AsyncioP2PNode",
+    "state": "closed",
+    "html_url": "https://github.com/Knitweb/molgang/issues/68",
+    "labels": [
+     "area:molgang",
+     "type:p2p",
+     "prio:med",
+     "source:pulse",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Could",
+    "prio": "med",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 82,
+    "title": "Backlog hygiene: sync Molgang+Pulse issue items to project/sprint board",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/82",
+    "labels": [
+     "area:molgang",
+     "type:docs",
+     "prio:med",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Could",
+    "prio": "med",
+    "area": "molgang",
+    "type": "docs"
+   }
+  ]
+ },
+ {
+  "number": 4,
+  "title": "Sprint 4",
+  "description": "P2P hardening & peer discovery. Kademlia DHT routing, STUN NAT hole-punch, equivocation quarantine + partial Merkle proofs, FabricNode/AsyncioP2PNode unification, version-drift guard, fiber-tension v1. Road to 1M: a self-organising Byzantine-resistant many-thousand-peer mesh.",
+  "state": "open",
+  "open_issues": 9,
+  "closed_issues": 0,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/4",
+  "issues": [
+   {
+    "number": 64,
+    "title": "[pulse #29] Fiber tension — make-or-break traversal mechanics (taut / slack / snapped)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/64",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "prio:low",
+     "source:pulse",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Could",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 88,
+    "title": "feat(p2p): structured Kademlia routing table over the existing PEX directory",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/88",
+    "labels": [
+     "enhancement",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "source:pulse",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "knitweb",
+    "type": "p2p"
+   },
+   {
+    "number": 89,
+    "title": "feat(p2p): STUN-assisted hole-punch transport so NAT'd peers serve without the relay",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/89",
+    "labels": [
+     "enhancement",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "source:pulse",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "knitweb",
+    "type": "p2p"
+   },
+   {
+    "number": 90,
+    "title": "feat(fabric): equivocation quarantine in FabricNode ingest path",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/90",
+    "labels": [
+     "area:knitweb",
+     "type:p2p",
+     "type:security",
+     "prio:high",
+     "source:pulse",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "knitweb",
+    "type": "p2p"
+   },
+   {
+    "number": 91,
+    "title": "feat(fabric): partial Merkle range proofs for FabricNode catch-up sync",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/91",
+    "labels": [
+     "enhancement",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "source:pulse",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "knitweb",
+    "type": "p2p"
+   },
+   {
+    "number": 92,
+    "title": "refactor(p2p): unify FabricNode and AsyncioP2PNode on one BaseNode discovery + connection path",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/92",
+    "labels": [
+     "enhancement",
+     "area:knitweb",
+     "type:p2p",
+     "prio:med",
+     "source:pulse",
+     "MoSCoW: Should",
+     "coordination"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "knitweb",
+    "type": "p2p"
+   },
+   {
+    "number": 93,
+    "title": "feat(p2p): anti-entropy gossip uses Kademlia neighbours instead of the full peerbook",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/93",
+    "labels": [
+     "enhancement",
+     "area:knitweb",
+     "type:p2p",
+     "prio:med",
+     "source:pulse",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "knitweb",
+    "type": "p2p"
+   },
+   {
+    "number": 94,
+    "title": "feat(molgang): cross-repo version-drift guard for the pinned knitweb engine",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/94",
+    "labels": [
+     "bug",
+     "area:molgang",
+     "type:p2p",
+     "type:ci",
+     "prio:med",
+     "source:pulse",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 136,
+    "title": "feat(p2p): protocol version negotiation + staged rolling-upgrade so a wire bump degrades gracefully",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/136",
+    "labels": [
+     "enhancement",
+     "area:knitweb",
+     "type:p2p",
+     "prio:med",
+     "source:pulse",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "knitweb",
+    "type": "p2p"
+   }
+  ]
+ },
+ {
+  "number": 5,
+  "title": "Sprint 5",
+  "description": "Relay mesh & horizontal scale. Multi-relay client with failover, relay-to-relay anti-entropy, concept-sharded KG, region-aware bootstrap, containerized serve, durable storage. Road to 1M: one relay -> reconciling multi-relay mesh across regions.",
+  "state": "open",
+  "open_issues": 9,
+  "closed_issues": 0,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/5",
+  "issues": [
+   {
+    "number": 47,
+    "title": "Container backend: run real Python molgang serve on Fly/Render/VPS + CORS (complements #37)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/47",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:deploy",
+     "prio:high",
+     "MoSCoW: Should",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "deploy"
+   },
+   {
+    "number": 84,
+    "title": "molgang serve --relay/--monitor operator flags + DEPLOY runbook",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/84",
+    "labels": [
+     "area:molgang",
+     "type:deploy",
+     "type:docs",
+     "prio:med",
+     "MoSCoW: Should",
+     "MoSCoW: Could",
+     "track-m"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "deploy"
+   },
+   {
+    "number": 95,
+    "title": "feat(relay): multi-relay client — RelaySync fans out across a relay pool with failover",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/95",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 96,
+    "title": "feat(relay): relay-to-relay anti-entropy reconciliation (gossip between relays)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/96",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 97,
+    "title": "feat(p2p): partition the knowledge graph into concept shards (no node holds all 523+ concepts)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/97",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "source:pulse",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 98,
+    "title": "feat(p2p): region-aware load-balanced bootstrap + cross-region node registry",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/98",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 99,
+    "title": "feat(monitor): mesh dashboard — show all relays, regions, queue depth and convergence lag",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/99",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:med",
+     "source:monitor",
+     "MoSCoW: Could",
+     "track-m"
+    ],
+    "moscow": "Could",
+    "prio": "med",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 100,
+    "title": "test(e2e): multi-relay convergence + failover proof under concurrent load",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/100",
+    "labels": [
+     "area:molgang",
+     "type:ci",
+     "type:e2e",
+     "prio:med",
+     "source:agentplay",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "ci"
+   },
+   {
+    "number": 137,
+    "title": "feat(relay): durable storage — snapshot/restore + corruption-detection for the woven web",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/137",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "type:deploy",
+     "prio:high",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   }
+  ]
+ },
+ {
+  "number": 6,
+  "title": "Sprint 6",
+  "description": "PoUW economy, tokenomics & security gate. Fix the certificate key-leak, faucet/sybil + rate-limit + key hygiene, collateral/snap-slash, relay-operator rewards, identity recovery, content moderation, COPPA/GDPR-K. Road to 1M: sybil-resistant & safe BEFORE mass onboarding.",
+  "state": "open",
+  "open_issues": 13,
+  "closed_issues": 0,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/6",
+  "issues": [
+   {
+    "number": 51,
+    "title": "Fiber tension: pouw collateral + cryptographic snap/slash (follow-up to v1)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/51",
+    "labels": [
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "type:security",
+     "prio:high",
+     "source:pulse",
+     "MoSCoW: Should",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 101,
+    "title": "security: stop /api/certificate from leaking the wallet private key (default-safe, no priv in the data path)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/101",
+    "labels": [
+     "bug",
+     "area:molgang",
+     "type:security",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "security"
+   },
+   {
+    "number": 102,
+    "title": "security: public/redacted vs explicit bearer PoUW certificate modes with hardened gating",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/102",
+    "labels": [
+     "area:molgang",
+     "type:security",
+     "type:docs",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "security"
+   },
+   {
+    "number": 103,
+    "title": "security: faucet abuse + sybil prevention on join/from_device (real proof-of-uniqueness, not spoofable UUIDs)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/103",
+    "labels": [
+     "area:molgang",
+     "type:security",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "security"
+   },
+   {
+    "number": 104,
+    "title": "security: rate-limit + anti-spam middleware on all /api write routes",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/104",
+    "labels": [
+     "area:molgang",
+     "type:security",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "security"
+   },
+   {
+    "number": 105,
+    "title": "security: wallet key handling & secret hygiene (deterministic derivation, key-at-rest, no key in logs)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/105",
+    "labels": [
+     "area:molgang",
+     "type:security",
+     "type:docs",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "security"
+   },
+   {
+    "number": 106,
+    "title": "docs: canonical tokenomics & no-NFT economy model (PLS/silk/reputation, reward-bank, usefulness bonus)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/106",
+    "labels": [
+     "documentation",
+     "area:molgang",
+     "type:docs",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "docs"
+   },
+   {
+    "number": 107,
+    "title": "feat: JSON-LD export of the fabric web (verifiable, interoperable provenance)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/107",
+    "labels": [
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "type:docs",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 138,
+    "title": "feat(economy): PoUW reward for spiders/relay operators — net-positive serve work",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/138",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Must",
+     "type:economy"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 139,
+    "title": "docs/legal: COPPA/GDPR-K compliance — age gate, consent, data-retention, right-to-erasure",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/139",
+    "labels": [
+     "documentation",
+     "area:molgang",
+     "type:docs",
+     "prio:high",
+     "MoSCoW: Must",
+     "area:safety"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "docs"
+   },
+   {
+    "number": 140,
+    "title": "security/safety: content moderation — report/quarantine/takedown + profanity/PII filter on woven terms",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/140",
+    "labels": [
+     "area:molgang",
+     "type:security",
+     "prio:high",
+     "MoSCoW: Should",
+     "area:safety"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "security"
+   },
+   {
+    "number": 141,
+    "title": "security: account/identity recovery — recovery phrase / social-attestation rebind (non-custodial)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/141",
+    "labels": [
+     "area:molgang",
+     "type:security",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "security"
+   },
+   {
+    "number": 142,
+    "title": "security: per-pubkey relay rate-limit (relay-layer sybil/flood protection)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/142",
+    "labels": [
+     "area:molgang",
+     "type:p2p",
+     "type:security",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "p2p"
+   }
+  ]
+ },
+ {
+  "number": 7,
+  "title": "Sprint 7",
+  "description": "Content depth: chemistry curriculum & game loop. Graded elements/compounds + reactions-with-conditions, machine-woven curriculum graph, quests/achievements/seasons, reputation ladder, content-translation pipeline. Road to 1M: retention turns capacity into sustained concurrency.",
+  "state": "open",
+  "open_issues": 9,
+  "closed_issues": 0,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/7",
+  "issues": [
+   {
+    "number": 56,
+    "title": "feat: seed the shared fabric with a full elementary-science/chemistry knowledge graph (machine-woven)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/56",
+    "labels": [
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Should",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 108,
+    "title": "feat: extend the chemistry ground truth to a graded element + compound table with curriculum tiers",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/108",
+    "labels": [
+     "area:molgang",
+     "type:docs",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "docs"
+   },
+   {
+    "number": 109,
+    "title": "feat: model chemical reactions with conditions (temperature/pressure/catalyst) as a new knit type",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/109",
+    "labels": [
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 110,
+    "title": "feat: quests and missions layer over the woven Fibers (progression.py)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/110",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:high",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 111,
+    "title": "feat: achievements derived from woven knits and votes",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/111",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 112,
+    "title": "feat: seasonal leaderboards with time-windowed ranking",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/112",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 113,
+    "title": "feat: deepen the Apprentice -> Laureate reputation ladder with perks and reputation-weighted standing",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/113",
+    "labels": [
+     "area:molgang",
+     "type:p2p",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 114,
+    "title": "docs: curriculum alignment and teacher-friendly framing for the chemistry content",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/114",
+    "labels": [
+     "documentation",
+     "area:molgang",
+     "type:docs",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "docs"
+   },
+   {
+    "number": 143,
+    "title": "feat: content-translation pipeline — every new molecule/reaction/quest carries 4-lang labels (CI-gated)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/143",
+    "labels": [
+     "area:molgang",
+     "type:ci",
+     "type:docs",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "ci"
+   }
+  ]
+ },
+ {
+  "number": 8,
+  "title": "Sprint 8",
+  "description": "Client, onboarding & accessibility (PWA/mobile/CDN). Installable offline-first mobile PWA, EN/NL i18n, first-run tutorial, a11y/RTL, PHP-UI parity, edge/CDN app-shell. Road to 1M: low-friction join from any phone/network/language.",
+  "state": "open",
+  "open_issues": 9,
+  "closed_issues": 0,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/8",
+  "issues": [
+   {
+    "number": 21,
+    "title": "In-bar onboarding / first-run tutorial",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/21",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:ui",
+     "prio:high",
+     "prio:low",
+     "MoSCoW: Should",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 83,
+    "title": "PHP-UI Monitor tab parity — add the Monitor tab to the PHP/static dapp",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/83",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:ui",
+     "prio:med",
+     "source:monitor",
+     "MoSCoW: Should",
+     "MoSCoW: Could",
+     "track-m"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 115,
+    "title": "feat: make the browser bar an installable PWA (manifest + icons + add-to-home-screen)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/115",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:ui",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 116,
+    "title": "feat: offline-first service worker — cached app shell + graceful offline state",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/116",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:ui",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 117,
+    "title": "feat: i18n layer for the bar chrome with EN + NL (Dutch) locale",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/117",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:ui",
+     "type:docs",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 118,
+    "title": "feat: mobile-responsive browser bar (header, tabs, tables, modals on phones)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/118",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:ui",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 119,
+    "title": "feat: accessibility pass + RTL/base-direction in the bar chrome (a11y)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/119",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:ui",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 120,
+    "title": "test: e2e coverage for PWA install, offline, i18n, and mobile viewport",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/120",
+    "labels": [
+     "area:molgang",
+     "type:ci",
+     "type:e2e",
+     "prio:med",
+     "source:agentplay",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "ci"
+   },
+   {
+    "number": 144,
+    "title": "feat(deploy): CDN/edge for the PWA app shell — cache-immutable static assets at edge",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/144",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:deploy",
+     "prio:med",
+     "MoSCoW: Should",
+     "perf"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "deploy"
+   }
+  ]
+ },
+ {
+  "number": 9,
+  "title": "Sprint 9",
+  "description": "Load testing, bot swarms & observability. Prometheus /metrics + tracing + Grafana, agentplay swarm, ramp-to-N-thousand load harness, SLO budgets, chaos, autoscale. Road to 1M: make 1,000,000 a measured engineering target.",
+  "state": "open",
+  "open_issues": 8,
+  "closed_issues": 0,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/9",
+  "issues": [
+   {
+    "number": 54,
+    "title": "feat: e2e (Playwright+Selenium) + agentplay LLM harness → knitweb/agentplay + CI (refs #12)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/54",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:e2e",
+     "prio:high",
+     "source:agentplay",
+     "MoSCoW: Must",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "e2e"
+   },
+   {
+    "number": 121,
+    "title": "feat: instrument the /api contract with Prometheus metrics (RED) + /metrics endpoint",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/121",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:ci",
+     "prio:high",
+     "MoSCoW: Must",
+     "track-m"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ci"
+   },
+   {
+    "number": 122,
+    "title": "feat: load-test harness — ramp to N thousand concurrent peers and report p99",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/122",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:e2e",
+     "prio:high",
+     "source:agentplay",
+     "MoSCoW: Must",
+     "track-m"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "e2e"
+   },
+   {
+    "number": 123,
+    "title": "feat: Grafana dashboard + Prometheus scrape config for molgang peers and relays",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/123",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:deploy",
+     "prio:high",
+     "source:monitor",
+     "MoSCoW: Should",
+     "track-m"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "deploy"
+   },
+   {
+    "number": 124,
+    "title": "feat: distributed tracing across the relay mesh (propose -> push -> pull -> weave)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/124",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "prio:med",
+     "MoSCoW: Should",
+     "track-m"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 125,
+    "title": "feat: define and enforce latency + quorum-settle budgets (SLOs) with alerts",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/125",
+    "labels": [
+     "documentation",
+     "area:molgang",
+     "type:docs",
+     "prio:med",
+     "MoSCoW: Should",
+     "track-m"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "docs"
+   },
+   {
+    "number": 126,
+    "title": "feat: chaos / fault injection — kill relays and partition the mesh, prove recovery",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/126",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Should",
+     "track-m"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 127,
+    "title": "feat: autoscaling relays behind a load-balanced endpoint with health-driven scale",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/127",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "type:deploy",
+     "prio:med",
+     "MoSCoW: Could",
+     "track-m"
+    ],
+    "moscow": "Could",
+    "prio": "med",
+    "area": "molgang",
+    "type": "p2p"
+   }
+  ]
+ },
+ {
+  "number": 10,
+  "title": "Sprint 10",
+  "description": "Launch: 1M concurrent & the GTA6 benchmark. Measurement standard, multi-region fleet, flash-crowd faucet hardening, public GTA6 scoreboard, the 1,000,000-concurrent-peer run, launch runbook + cost model. Road to 1M: demonstrate it.",
+  "state": "open",
+  "open_issues": 9,
+  "closed_issues": 0,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/10",
+  "issues": [
+   {
+    "number": 128,
+    "title": "docs: define the 1M-concurrent measurement standard and the GTA6 win condition",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/128",
+    "labels": [
+     "documentation",
+     "area:molgang",
+     "type:docs",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "docs"
+   },
+   {
+    "number": 129,
+    "title": "feat: multi-region relay fleet sized for the launch wave",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/129",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "type:deploy",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 130,
+    "title": "security: harden the public faucet + relay for a launch-wave flash crowd",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/130",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "type:security",
+     "prio:high",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 131,
+    "title": "feat: public GTA6-comparison dashboard fed by real fleet telemetry",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/131",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:ui",
+     "prio:high",
+     "source:monitor",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 132,
+    "title": "feat: agentplay swarm load-driver to drive peers toward 1,000,000 concurrent",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/132",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "type:e2e",
+     "prio:high",
+     "source:agentplay",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 133,
+    "title": "test: run the 1,000,000-concurrent-peer test and publish methodology + results",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/133",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "type:e2e",
+     "prio:high",
+     "source:agentplay",
+     "MoSCoW: Must"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 134,
+    "title": "feat: launch landing page + community/marketing surfaces pointing at the faucet",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/134",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:ui",
+     "type:docs",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 135,
+    "title": "docs: launch runbook, on-call rotation, and post-launch live-ops",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/135",
+    "labels": [
+     "documentation",
+     "area:molgang",
+     "type:deploy",
+     "type:docs",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "deploy"
+   },
+   {
+    "number": 145,
+    "title": "docs: cost model + peer-relay incentive crossover (bound launch $; decentralization economics)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/145",
+    "labels": [
+     "area:molgang",
+     "type:docs",
+     "prio:med",
+     "MoSCoW: Should",
+     "type:economy"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "docs"
+   }
+  ]
+ },
+ {
+  "number": 11,
+  "title": "Sprint 11",
+  "description": "",
+  "state": "open",
+  "open_issues": 0,
+  "closed_issues": 0,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/11",
+  "issues": []
+ },
+ {
+  "number": 12,
+  "title": "Sprint 12",
+  "description": "",
+  "state": "open",
+  "open_issues": 0,
+  "closed_issues": 0,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/12",
+  "issues": []
+ },
+ {
+  "number": 13,
+  "title": "Sprint 13",
+  "description": "",
+  "state": "open",
+  "open_issues": 0,
+  "closed_issues": 0,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/13",
+  "issues": []
+ },
+ {
+  "number": 14,
+  "title": "Sprint 3",
+  "description": "Shared-world + multilingual KG + one canonical /api engine. Converge the Python bar, Django dapp & PHP node onto one frozen versioned /api; Channels push (not poll); presence/reconnect + co-weaving spirals; trilingual EN/RU/ZH(+AR) chemistry KG end-to-end. Road to 1M: one wire protocol + push transport for any peer.",
+  "state": "open",
+  "open_issues": 8,
+  "closed_issues": 0,
+  "due_on": null,
+  "html_url": "https://github.com/Knitweb/molgang/milestone/14",
+  "issues": [
+   {
+    "number": 17,
+    "title": "Two-player shared-world polish (presence/liveness/reconnect)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/17",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "prio:high",
+     "prio:med",
+     "MoSCoW: Should",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 20,
+    "title": "Spiral co-weaving across the shared world (multiplayer spirals)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/20",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:p2p",
+     "prio:med",
+     "MoSCoW: Should",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 28,
+    "title": "Django: HTMX dapp rebuild (server-rendered AccountPill, tx toasts, portfolio, explorer)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/28",
+    "labels": [
+     "enhancement",
+     "area:molgang",
+     "type:ui",
+     "prio:med",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Could",
+    "prio": "med",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 29,
+    "title": "Django: live tables via Channels/websockets (drop polling)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/29",
+    "labels": [
+     "area:molgang",
+     "type:ui",
+     "prio:high",
+     "prio:med",
+     "MoSCoW: Should",
+     "MoSCoW: Could"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "ui"
+   },
+   {
+    "number": 30,
+    "title": "EPIC: trilingual (EN/RU/ZH) high-school chemistry knowledge-graph extension via alice+bob",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/30",
+    "labels": [
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 32,
+    "title": "Multilingual term-nodes: tag with lang + base-direction (W3C design)",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/32",
+    "labels": [
+     "area:molgang",
+     "area:knitweb",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   },
+   {
+    "number": 33,
+    "title": "Commit the 4-language chemistry dataset + weave script + MULTILINGUAL.md",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/33",
+    "labels": [
+     "documentation",
+     "area:molgang",
+     "type:docs",
+     "prio:med",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Should",
+    "prio": "med",
+    "area": "molgang",
+    "type": "docs"
+   },
+   {
+    "number": 58,
+    "title": "refactor: reconcile the three MOLGANG engines onto one canonical via the /api contract",
+    "state": "open",
+    "html_url": "https://github.com/Knitweb/molgang/issues/58",
+    "labels": [
+     "area:molgang",
+     "type:p2p",
+     "prio:high",
+     "MoSCoW: Must",
+     "MoSCoW: Should"
+    ],
+    "moscow": "Must",
+    "prio": "high",
+    "area": "molgang",
+    "type": "p2p"
+   }
+  ]
+ }
+]

@@ -1,0 +1,51 @@
+name: pages
+# Live, auto-updating roadmap: rebuild the baked snapshot and deploy site/ to GitHub Pages.
+# Triggers cover site edits, near-real-time board changes (issues/milestone events), a periodic
+# refresh, and manual runs.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'scripts/build_roadmap_snapshot.sh'
+      - '.github/workflows/pages.yml'
+  issues:
+    types: [opened, closed, edited, reopened, labeled, unlabeled, milestoned, demilestoned]
+  milestone:
+    types: [created, edited, closed, opened, deleted]
+  schedule:
+    - cron: '0 */6 * * *'   # refresh the snapshot 4× a day
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build roadmap snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: bash scripts/build_roadmap_snapshot.sh
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
