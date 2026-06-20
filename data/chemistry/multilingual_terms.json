@@ -30,6 +30,12 @@
     "HCl":     {"names": {"en": "Hydrochloric acid", "nl": "Zoutzuur",         "ru": "Соляная кислота",      "zh": "盐酸",   "ar": "حمض الهيدروكلوريك"}},
     "C6H12O6": {"names": {"en": "Glucose",           "nl": "Glucose",          "ru": "Глюкоза",              "zh": "葡萄糖", "ar": "جلوكوز"}},
     "CaCO3":   {"names": {"en": "Calcium carbonate", "nl": "Calciumcarbonaat", "ru": "Карбонат кальция",     "zh": "碳酸钙", "ar": "كربونات الكالسيوم"}},
-    "H2":      {"names": {"en": "Hydrogen gas",      "nl": "Waterstofgas",     "ru": "Водород (газ)",        "zh": "氢气",   "ar": "غاز الهيدروجين"}}
+    "H2":      {"names": {"en": "Hydrogen gas",      "nl": "Waterstofgas",     "ru": "Водород (газ)",        "zh": "氢气",   "ar": "غاز الهيدروجين"}},
+    "N2":      {"names": {"en": "Nitrogen gas",      "nl": "Stikstofgas",      "ru": "Азот (газ)",           "zh": "氮气",   "ar": "غاز النيتروجين"}},
+    "CO":      {"names": {"en": "Carbon monoxide",   "nl": "Koolmonoxide",     "ru": "Угарный газ",          "zh": "一氧化碳", "ar": "أول أكسيد الكربون"}},
+    "SO2":     {"names": {"en": "Sulfur dioxide",    "nl": "Zwaveldioxide",    "ru": "Диоксид серы",         "zh": "二氧化硫", "ar": "ثاني أكسيد الكبريت"}},
+    "H2SO4":   {"names": {"en": "Sulfuric acid",     "nl": "Zwavelzuur",       "ru": "Серная кислота",       "zh": "硫酸",   "ar": "حمض الكبريتيك"}},
+    "NaOH":    {"names": {"en": "Sodium hydroxide",  "nl": "Natriumhydroxide", "ru": "Гидроксид натрия",     "zh": "氢氧化钠", "ar": "هيدروكسيد الصوديوم"}},
+    "CaO":     {"names": {"en": "Calcium oxide",     "nl": "Calciumoxide",     "ru": "Оксид кальция",        "zh": "氧化钙", "ar": "أكسيد الكالسيوم"}}
   }
 }

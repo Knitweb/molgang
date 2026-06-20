@@ -38,6 +38,12 @@ MOLECULES: dict[str, tuple[str, str]] = {
     "C6H12O6": ("Glucose", "Glucose"),
     "CaCO3": ("Calcium carbonate", "Calciumcarbonaat"),
     "H2": ("Hydrogen gas", "Waterstofgas"),
+    "N2": ("Nitrogen gas", "Stikstofgas"),
+    "CO": ("Carbon monoxide", "Koolmonoxide"),
+    "SO2": ("Sulfur dioxide", "Zwaveldioxide"),
+    "H2SO4": ("Sulfuric acid", "Zwavelzuur"),
+    "NaOH": ("Sodium hydroxide", "Natriumhydroxide"),
+    "CaO": ("Calcium oxide", "Calciumoxide"),
 }
 
 _TOKEN = re.compile(r"([A-Z][a-z]?)(\d*)")

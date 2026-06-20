@@ -21,8 +21,16 @@ def test_links_cover_every_term_and_language():
     # well-formed triples, localized name as subject, canonical as object
     for l in links:
         assert l["subject"] and l["relation"].startswith("name:") and l["object"] in canon
-    # count sanity: 20 terms x 5 langs, minus any name==canonical no-ops
-    assert 90 <= len(links) <= 100
+    # exact count, derived from the dataset (robust as the term set grows): one link per
+    # localized name that differs from its canonical key, mirroring build_links().
+    expected = sum(
+        1
+        for grp in ("elements", "molecules")
+        for canonical, entry in DATA[grp].items()
+        for lang, name in entry["names"].items()
+        if lang in langs and name and name != canonical
+    )
+    assert len(links) == expected
 
 
 def test_known_alias_present():
