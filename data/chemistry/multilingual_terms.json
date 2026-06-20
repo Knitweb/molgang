@@ -22,7 +22,12 @@
     "Mg": {"atomic_number": 12, "names": {"en": "Magnesium", "nl": "Magnesium", "ru": "Магний",   "zh": "镁", "ar": "مغنيسيوم"}},
     "Al": {"atomic_number": 13, "names": {"en": "Aluminium", "nl": "Aluminium", "ru": "Алюминий", "zh": "铝", "ar": "ألومنيوم"}},
     "P":  {"atomic_number": 15, "names": {"en": "Phosphorus","nl": "Fosfor",    "ru": "Фосфор",   "zh": "磷", "ar": "فوسفور"}},
-    "K":  {"atomic_number": 19, "names": {"en": "Potassium", "nl": "Kalium",    "ru": "Калий",    "zh": "钾", "ar": "بوتاسيوم"}}
+    "K":  {"atomic_number": 19, "names": {"en": "Potassium", "nl": "Kalium",    "ru": "Калий",    "zh": "钾", "ar": "بوتاسيوم"}},
+    "F":  {"atomic_number": 9,  "names": {"en": "Fluorine",  "nl": "Fluor",     "ru": "Фтор",     "zh": "氟", "ar": "فلور"}},
+    "Si": {"atomic_number": 14, "names": {"en": "Silicon",   "nl": "Silicium",  "ru": "Кремний",  "zh": "硅", "ar": "سيليكون"}},
+    "Zn": {"atomic_number": 30, "names": {"en": "Zinc",      "nl": "Zink",      "ru": "Цинк",     "zh": "锌", "ar": "زنك"}},
+    "Br": {"atomic_number": 35, "names": {"en": "Bromine",   "nl": "Broom",     "ru": "Бром",     "zh": "溴", "ar": "بروم"}},
+    "I":  {"atomic_number": 53, "names": {"en": "Iodine",    "nl": "Jood",      "ru": "Йод",      "zh": "碘", "ar": "يود"}}
   },
   "molecules": {
     "H2O":     {"names": {"en": "Water",             "nl": "Water",            "ru": "Вода",                 "zh": "水",     "ar": "ماء"}},
@@ -44,6 +49,16 @@
     "MgO":     {"names": {"en": "Magnesium oxide",   "nl": "Magnesiumoxide",   "ru": "Оксид магния",         "zh": "氧化镁", "ar": "أكسيد المغنيسيوم"}},
     "Al2O3":   {"names": {"en": "Aluminium oxide",   "nl": "Aluminiumoxide",   "ru": "Оксид алюминия",       "zh": "氧化铝", "ar": "أكسيد الألومنيوم"}},
     "KCl":     {"names": {"en": "Potassium chloride","nl": "Kaliumchloride",   "ru": "Хлорид калия",         "zh": "氯化钾", "ar": "كلوريد البوتاسيوم"}},
-    "H3PO4":   {"names": {"en": "Phosphoric acid",   "nl": "Fosforzuur",       "ru": "Фосфорная кислота",    "zh": "磷酸",   "ar": "حمض الفوسفوريك"}}
+    "H3PO4":   {"names": {"en": "Phosphoric acid",   "nl": "Fosforzuur",       "ru": "Фосфорная кислота",    "zh": "磷酸",   "ar": "حمض الفوسفوريك"}},
+    "H2O2":    {"names": {"en": "Hydrogen peroxide", "nl": "Waterstofperoxide","ru": "Пероксид водорода",    "zh": "过氧化氢", "ar": "بيروكسيد الهيدروجين"}},
+    "HNO3":    {"names": {"en": "Nitric acid",       "nl": "Salpeterzuur",     "ru": "Азотная кислота",      "zh": "硝酸",   "ar": "حمض النيتريك"}},
+    "H2S":     {"names": {"en": "Hydrogen sulfide",  "nl": "Waterstofsulfide", "ru": "Сероводород",          "zh": "硫化氢", "ar": "كبريتيد الهيدروجين"}},
+    "NO2":     {"names": {"en": "Nitrogen dioxide",  "nl": "Stikstofdioxide",  "ru": "Диоксид азота",        "zh": "二氧化氮", "ar": "ثاني أكسيد النيتروجين"}},
+    "KOH":     {"names": {"en": "Potassium hydroxide","nl": "Kaliumhydroxide", "ru": "Гидроксид калия",      "zh": "氢氧化钾", "ar": "هيدروكسيد البوتاسيوم"}},
+    "SiO2":    {"names": {"en": "Silicon dioxide",   "nl": "Siliciumdioxide",  "ru": "Диоксид кремния",      "zh": "二氧化硅", "ar": "ثاني أكسيد السيليكون"}},
+    "ZnO":     {"names": {"en": "Zinc oxide",        "nl": "Zinkoxide",        "ru": "Оксид цинка",          "zh": "氧化锌", "ar": "أكسيد الزنك"}},
+    "NaF":     {"names": {"en": "Sodium fluoride",   "nl": "Natriumfluoride",  "ru": "Фторид натрия",        "zh": "氟化钠", "ar": "فلوريد الصوديوم"}},
+    "KBr":     {"names": {"en": "Potassium bromide", "nl": "Kaliumbromide",    "ru": "Бромид калия",         "zh": "溴化钾", "ar": "بروميد البوتاسيوم"}},
+    "KI":      {"names": {"en": "Potassium iodide",  "nl": "Kaliumjodide",     "ru": "Йодид калия",          "zh": "碘化钾", "ar": "يوديد البوتاسيوم"}}
   }
 }

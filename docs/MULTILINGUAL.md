@@ -7,7 +7,7 @@ multilingual dataset and the W3C-correct way its terms are tagged.
 ## The dataset
 
 `data/chemistry/multilingual_terms.json` (`schema: molgang.multilingual.terms/v1`) holds names for
-the chemistry **ground truth** in `src/molgang/chemistry.py` — the 14 first-lesson elements and 20
+the chemistry **ground truth** in `src/molgang/chemistry.py` — the 19 first-lesson elements and 30
 molecules — in **EN, NL, RU, ZH, AR**. Translations are real reference terms (never synthetic), and
 the element/molecule keys stay byte-for-byte in sync with `chemistry.py` (guarded by a test, below).
 
@@ -43,7 +43,7 @@ string table — and lets a client render each label with the correct directiona
 
 `scripts/weave_multilingual_terms.py` turns the dataset into alias **links** — one per localized name,
 `{subject: name, relation: "name:<lang>", object: <canonical>}` — so `Water` / `Вода` / `水` / `ماء`
-all connect to the same `H2O` concept (170 links for the current set). `build_links()` is pure and
+all connect to the same `H2O` concept (245 links for the current set). `build_links()` is pure and
 unit-tested; running the script emits the ready-to-weave plan, and `--weave` applies it to a live
 `World` via `world.weave_links(...)` (requires the knitweb engine). The relation carries the language;
 base direction is recovered from the `languages` table above.
