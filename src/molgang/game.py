@@ -38,6 +38,52 @@ ROUND_REWARD_BANK_PLS = 1_000_000
 # protocol reward bank. The exponential usefulness bonus grows with confirming
 # peers, capped so a local classroom cannot mint absurd balances by accident.
 
+# ── Faucet decay schedule ────────────────────────────────────────────────────
+# The production faucet (what a new device wallet is genesis-seeded with at
+# onboarding) is not a flat grant: it is a deterministic, INTEGER-ONLY decaying
+# schedule, so the web can fund fresh accounts richly now and taper for years
+# without a permanent flat premine. Float-free is sacred: sub-1-PLS values are
+# exact integer **µPLS** (1 PLS = 1_000_000 µPLS), exactly the way Bitcoin counts
+# integer satoshis — never a float. Two phases (day = whole days since genesis):
+#   • Phase 1 (day 0..100): exact linear ramp-down 10_000_000 PLS → 10_000 PLS.
+#   • Phase 2 (day > 100):  −1%/day geometric decay (×99/100) from 10_000 PLS,
+#                           floored at 1 µPLS so the faucet ALWAYS exists (never 0).
+# `FAUCET_PULSES` above stays the small dev/test/guest seed; the schedule below is
+# the production onboarding grant wired in `bar.py`.
+MICROPULSES_PER_PULSE = 1_000_000
+FAUCET_GENESIS_MICROPULSES = 10_000_000 * MICROPULSES_PER_PULSE   # day 0  → 10,000,000 PLS
+FAUCET_PHASE1_DAYS = 100
+FAUCET_PHASE2_START_MICROPULSES = 10_000 * MICROPULSES_PER_PULSE  # day 100 → 10,000 PLS
+FAUCET_PHASE2_DECAY_NUM = 99      # −1%/day ⇒ ×99/100 each day (integer rational)
+FAUCET_PHASE2_DECAY_DEN = 100
+FAUCET_MIN_MICROPULSES = 1        # never 0 — the faucet always exists (1 µPLS floor)
+
+
+def faucet_micropulses(day: int) -> int:
+    """The faucet grant for a new account joining on ``day`` (whole days since the
+    faucet genesis), in exact integer **µPLS**. Deterministic and float-free;
+    monotonically non-increasing in ``day``; never below ``FAUCET_MIN_MICROPULSES``
+    (the faucet always exists)."""
+    if day <= 0:
+        return FAUCET_GENESIS_MICROPULSES
+    if day <= FAUCET_PHASE1_DAYS:
+        # exact integer linear interpolation 10_000_000 PLS → 10_000 PLS over 100 days
+        span = FAUCET_GENESIS_MICROPULSES - FAUCET_PHASE2_START_MICROPULSES
+        return FAUCET_GENESIS_MICROPULSES - span * day // FAUCET_PHASE1_DAYS
+    # phase 2: 10_000 PLS × (99/100) ** (day-100), floored to integer µPLS, min 1 µPLS
+    k = day - FAUCET_PHASE1_DAYS
+    level = (FAUCET_PHASE2_START_MICROPULSES * FAUCET_PHASE2_DECAY_NUM ** k
+             ) // (FAUCET_PHASE2_DECAY_DEN ** k)
+    return level if level >= FAUCET_MIN_MICROPULSES else FAUCET_MIN_MICROPULSES
+
+
+def current_faucet_pulses(day: int) -> int:
+    """The faucet grant on ``day`` as whole integer PLS (floor of the µPLS level) —
+    what a new ledger account is genesis-seeded with (balances are integer PLS). The
+    sub-1-PLS µPLS tail is preserved by :func:`faucet_micropulses` for display and
+    the PoUW certificate, but the credited balance is whole PLS."""
+    return faucet_micropulses(day) // MICROPULSES_PER_PULSE
+
 
 class FaucetError(RuntimeError):
     pass

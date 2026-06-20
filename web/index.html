@@ -10,6 +10,7 @@
   <header>
     <div class="brand">🧪 <b>MOLGANG</b> <span class="dim">· the bar</span></div>
     <div id="pulse-host" class="pulse-host dim small"></div>
+    <button id="tutorial-replay" class="help-btn ghost" title="Replay tutorial">🎓 Tutorial</button>
     <div id="me" class="me hidden">
       <span id="me-av" class="av"></span>
       <span id="me-name"></span>
@@ -25,6 +26,7 @@
       <button data-view="ledger">📒 My knits</button>
       <button data-view="explorer">🔭 Explorer</button>
       <button data-view="web">🌐 Web</button>
+      <button data-view="progress">🏅 Progress</button>
       <button data-view="records">🕸 Spirals</button>
       <button data-view="monitor">📡 Monitor</button>
     </nav>
@@ -119,6 +121,29 @@
     </div>
     <datalist id="gx-names"></datalist>
     <div id="gx-result" class="dim"></div>
+  </section>
+
+  <!-- 🏅 Progress — quests, achievements & seasonal standing (#110/#111/#112) -->
+  <section id="progress" class="view hidden">
+    <h2>🏅 Progress <span class="dim small">— your quests, badges &amp; seasonal standing</span></h2>
+
+    <h3>🧗 Reputation ladder <span class="dim small">— climb Apprentice → Laureate (reputation, no NFTs)</span></h3>
+    <div id="ladder" class="ladder"></div>
+
+    <h3>🎯 Quests <span class="dim small">— tier-graded goals; reputation/XP only, no NFTs</span></h3>
+    <div id="quests-list" class="progress-list"></div>
+
+    <h3>🏅 Achievements <span class="dim small">— milestone badges (reputation, not tokens)</span></h3>
+    <div id="achievements-list" class="badges"></div>
+
+    <div class="leaderboard-head">
+      <h3>🏆 Leaderboard</h3>
+      <div class="season-toggle">
+        <button id="lb-all" class="active">All-time</button>
+        <button id="lb-season" class="ghost">This season</button>
+      </div>
+    </div>
+    <div id="season-board" class="records-board"></div>
   </section>
 
   <!-- spiral records leaderboard -->

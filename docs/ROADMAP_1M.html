@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MOLGANG — Road to 1,000,000 Concurrent Peers</title>
+<meta name="author" content="Knitweb / MOLGANG">
+<meta name="description" content="The sprint roadmap for MOLGANG, a peer-to-peer chemistry learning game on the Knitweb fabric, on its path to one million concurrent peers.">
+<meta name="keywords" content="MOLGANG, Knitweb, peer-to-peer, chemistry, roadmap, 1M concurrent, GTA6, PoUW">
+<meta name="generator" content="Kami">
+<style>
+  @font-face { font-family: "JetBrains Mono"; src: url("../fonts/JetBrainsMono.woff2") format("woff2"); font-weight: 400; font-style: normal; }
+  @page {
+    size: A4;
+    margin: 20mm 22mm 22mm 22mm;
+    background: #f5f4ed;
+    @top-right { content: string(section-title); font-family: Charter, Georgia, Palatino, serif; font-size: 8pt; color: #6b6a64; }
+    @bottom-center { content: counter(page) "  ·  MOLGANG — Road to 1,000,000 Concurrent Peers"; font-family: Charter, Georgia, Palatino, serif; font-size: 9pt; color: #6b6a64; }
+  }
+  @page:first { @top-right { content: ""; } @bottom-center { content: ""; } }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --parchment:#f5f4ed; --ivory:#faf9f5; --near-black:#141413; --dark-warm:#3d3d3a;
+    --olive:#504e49; --stone:#6b6a64; --brand:#1B365D; --border:#e8e6dc; --border-soft:#e5e3d8; --tag-bg:#E4ECF5;
+    --serif: Charter, Georgia, Palatino, "Times New Roman", serif; --sans: var(--serif);
+    --mono: "JetBrains Mono","SF Mono", Consolas, Monaco, monospace;
+  }
+  html, body { background: var(--parchment); }
+  @media screen { body { max-width: 210mm; margin: 0 auto; padding: 20mm 22mm 22mm 22mm; } }
+  body { color: var(--near-black); font-family: var(--serif); font-size: 10.5pt; line-height: 1.55; widows: 3; orphans: 3; }
+  .sans { font-family: var(--sans); }
+  .cover { min-height: 240mm; display: flex; flex-direction: column; justify-content: space-between; padding: 40mm 0 0 0; break-after: page; }
+  .cover-eyebrow { font-family: var(--sans); font-size: 10pt; color: var(--brand); letter-spacing: 2pt; text-transform: uppercase; font-weight: 500; margin-bottom: 18pt; }
+  .cover-title { font-size: 40pt; font-weight: 500; color: var(--near-black); line-height: 1.12; letter-spacing: -0.5pt; margin-bottom: 16pt; }
+  .cover-sub { font-family: var(--sans); font-size: 14pt; color: var(--olive); line-height: 1.45; max-width: 88%; margin-bottom: 30pt; }
+  .cover-meta { font-family: var(--sans); font-size: 10pt; color: var(--stone); line-height: 1.55; font-variant-numeric: tabular-nums; }
+  .cover-meta strong { color: var(--dark-warm); font-weight: 500; }
+  .toc { break-after: page; }
+  .toc h2 { font-size: 22pt; font-weight: 500; margin-bottom: 14pt; border-left: 2.5pt solid var(--brand); border-radius: 1.5pt; padding-left: 8pt; }
+  .toc-item { display: flex; justify-content: space-between; align-items: baseline; padding: 6pt 0; border-bottom: 0.3pt dotted var(--border); font-size: 11pt; }
+  .toc-item:last-of-type { border-bottom: none; }
+  .toc-num { color: var(--brand); font-weight: 500; min-width: 30pt; font-variant-numeric: tabular-nums; }
+  .toc-title { flex: 1; color: var(--near-black); padding-left: 6pt; }
+  .toc-page { color: var(--stone); font-variant-numeric: tabular-nums; }
+  h1 { font-size: 24pt; font-weight: 500; line-height: 1.15; letter-spacing: -0.3pt; margin: 0 0 10pt 0; border-left: 2.5pt solid var(--brand); border-radius: 1.5pt; padding-left: 8pt; color: var(--near-black); break-after: avoid; }
+  h2 { font-size: 16pt; font-weight: 500; line-height: 1.25; margin: 24pt 0 8pt 0; color: var(--near-black); break-after: avoid; string-set: section-title content(); }
+  h3 { font-size: 13pt; font-weight: 500; line-height: 1.3; margin: 18pt 0 6pt 0; color: var(--dark-warm); break-after: avoid; }
+  .chapter-num { font-family: var(--sans); font-size: 10pt; color: var(--brand); letter-spacing: 1pt; text-transform: uppercase; font-weight: 500; margin-bottom: 6pt; }
+  p { margin: 0 0 10pt 0; line-height: 1.55; color: var(--near-black); widows: 2; orphans: 2; }
+  .lead { font-size: 12pt; line-height: 1.55; color: var(--dark-warm); margin-bottom: 14pt; }
+  .hl { color: var(--brand); font-weight: 500; }
+  strong { font-weight: 500; }
+  ul, ol { margin: 6pt 0 10pt 0; padding-left: 20pt; line-height: 1.55; }
+  ul li::marker { color: var(--brand); }
+  ol li::marker { color: var(--brand); font-weight: 500; }
+  blockquote, .quote { border-left: 2pt solid var(--brand); margin: 12pt 0; padding: 4pt 0 4pt 16pt; color: var(--olive); line-height: 1.55; break-inside: avoid; }
+  blockquote .cite, .quote .cite { display: block; font-family: var(--sans); font-size: 9pt; color: var(--stone); margin-top: 4pt; }
+  code { font-family: var(--mono); font-size: 9pt; background: var(--ivory); padding: 1pt 4pt; border-radius: 2pt; color: var(--dark-warm); }
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin: 12pt 0; break-inside: avoid; }
+  table th { text-align: left; font-family: var(--sans); font-weight: 500; color: var(--dark-warm); padding: 6pt 8pt; border-bottom: 1pt solid var(--border); background: var(--ivory); }
+  table td { padding: 5pt 8pt; border-bottom: 0.3pt solid var(--border-soft); vertical-align: top; }
+  table.striped tbody tr:nth-child(even) td { background: var(--ivory); }
+  .callout { background: var(--ivory); border-left: 2pt solid var(--brand); padding: 10pt 14pt; border-radius: 3pt; margin: 12pt 0; line-height: 1.55; break-inside: avoid; }
+  .takeaway { background: var(--ivory); border-radius: 4pt; padding: 10pt 14pt; margin: 14pt 0; break-inside: avoid; }
+  .takeaway-label { font-family: var(--sans); font-size: 9pt; color: var(--brand); letter-spacing: 1pt; text-transform: uppercase; font-weight: 500; margin-bottom: 4pt; }
+  .tag { display: inline-block; background: var(--tag-bg); color: var(--brand); font-family: var(--sans); font-size: 9pt; font-weight: 500; padding: 1pt 6pt; border-radius: 3pt; letter-spacing: 0.4pt; text-transform: uppercase; margin-right: 4pt; }
+  .chapter { break-before: page; }
+</style>
+</head>
+<body>
+
+<section class="cover">
+  <div>
+    <div class="cover-eyebrow">White Paper · Sprint Roadmap</div>
+    <div class="cover-title">MOLGANG<br>Road to 1,000,000<br>Concurrent Peers</div>
+    <div class="cover-sub">A peer-to-peer chemistry learning game on the Knitweb — where the game <em>is</em> the protocol, and capacity grows with every player. The plan to out-scale GTA6.</div>
+  </div>
+  <div class="cover-meta">
+    <strong>Knitweb · MOLGANG</strong><br>
+    Companion to the Sprint 3–10 plan · 2026.06<br>
+    github.com/Knitweb/molgang · knitweb.github.io/molgang
+  </div>
+</section>
+
+<section class="toc">
+  <h2>Contents</h2>
+  <div class="toc-item"><span class="toc-num">01</span><span class="toc-title">Executive Summary</span><span class="toc-page">03</span></div>
+  <div class="toc-item"><span class="toc-num">02</span><span class="toc-title">The Thesis &amp; the North Star</span><span class="toc-page">04</span></div>
+  <div class="toc-item"><span class="toc-num">03</span><span class="toc-title">The Ten-Sprint Arc</span><span class="toc-page">05</span></div>
+  <div class="toc-item"><span class="toc-num">04</span><span class="toc-title">Execution: Ordering, Gates &amp; What "Done" Means</span><span class="toc-page">07</span></div>
+  <div class="toc-item"><span class="toc-num">05</span><span class="toc-title">Appendix — Vocabulary &amp; Links</span><span class="toc-page">08</span></div>
+</section>
+
+<section class="chapter">
+  <div class="chapter-num">01 · Executive Summary</div>
+  <h1>Executive Summary</h1>
+  <p class="lead">
+    MOLGANG is a peer-to-peer chemistry (scheikunde) learning game in which <span class="hl">the game <em>is</em> the protocol</span>: every chemical bond a learner forms is a real <strong>Knit</strong> on the Knitweb ledger, every molecule is a <strong>Fiber</strong>, and classmates validate the chemistry by voting with <strong>PLS pulses</strong> settled by a real Byzantine-fault-tolerant Proof-of-Useful-Work quorum. The goal of this roadmap is audacious and concrete: <span class="hl">one million concurrent peers</span> — out-scaling GTA6 — reachable precisely because on a peer fabric, <strong>players are the infrastructure</strong>.
+  </p>
+  <h2>Key Takeaways</h2>
+  <ul>
+    <li><strong>The edge is architectural, not budgetary.</strong> Capacity grows with players: each peer that joins also serves, so scale compounds instead of costing.</li>
+    <li><strong>Eight sprints, one frozen contract.</strong> Sprint 3–10 carry the project from a two-player shared world to a measured million-peer launch — ~60 new issues plus 11 gap issues (74 open), each gated and labelled.</li>
+    <li><strong>Security and observability gate scale.</strong> A hard security/economy/legal gate precedes mass onboarding; full instrumentation precedes the 1M test — both are sequencing guarantees, not afterthoughts.</li>
+  </ul>
+  <div class="takeaway">
+    <div class="takeaway-label">Questions this document answers</div>
+    Why can a chemistry game realistically target a million concurrent players? What are the eight sprints, and how does each move the needle toward 1M? In what order must they land, and what counts as "done"?
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="chapter-num">02 · Thesis</div>
+  <h1>The Thesis &amp; the North Star</h1>
+  <p class="lead">Most multiplayer games scale by spending: more concurrent players means more servers, linearly. MOLGANG inverts that economics by running on a decentralized fabric.</p>
+
+  <h2>The Game Is the Protocol</h2>
+  <p>MOLGANG is built on the <span class="hl">Knitweb</span> fabric (engine: <code>knitweb/pulse</code>). The mapping is one-to-one and real — nothing is mocked:</p>
+  <table>
+    <thead><tr><th>In the game</th><th>On the Knitweb</th></tr></thead>
+    <tbody>
+      <tr><td>Forming a chemical bond</td><td>a <strong>Knit</strong> — a two-party ledger transfer</td></tr>
+      <tr><td>Growing a molecule</td><td>a <strong>Fiber</strong> — an account-state commitment</td></tr>
+      <tr><td>Classmates validating chemistry</td><td><strong>PLS pulses</strong> staked into a BFT PoUW quorum</td></tr>
+      <tr><td>A free start for new players</td><td><strong>silk + pulses</strong> from the faucet</td></tr>
+    </tbody>
+  </table>
+  <p>There are no NFTs. Value is <strong>pulses, reputation, and woven knowledge</strong> — useful work, not speculation.</p>
+
+  <h2>Why One Million Is Reachable</h2>
+  <div class="callout">
+    On a server-farm game, the millionth player is a cost. On a peer fabric, the millionth player is a <span class="hl">relay, a validator, and a teacher</span> — capacity the network gains, not capacity it must buy.
+  </div>
+  <p>The engineering task is therefore not "afford a million players" but "let a peer fabric self-organize, stay honest, and stay fast as it grows." That is exactly what Sprints 4–10 build.</p>
+
+  <h2>Where We Stand</h2>
+  <table>
+    <thead><tr><th>Dimension</th><th>Today (Sprint 1–2)</th><th>Target (Sprint 10)</th></tr></thead>
+    <tbody>
+      <tr><td>Live nodes</td><td>One always-on node (5mart.ml) + relay</td><td>Multi-region reconciling relay mesh</td></tr>
+      <tr><td>Concurrent players</td><td>Two-player shared world</td><td>1,000,000 concurrent peers</td></tr>
+      <tr><td>Peer discovery</td><td>Hand-typed / relay-brokered</td><td>Kademlia DHT + NAT hole-punch</td></tr>
+      <tr><td>Content</td><td>Core chemistry + multilingual KG</td><td>Graded curriculum, quests, seasons</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="chapter">
+  <div class="chapter-num">03 · The Arc</div>
+  <h1>The Ten-Sprint Arc</h1>
+  <p class="lead">Sprint 1–2 are done or in progress. This roadmap fills Sprint 3–10 — short, dependency-ordered increments (no fixed calendar dates). Each line states the sprint's theme and how it advances the million-peer goal.</p>
+
+  <table class="striped">
+    <thead><tr><th style="width:14%">Sprint</th><th>Theme — and how it advances 1M</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1 · done</strong></td><td><strong>Foundation</strong> — UI, deploy to 5mart.ml, CI, monitor tab, p2p relay, PoUW accounting. <em>A live single node.</em></td></tr>
+      <tr><td><strong>2 · wip</strong></td><td><strong>Shared world + Django dapp + multilingual KG.</strong> <em>Two-player real-time and i18n content.</em></td></tr>
+      <tr><td><strong>3</strong></td><td><strong>Shared-world + multilingual KG + one canonical /api engine</strong> — converge the Python bar, Django dapp and PHP node on one frozen versioned <code>/api</code>; Channels push (not poll); presence/reconnect + co-weaving spirals; trilingual EN/RU/ZH(+AR) knowledge graph. <em>One wire protocol and a push transport for any peer.</em></td></tr>
+      <tr><td><strong>4</strong></td><td><strong>P2P hardening &amp; peer discovery</strong> — Kademlia DHT routing, STUN NAT hole-punch, equivocation quarantine + partial Merkle proofs, FabricNode/AsyncioP2PNode unification, fiber-tension v1. <em>A self-organising, Byzantine-resistant, many-thousand-peer mesh.</em></td></tr>
+      <tr><td><strong>5</strong></td><td><strong>Relay mesh &amp; horizontal scale</strong> — multi-relay client with failover, relay-to-relay anti-entropy gossip, concept-sharded knowledge graph, region-aware bootstrap, durable storage. <em>One relay becomes a reconciling mesh across regions.</em></td></tr>
+      <tr><td><strong>6</strong></td><td><strong>PoUW economy, tokenomics &amp; security gate</strong> — fix the certificate key-leak, faucet/sybil + rate-limit + key hygiene, collateral/snap-slash, rewards for relay operators, identity recovery, content moderation, COPPA/GDPR-K. <em>Sybil-resistant and safe BEFORE mass onboarding.</em></td></tr>
+      <tr><td><strong>7</strong></td><td><strong>Content depth</strong> — graded chemistry curriculum + reactions-with-conditions, machine-woven concept graph, quests/achievements/seasons, reputation ladder, translation pipeline. <em>Retention turns capacity into sustained concurrency.</em></td></tr>
+      <tr><td><strong>8</strong></td><td><strong>Client, onboarding &amp; accessibility</strong> — installable offline-first mobile PWA, EN/NL i18n, first-run tutorial, a11y/RTL, PHP-UI parity, edge/CDN app-shell. <em>Low-friction join from any phone, network, or language.</em></td></tr>
+      <tr><td><strong>9</strong></td><td><strong>Load testing, bot swarms &amp; observability</strong> — agentplay LLM bot swarm, ramp-to-N-thousand load harness, Prometheus/Grafana + distributed tracing, SLO budgets, chaos, autoscale. <em>Make 1,000,000 a measured engineering target.</em></td></tr>
+      <tr><td><strong>10</strong></td><td><strong>Launch — 1M concurrent &amp; the GTA6 benchmark</strong> — multi-region relay fleet, flash-crowd faucet hardening, the measurement standard, the million-peer run, a public GTA6-comparison scoreboard, runbook + cost model. <em>Demonstrate it.</em></td></tr>
+    </tbody>
+  </table>
+  <p>Across Sprint 3–10 the plan files <span class="hl">~60 new issues plus 11 gap issues</span> (74 open), every one gated and labelled by area, type, priority, and MoSCoW. The live GitHub Pages roadmap renders this board straight from the Issues API, so progress is always current.</p>
+</section>
+
+<section class="chapter">
+  <div class="chapter-num">04 · Execution</div>
+  <h1>Execution: Ordering, Gates &amp; What "Done" Means</h1>
+  <p class="lead">Sequence is a feature. Four orderings are guaranteed because each later sprint depends on an earlier one being true.</p>
+
+  <h2>Guaranteed Orderings</h2>
+  <ol>
+    <li><strong>Contract before clients</strong> — Sprint 3 freezes one <code>/api</code> before any client, relay, or bot is built on it.</li>
+    <li><strong>Discovery before mesh</strong> — Sprint 4's DHT lands before Sprint 5 fans peers across relays.</li>
+    <li><strong>Security before mass onboarding</strong> — Sprint 6's economy/safety gate precedes the PWA (8) and launch (10).</li>
+    <li><strong>Observability before the test</strong> — Sprint 9's metrics, tracing, and SLOs precede the million-peer run (10).</li>
+  </ol>
+
+  <h2>What "Done" Means</h2>
+  <p>Sprint 10 defines the measurement standard explicitly — what "concurrent" counts, how it is observed, and what threshold beats GTA6 — then runs the test (agentplay swarms plus real peers) and publishes the methodology, results, and a public scoreboard. A claim of one million peers is only true once it is <span class="hl">measured under a published standard</span>, not asserted.</p>
+
+  <div class="takeaway">
+    <div class="takeaway-label">Call to action</div>
+    Open <strong>knitweb.github.io/molgang</strong> to watch the live board, or <strong>github.com/Knitweb/molgang/milestones</strong> to pick up a Sprint 3 issue. Start where the contract starts: one frozen <code>/api</code>.
+  </div>
+</section>
+
+<section class="chapter">
+  <div class="chapter-num">05 · Appendix</div>
+  <h1>Appendix — Vocabulary &amp; Links</h1>
+
+  <h2>Knitweb Vocabulary</h2>
+  <p><strong>Web · Knitweb</strong> — the peer-to-peer fabric the game runs on.</p>
+  <p><strong>Knit</strong> — a chemical bond, realised as a two-party ledger transfer.</p>
+  <p><strong>Fiber</strong> — a molecule, realised as an account-state commitment.</p>
+  <p><strong>Pulse / PLS</strong> — the validation vote and pay-token; staked into the PoUW quorum.</p>
+  <p><strong>Silk</strong> — the free starting allowance new players draw from the faucet.</p>
+  <p><strong>Spider</strong> — a worker/relay operator that serves the fabric. <span class="tag">never "loom"</span></p>
+  <p><strong>PoUW</strong> — Proof of Useful Work: the BFT quorum that settles whether woven chemistry is correct.</p>
+
+  <h2>Links</h2>
+  <ul>
+    <li>Live roadmap — <strong>knitweb.github.io/molgang</strong></li>
+    <li>Milestones &amp; issues — <strong>github.com/Knitweb/molgang/milestones</strong></li>
+    <li>Engine — <strong>github.com/knitweb/pulse</strong></li>
+  </ul>
+
+  <h2>Acknowledgements</h2>
+  <p>This roadmap is the companion document to the approved Sprint 3–10 plan. It is meant to be read in ten minutes and shared widely — the clearest possible statement of how a chemistry game intends to out-scale GTA6 by making every learner part of the network.</p>
+</section>
+
+</body>
+</html>

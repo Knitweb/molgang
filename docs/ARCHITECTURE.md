@@ -85,3 +85,9 @@ persist via `knitweb.store` and this projection is the molgang-facing view both 
 ## Vocabulary
 
 Web · Knitweb · Knit · Pulse · Fiber; spiders; pay-token **PLS**. We never use "loom".
+
+## See also
+
+- [CURRICULUM.md](CURRICULUM.md) — the graded chemistry curriculum, tier↔learning-objective mapping,
+  and the teacher quick-start (classroom = bar, votes = peer review, reputation-only/no-NFT).
+- [API.md](API.md) — the frozen `/api` contract. · [MULTILINGUAL.md](MULTILINGUAL.md) — 5-language terms.

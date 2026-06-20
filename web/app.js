@@ -31,6 +31,7 @@ let chosenAvatar = null;
 let view = "bar";
 let table = localStorage.getItem("molgang_table") || null;
 let refreshTimer = null;
+const TUTORIAL_DONE_KEY = "molgang_tutorial_done_v1";
 
 // a stable per-device id (browser-legal stand-in for IMEI) → the same PLS wallet every visit
 const DEVICE_ID = (() => {
@@ -43,8 +44,240 @@ const DEVICE_ID = (() => {
   return d;
 })();
 
+// ---- first-run tutorial / small i18n layer ----
+const STRINGS = {
+  en: {
+    "tutorial.replay": "🎓 Tutorial",
+    "tutorial.replayTitle": "Replay tutorial",
+    "tutorial.step": "Step",
+    "tutorial.skip": "Skip",
+    "tutorial.done": "Tutorial complete",
+    "tutorial.walkin.title": "Pick an avatar and claim the faucet",
+    "tutorial.walkin.body": "Choose a name and avatar, then walk in. This creates a device wallet with starter silk and PLS.",
+    "tutorial.walkin.primary": "Walk in when ready",
+    "tutorial.seat.title": "Take a seat",
+    "tutorial.seat.body": "Tables are where knits happen. Sit with NPC peers so your first useful work can reach quorum.",
+    "tutorial.seat.primary": "Take a seat",
+    "tutorial.knit.title": "Knit a real term",
+    "tutorial.knit.body": "Silk pays for a proposed knit. Use H2O for the first run; peers can validate it immediately.",
+    "tutorial.knit.primary": "Knit H2O",
+    "tutorial.vote.title": "Peers vote with pulses",
+    "tutorial.vote.body": "Each peer stakes PLS on the verdict. A confirming quorum weaves your term into the fabric.",
+    "tutorial.vote.primary": "Show fabric",
+    "tutorial.fabric.title": "Woven into the fabric",
+    "tutorial.fabric.body": "Your knit is now a Fiber-backed contribution. Silk and PLS rewards keep useful players knitting.",
+    "tutorial.fabric.primary": "Finish",
+  },
+  nl: {
+    "tutorial.replay": "🎓 Tutorial",
+    "tutorial.replayTitle": "Tutorial opnieuw afspelen",
+    "tutorial.step": "Stap",
+    "tutorial.skip": "Overslaan",
+    "tutorial.done": "Tutorial voltooid",
+    "tutorial.walkin.title": "Kies een avatar en claim de faucet",
+    "tutorial.walkin.body": "Kies een naam en avatar en loop naar binnen. Dit maakt een device-wallet met start-silk en PLS.",
+    "tutorial.walkin.primary": "Loop binnen wanneer je klaar bent",
+    "tutorial.seat.title": "Neem plaats",
+    "tutorial.seat.body": "Aan tafels gebeurt het knitten. Ga zitten bij NPC-peers zodat je eerste nuttige werk quorum kan halen.",
+    "tutorial.seat.primary": "Neem plaats",
+    "tutorial.knit.title": "Knit een echte term",
+    "tutorial.knit.body": "Silk betaalt voor een voorgestelde knit. Gebruik H2O voor de eerste ronde; peers kunnen die direct valideren.",
+    "tutorial.knit.primary": "Knit H2O",
+    "tutorial.vote.title": "Peers stemmen met pulses",
+    "tutorial.vote.body": "Elke peer staket PLS op het oordeel. Een bevestigend quorum weeft je term in de fabric.",
+    "tutorial.vote.primary": "Toon fabric",
+    "tutorial.fabric.title": "Geweven in de fabric",
+    "tutorial.fabric.body": "Je knit is nu een Fiber-bijdrage. Silk- en PLS-beloningen houden nuttige spelers aan het knitten.",
+    "tutorial.fabric.primary": "Afronden",
+  },
+};
+
+function locale() {
+  const saved = (localStorage.getItem("molgang_locale") || "").toLowerCase();
+  const lang = saved || (document.documentElement.lang || navigator.language || "en").toLowerCase();
+  return lang.startsWith("nl") ? "nl" : "en";
+}
+
+function t(key) {
+  const lang = locale();
+  return (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.en[key] || key;
+}
+
+const TOUR_STEPS = [
+  {
+    id: "walkin",
+    target: "#enter .card",
+    title: "tutorial.walkin.title",
+    body: "tutorial.walkin.body",
+    primary: "tutorial.walkin.primary",
+    action: () => $("name").focus(),
+  },
+  {
+    id: "seat",
+    target: "#floor .table-card .join-table",
+    title: "tutorial.seat.title",
+    body: "tutorial.seat.body",
+    primary: "tutorial.seat.primary",
+    action: () => document.querySelector("#floor .table-card .join-table")?.click(),
+  },
+  {
+    id: "knit",
+    target: "#term",
+    title: "tutorial.knit.title",
+    body: "tutorial.knit.body",
+    primary: "tutorial.knit.primary",
+    action: () => {
+      $("term").value = "H2O";
+      $("knit").click();
+    },
+  },
+  {
+    id: "vote",
+    target: "#seats",
+    title: "tutorial.vote.title",
+    body: "tutorial.vote.body",
+    primary: "tutorial.vote.primary",
+    action: () => {
+      tour.step = Math.max(tour.step, 4);
+      renderTutorial();
+    },
+  },
+  {
+    id: "fabric",
+    target: "#fabric",
+    title: "tutorial.fabric.title",
+    body: "tutorial.fabric.body",
+    primary: "tutorial.fabric.primary",
+    action: () => finishTutorial(),
+  },
+];
+
+let tour = { active: false, step: 0, lastState: null };
+
+function tutorialDone() {
+  return Boolean(localStorage.getItem(TUTORIAL_DONE_KEY));
+}
+
+function setupTutorialUi() {
+  const replay = $("tutorial-replay");
+  if (replay) {
+    replay.textContent = t("tutorial.replay");
+    replay.title = t("tutorial.replayTitle");
+    replay.onclick = () => startTutorial(true);
+  }
+  if ($("tour-layer")) return;
+  const layer = document.createElement("div");
+  layer.id = "tour-layer";
+  layer.className = "tour-layer hidden";
+  layer.innerHTML = `
+    <div id="tour-dim" class="tour-dim"></div>
+    <div id="tour-highlight" class="tour-highlight"></div>
+    <div id="tour-card" class="tour-card" role="dialog" aria-live="polite">
+      <div id="tour-kicker" class="tour-kicker"></div>
+      <h3 id="tour-title"></h3>
+      <p id="tour-body"></p>
+      <div class="tour-actions">
+        <button id="tour-skip" class="ghost"></button>
+        <button id="tour-primary"></button>
+      </div>
+    </div>`;
+  document.body.appendChild(layer);
+  $("tour-skip").onclick = skipTutorial;
+  window.addEventListener("resize", renderTutorial);
+  window.addEventListener("scroll", renderTutorial, true);
+}
+
+function startTutorial(force = false) {
+  setupTutorialUi();
+  if (!force && tutorialDone()) return;
+  tour.active = true;
+  tour.step = force && sid ? tutorialStepFromState(tour.lastState) : 0;
+  renderTutorial();
+}
+
+function skipTutorial() {
+  localStorage.setItem(TUTORIAL_DONE_KEY, "skipped");
+  hideTutorial();
+}
+
+function finishTutorial() {
+  localStorage.setItem(TUTORIAL_DONE_KEY, "done");
+  hideTutorial();
+  if (sid) showToast(t("tutorial.done"));
+}
+
+function hideTutorial() {
+  tour.active = false;
+  $("tour-layer")?.classList.add("hidden");
+  document.querySelectorAll(".tour-target").forEach((el) => el.classList.remove("tour-target"));
+}
+
+function tutorialStepFromState(s) {
+  if (!sid || !$("enter")?.classList.contains("hidden")) return 0;
+  if (!s || !s.you || !s.you.table) return 1;
+  if ((s.you.knits_made || 0) <= 0) return 2;
+  const current = (s.tables || []).find((x) => x.id === s.you.table);
+  if (current && (current.fabric || []).length && tour.step >= 4) return 4;
+  return 3;
+}
+
+function syncTutorial(s) {
+  if (!tour.active) return;
+  tour.lastState = s || tour.lastState;
+  tour.step = Math.max(tour.step, tutorialStepFromState(s));
+  requestAnimationFrame(renderTutorial);
+}
+
+function clamp(n, lo, hi) {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function renderTutorial() {
+  setupTutorialUi();
+  const layer = $("tour-layer");
+  if (!tour.active || !layer) return;
+  const step = TOUR_STEPS[clamp(tour.step, 0, TOUR_STEPS.length - 1)];
+  const target = document.querySelector(step.target);
+  layer.classList.remove("hidden");
+  document.querySelectorAll(".tour-target").forEach((el) => el.classList.remove("tour-target"));
+  if (target) target.classList.add("tour-target");
+
+  $("tour-kicker").textContent = `${t("tutorial.step")} ${tour.step + 1}/${TOUR_STEPS.length}`;
+  $("tour-title").textContent = t(step.title);
+  $("tour-body").textContent = t(step.body);
+  $("tour-skip").textContent = t("tutorial.skip");
+  $("tour-primary").textContent = t(step.primary);
+  $("tour-primary").onclick = step.action;
+
+  const hl = $("tour-highlight");
+  const card = $("tour-card");
+  if (!target) {
+    hl.classList.add("hidden");
+    card.style.left = "50%";
+    card.style.top = "50%";
+    card.style.transform = "translate(-50%, -50%)";
+    return;
+  }
+  const r = target.getBoundingClientRect();
+  hl.classList.remove("hidden");
+  hl.style.left = `${Math.max(8, r.left - 8)}px`;
+  hl.style.top = `${Math.max(8, r.top - 8)}px`;
+  hl.style.width = `${r.width + 16}px`;
+  hl.style.height = `${r.height + 16}px`;
+
+  const cardW = Math.min(360, window.innerWidth - 28);
+  const left = clamp(r.left, 14, window.innerWidth - cardW - 14);
+  const below = r.bottom + 14;
+  const top = below < window.innerHeight - 190 ? below : Math.max(14, r.top - 214);
+  card.style.width = `${cardW}px`;
+  card.style.left = `${left}px`;
+  card.style.top = `${top}px`;
+  card.style.transform = "none";
+}
+
 // ---- walk-in ----
 async function boot() {
+  setupTutorialUi();
   const avs = (await api("/api/state")).avatars || [];
   $("avatars").innerHTML = "";
   avs.forEach((a, i) => {
@@ -61,6 +294,7 @@ async function boot() {
   });
   chosenAvatar = avs[0].id;
   $("go").onclick = walkIn;
+  if (!sid && !tutorialDone()) startTutorial();
   if (sid) { $("enter").classList.add("hidden"); start(); }
 }
 
@@ -68,11 +302,25 @@ async function walkIn() {
   const name = $("name").value.trim() || "guest";
   const res = await api("/api/join", "POST", { name, avatar: chosenAvatar, device: DEVICE_ID });
   sid = res.sid; localStorage.setItem("molgang_sid", sid);
+  localStorage.setItem("molgang_name", name);
+  if (chosenAvatar) localStorage.setItem("molgang_avatar", chosenAvatar);
   $("enter").classList.add("hidden");
   start();
 }
 
+async function reconnectDevice() {
+  const name = localStorage.getItem("molgang_name") || $("name").value.trim() || "guest";
+  const avatar = localStorage.getItem("molgang_avatar") || chosenAvatar;
+  const res = await api("/api/join", "POST", { name, avatar, device: DEVICE_ID });
+  if (!res || !res.sid) return false;
+  sid = res.sid;
+  localStorage.setItem("molgang_sid", sid);
+  if (avatar) localStorage.setItem("molgang_avatar", avatar);
+  return true;
+}
+
 function start() {
+  setupTutorialUi();
   $("me").classList.remove("hidden");
   $("tabs").classList.remove("hidden");
   document.querySelectorAll("#tabs button").forEach((b) => {
@@ -83,6 +331,8 @@ function start() {
   $("me-cert").onclick = requestCertificate;
   $("spiral-links").oninput = updateSpiralCost;
   $("spiral-modal").onclick = (e) => { if (e.target.id === "spiral-modal") closeSpiralModal(); };
+  $("lb-all").onclick = () => { lbSeason = "all"; refresh(); };
+  $("lb-season").onclick = () => { lbSeason = "season"; refresh(); };
   setActiveTab();
   refresh();
   if (refreshTimer) clearInterval(refreshTimer);
@@ -98,17 +348,18 @@ function resetSession() {
   refreshTimer = null;
   $("me").classList.add("hidden");
   $("tabs").classList.add("hidden");
-  ["floor", "table", "ledger", "explorer", "web", "records", "monitor"].forEach((v) => $(v).classList.add("hidden"));
+  ["floor", "table", "ledger", "explorer", "web", "progress", "records", "monitor"].forEach((v) => $(v).classList.add("hidden"));
   $("enter").classList.remove("hidden");
 }
 
 function setActiveTab() {
   document.querySelectorAll("#tabs button").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === view));
-  ["floor", "table", "ledger", "explorer", "web", "records", "monitor"].forEach((v) => $(v).classList.add("hidden"));
+  ["floor", "table", "ledger", "explorer", "web", "progress", "records", "monitor"].forEach((v) => $(v).classList.add("hidden"));
   if (view === "ledger") $("ledger").classList.remove("hidden");
   else if (view === "explorer") $("explorer").classList.remove("hidden");
   else if (view === "web") $("web").classList.remove("hidden");
+  else if (view === "progress") $("progress").classList.remove("hidden");
   else if (view === "records") $("records").classList.remove("hidden");
   else if (view === "monitor") $("monitor").classList.remove("hidden");
   else $(table ? "table" : "floor").classList.remove("hidden");
@@ -119,6 +370,9 @@ async function refresh() {
   const s = await api("/api/state?sid=" + encodeURIComponent(sid));
   renderPulseHost(s.pulse_host);
   if (sid && !s.you) {
+    if (await reconnectDevice()) {
+      return refresh();
+    }
     resetSession();
     return;
   }
@@ -141,11 +395,13 @@ async function refresh() {
   if (view === "ledger") renderLedger(s.my_knits);
   else if (view === "explorer") renderExplorer(s.explorer);
   else if (view === "web") renderWeb(await api("/api/web"));
+  else if (view === "progress") renderProgress(s);
   else if (view === "records") renderRecords(s);
   else if (view === "monitor") renderMonitor();
   else if (table) renderTable(s);
   else renderFloor(s);
   setActiveTab();
+  syncTutorial(s);
 }
 
 function renderPulseHost(host) {
@@ -189,7 +445,13 @@ function renderTable(s) {
   $("seats").innerHTML = t.seated.map((p) =>
     `<div class="seat ${p.you ? "you" : ""}">${avatarImg(p.avatar, "seat-av")}
       <div><b>${p.name}</b><br><span class="dim small">L${p.level} ${p.title} · ${p.woven}🧬</span></div></div>`).join("");
-  $("leave-table").onclick = () => { table = null; setActiveTab(); refresh(); };
+  $("leave-table").onclick = async () => {
+    await api("/api/stand", "POST", { sid });
+    table = null;
+    localStorage.removeItem("molgang_table");
+    setActiveTab();
+    refresh();
+  };
   $("rename-table").onclick = async () => {
     const nextName = prompt("Rename this table", t.name);
     if (nextName === null) return;
@@ -311,6 +573,53 @@ function renderSpirals(t) {
       refresh();
     };
   });
+}
+
+// 🏅 Progress — quests, achievements & seasonal standing (#110/#111/#112). All reputation/XP,
+// never tokens. Reads the dedicated /api endpoints scoped to the current player.
+let lbSeason = "all";   // "all" | "season" — leaderboard toggle state
+
+async function renderProgress(s) {
+  const player = s && s.you ? s.you.name : "";
+
+  // 🧗 Reputation ladder — current title, XP to next, and unlocked perks (#113)
+  const you = (s && s.you) || {};
+  const nxt = you.next || {};
+  const climb = nxt.at_max
+    ? `<span class="dim small">max rank reached 🎓</span>`
+    : (nxt.next_title ? `<span class="dim small">${fmt(nxt.xp_to_next)} XP to <b>${esc(nxt.next_title)}</b></span>` : "");
+  $("ladder").innerHTML =
+    `<div class="ladder-now">🏅 <b>L${you.level || 1} ${esc(you.title || "Apprentice")}</b> · ${fmt(you.xp || 0)} XP ${climb}</div>` +
+    `<ul class="perks">${(you.perks || []).map((p) => `<li>✓ ${esc(p)}</li>`).join("")}</ul>`;
+
+  const q = await api("/api/quests?player=" + encodeURIComponent(player));
+  $("quests-list").innerHTML = (q.all || []).map((x) =>
+    `<div class="progress-item ${x.complete ? "done" : ""}" data-quest="${esc(x.id)}">
+       <span class="pi-title">${x.complete ? "✅" : "🎯"} ${esc(x.title)}</span>
+       <span class="pi-desc dim small">${esc(x.desc)}</span>
+       <span class="pi-bar"><i style="width:${Math.max(0, Math.min(100, x.pct))}%"></i></span>
+       <span class="pi-meta dim small">${x.done}/${x.need} · ${fmt(x.xp_reward)} XP</span>
+     </div>`).join("") || '<p class="dim small">No quests yet — weave a molecule to start.</p>';
+
+  const a = await api("/api/achievements?player=" + encodeURIComponent(player));
+  $("achievements-list").innerHTML = (a.achievements || []).map((x) =>
+    `<span class="badge ${x.unlocked ? "unlocked" : "locked"}" data-badge="${esc(x.id)}"
+       title="${esc(x.desc)}">${x.unlocked ? "🏅" : "🔒"} ${esc(x.title)}</span>`).join("");
+
+  $("lb-all").classList.toggle("active", lbSeason === "all");
+  $("lb-season").classList.toggle("active", lbSeason === "season");
+  const lb = await api("/api/leaderboard?season=" + (lbSeason === "season" ? "current" : "all"));
+  const rows = lb.rows || [];
+  $("season-board").innerHTML = rows.length
+    ? rows.map((r, i) => {
+        const rank = ["🥇", "🥈", "🥉"][i] || ("#" + (i + 1));
+        return `<div class="record-row">
+          <span class="record-rank">${rank}</span>
+          <span><b>${esc(r.player)}</b> <span class="dim small">· ${fmt(r.molecules)} molecules · ${esc(r.title)}</span></span>
+          <span class="record-len">${fmt(r.xp)} XP</span>
+        </div>`;
+      }).join("")
+    : `<div class="dim small">no ranked players ${lbSeason === "season" ? "this season yet" : "yet"} — weave a molecule to appear here</div>`;
 }
 
 function renderRecords(s) {

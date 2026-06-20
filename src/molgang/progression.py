@@ -28,6 +28,39 @@ def title_for(level: int) -> str:
     return TITLES[min(level, len(TITLES)) - 1]
 
 
+# -- Reputation ladder perks (#113) --------------------------------------------------------------
+# Each level confers a concrete, NON-TOKEN perk — reputation/standing/skill only, nothing tradable.
+# Most are recognition; the Catalyst+ entry maps to the real reputation-weighted quorum already
+# enforced by reputation_threshold() below (so the ladder is a coherent mechanic, not cosmetics).
+PERKS = [
+    "Faucet access — free silk & pulses to weave and vote",            # 1 Apprentice
+    "Brainstorm suggestions in your knit box",                          # 2 Student
+    "Recognized contributor — your knits seed the shared web",          # 3 Lab Assistant
+    "Chemist standing on the class leaderboard",                        # 4 Chemist
+    "Mentor standing in peer review",                                   # 5 Synthesist
+    "Reputation-weighted consensus — a Catalyst+ table demands a stricter quorum",  # 6 Catalyst
+    "Veteran standing — among the longest-serving spiders",            # 7 Alchemist
+    "Laureate — full reputation weight; curriculum steward",           # 8 Laureate
+]
+
+
+def perks_for(level: int) -> list[str]:
+    """All perks a player has unlocked through ``level`` (cumulative, levels 1..8). Non-token."""
+    n = max(0, min(level, len(PERKS)))
+    return PERKS[:n]
+
+
+def next_threshold(xp: int) -> dict:
+    """Climb info for an XP total: next title and the XP still needed (``at_max`` when maxed out)."""
+    level = level_for(xp)
+    if level >= len(LEVELS):
+        return {"level": level, "title": title_for(level), "next_title": None,
+                "xp_to_next": 0, "at_max": True}
+    next_at = LEVELS[level]                       # threshold for level+1 (LEVELS is 0-indexed by level-1)
+    return {"level": level, "title": title_for(level), "next_title": title_for(level + 1),
+            "xp_to_next": max(0, next_at - xp), "at_max": False}
+
+
 def collections(woven: list[dict]) -> dict[str, dict]:
     """Group the woven bonds into per-player collections (keyed by Roblox/knitweb id)."""
     by_player: dict[str, dict] = {}
@@ -59,6 +92,47 @@ def leaderboard(woven: list[dict]) -> list[dict]:
     return rows
 
 
+# -- Seasonal (time-windowed) leaderboards (#112) ------------------------------------------------
+# Seasons are a *view* over woven timestamps — no separate authority, the all-time leaderboard()
+# above stays the lifetime board. A season is a fixed window of SEASON_DAYS indexed from the unix
+# epoch, so a season id derives deterministically from any timestamp.
+SEASON_DAYS = 30
+_SEASON_SECONDS = SEASON_DAYS * 86_400
+
+
+def season_id(ts: int) -> str:
+    """Deterministic season id for a unix timestamp (e.g. ``"S642"``)."""
+    return f"S{int(ts) // _SEASON_SECONDS}"
+
+
+def season_window(sid: str) -> tuple[int, int]:
+    """The ``[start, until)`` unix-second bounds for a season id."""
+    idx = int(sid[1:]) if isinstance(sid, str) and sid.startswith("S") else int(sid)
+    return idx * _SEASON_SECONDS, (idx + 1) * _SEASON_SECONDS
+
+
+def _in_window(item: dict, since: int, until: int) -> bool:
+    ts = item.get("anchor_ts")
+    return ts is not None and since <= ts < until
+
+
+def seasonal_leaderboard(woven: list[dict], *, since: int, until: int) -> list[dict]:
+    """The all-time ranking restricted to woven items whose ``anchor_ts`` is in ``[since, until)``.
+
+    Pure derived state with the same XP tally + tie-break (``-xp``, then player id) as
+    :func:`leaderboard`. Items lacking an ``anchor_ts`` are not part of any bounded season.
+    """
+    return leaderboard([w for w in woven if _in_window(w, since, until)])
+
+
+def current_season_leaderboard(woven: list[dict], now: int) -> dict:
+    """The current season's id, ``[since, until)`` window, and ranked rows for timestamp ``now``."""
+    sid = season_id(now)
+    since, until = season_window(sid)
+    return {"season": sid, "since": since, "until": until,
+            "rows": seasonal_leaderboard(woven, since=since, until=until)}
+
+
 def reputation_threshold(seated_levels: list[int], n_voters: int) -> int:
     """A reputation-scaled BFT threshold: a high-level (Catalyst+) table demands a stricter
     supermajority. It only ever *raises* k, and only when the quorum invariant (k ≤ n and
@@ -67,7 +141,9 @@ def reputation_threshold(seated_levels: list[int], n_voters: int) -> int:
     from knitweb.pouw import quorum
 
     base = quorum.default_threshold(n_voters)
-    if seated_levels and sum(seated_levels) / len(seated_levels) >= 6:   # avg level ≥ Catalyst
+    # Integer-exact mean ≥ 6 (cross-multiplied, no float division): this gate decides the spiral
+    # consensus threshold k that flows into settle_spiral capture/reward, so it stays integer-only.
+    if seated_levels and sum(seated_levels) >= 6 * len(seated_levels):   # avg level ≥ Catalyst
         bumped = base + 1
         if bumped <= n_voters and 2 * bumped > n_voters:
             return bumped
