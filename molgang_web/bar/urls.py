@@ -13,6 +13,7 @@ from . import views
 
 urlpatterns = [
     # --- dual-play JSON API (mirrors molgang/webserver.py) ---
+    path("api/version", views.version),
     path("api/state", views.state),
     path("api/pulse", views.pulse),
     path("api/suggested", views.suggested),
