@@ -5,6 +5,24 @@ declare(strict_types=1);
 
 final class Chemistry
 {
+    // symbol => [name_en, name_nl, atomic number]. Mirrors src/molgang/chemistry.py ELEMENTS 1:1.
+    public const ELEMENTS = [
+        'H'  => ['Hydrogen', 'Waterstof', 1],
+        'C'  => ['Carbon', 'Koolstof', 6],
+        'N'  => ['Nitrogen', 'Stikstof', 7],
+        'O'  => ['Oxygen', 'Zuurstof', 8],
+        'Na' => ['Sodium', 'Natrium', 11],
+        'Cl' => ['Chlorine', 'Chloor', 17],
+        'S'  => ['Sulfur', 'Zwavel', 16],
+        'Ca' => ['Calcium', 'Calcium', 20],
+        'Fe' => ['Iron', 'IJzer', 26],
+        'He' => ['Helium', 'Helium', 2],
+        'Mg' => ['Magnesium', 'Magnesium', 12],
+        'Al' => ['Aluminium', 'Aluminium', 13],
+        'P'  => ['Phosphorus', 'Fosfor', 15],
+        'K'  => ['Potassium', 'Kalium', 19],
+    ];
+
     // Known molecules: formula => [name_en, name_nl]. The lesson set newcomers learn first.
     public const MOLECULES = [
         'H2O' => ['Water', 'Water'],
@@ -17,7 +35,38 @@ final class Chemistry
         'C6H12O6' => ['Glucose', 'Glucose'],
         'CaCO3' => ['Calcium carbonate', 'Calciumcarbonaat'],
         'H2'  => ['Hydrogen gas', 'Waterstofgas'],
+        'N2'  => ['Nitrogen gas', 'Stikstofgas'],
+        'CO'  => ['Carbon monoxide', 'Koolmonoxide'],
+        'SO2' => ['Sulfur dioxide', 'Zwaveldioxide'],
+        'H2SO4' => ['Sulfuric acid', 'Zwavelzuur'],
+        'NaOH' => ['Sodium hydroxide', 'Natriumhydroxide'],
+        'CaO' => ['Calcium oxide', 'Calciumoxide'],
+        'MgO' => ['Magnesium oxide', 'Magnesiumoxide'],
+        'Al2O3' => ['Aluminium oxide', 'Aluminiumoxide'],
+        'KCl' => ['Potassium chloride', 'Kaliumchloride'],
+        'H3PO4' => ['Phosphoric acid', 'Fosforzuur'],
     ];
+
+    // Curriculum tiers (easiest -> hardest) for graded quests/ladder. Mirrors chemistry.py 1:1.
+    public const TIERS = ['elementary', 'middle', 'high'];
+    public const TIER_OF = [
+        // elements
+        'H' => 'elementary', 'O' => 'elementary', 'C' => 'elementary', 'N' => 'elementary', 'He' => 'elementary',
+        'Na' => 'middle', 'Cl' => 'middle', 'Ca' => 'middle', 'Fe' => 'middle', 'Mg' => 'middle',
+        'S' => 'high', 'Al' => 'high', 'P' => 'high', 'K' => 'high',
+        // molecules
+        'H2O' => 'elementary', 'O2' => 'elementary', 'CO2' => 'elementary', 'H2' => 'elementary',
+        'NaCl' => 'middle', 'CH4' => 'middle', 'NH3' => 'middle', 'HCl' => 'middle', 'CaCO3' => 'middle',
+        'N2' => 'middle', 'CO' => 'middle',
+        'C6H12O6' => 'high', 'SO2' => 'high', 'H2SO4' => 'high', 'NaOH' => 'high', 'CaO' => 'high',
+        'MgO' => 'high', 'Al2O3' => 'high', 'KCl' => 'high', 'H3PO4' => 'high',
+    ];
+
+    /** Curriculum tier of a symbol/formula, or null if unknown. Pure lookup. */
+    public static function tierOf(string $key): ?string
+    {
+        return self::TIER_OF[trim($key)] ?? null;
+    }
 
     /** Parse a flat formula (e.g. C6H12O6) into {element: count}, or null if unparseable. */
     public static function parseFormula(string $formula): ?array
