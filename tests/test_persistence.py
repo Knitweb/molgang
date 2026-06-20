@@ -6,16 +6,19 @@ balance-changing events, then spin up a FRESH Bar with the same registry + devic
 the balances are restored exactly (not the faucet default).
 """
 from molgang import game
-from molgang.bar import Bar
+from molgang.bar import Bar, FAUCET_GENESIS_DATE
 from molgang.game import FAUCET_PULSES, FAUCET_SILK
 from molgang.registry import Registry
 
 
 def test_initial_join_snapshots_faucet_balance(tmp_path):
     reg = Registry(str(tmp_path / "r.db"))
-    Bar(str(tmp_path / "w.json"), reg).join("Edwin", "laser-maxi", "periodic", device="phone-1")
+    # a fresh device opens the faucet at the day's decaying grant; pin genesis (day 0)
+    Bar(str(tmp_path / "w.json"), reg).join(
+        "Edwin", "laser-maxi", "periodic", device="phone-1", today=FAUCET_GENESIS_DATE)
     saved = reg.get_balance("phone-1")
-    assert saved == {"pulses": FAUCET_PULSES, "silk": FAUCET_SILK}
+    assert saved == {"pulses": game.current_faucet_pulses(0), "silk": FAUCET_SILK}
+    assert saved["pulses"] == 10_000_000
 
 
 def test_knit_balance_survives_restart(tmp_path):

@@ -15,6 +15,7 @@ import itertools
 import secrets
 import time
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Callable
 
 from knitweb.pouw import quorum
@@ -44,6 +45,15 @@ DEFAULT_TABLES = [
 ]
 SEATS_PER_TABLE = 24
 STALE_SESSION_SECONDS = 45.0
+
+# The day the decaying faucet schedule went live (day 0 = 10,000,000 PLS).
+FAUCET_GENESIS_DATE = date(2026, 6, 20)
+
+
+def _faucet_day(today: date | None = None) -> int:
+    """Whole days since the faucet genesis (integer, never negative) — the input to
+    :func:`game.current_faucet_pulses`. ``today`` is injectable for deterministic tests."""
+    return max(0, ((today or date.today()) - FAUCET_GENESIS_DATE).days)
 
 
 @dataclass
@@ -359,7 +369,7 @@ class Bar:
 
     # -- presence ----------------------------------------------------------
     def join(self, name: str, avatar: str | None = None, table_id: str | None = None,
-             device: str | None = None) -> Session:
+             device: str | None = None, *, today: date | None = None) -> Session:
         self.reap_stale()
         if device:
             for sess in self.sessions.values():
@@ -382,7 +392,9 @@ class Bar:
             if saved is not None:
                 player = Player.from_device(device, nm, pulses=saved["pulses"], silk=saved["silk"])
             else:
-                player = Player.from_device(device, nm)
+                # a fresh device wallet opens the faucet at TODAY's decaying grant
+                player = Player.from_device(
+                    device, nm, pulses=game.current_faucet_pulses(_faucet_day(today)))
             if self.registry:
                 self.registry.register(device, player.node.address, nm)
                 if saved is None:
