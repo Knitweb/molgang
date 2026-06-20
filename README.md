@@ -81,7 +81,8 @@ term and knit it** (1 silk), and the table **votes with pulses** — a quorum we
 Fiber. Your **PLS balance, silk, and knits** are always in the header; **📒 My knits** lists each
 knit with its votes and woven Fiber; **🔭 Explorer** shows competing knits for a topic in
 side-by-side columns (best first). Same `/api/*` endpoints drive bots, so it's machine-playable
-too. No NFTs — value is pulses, reputation, and woven knowledge.
+too. No NFTs — value is pulses, reputation, and woven knowledge. See
+[`ECONOMY.md`](ECONOMY.md) for PLS/silk sources, sinks, and invariants.
 
 **🏅 PoUW Certificate.** The header's **🏅 Request PoUW Certificate** button (and
 `POST /api/certificate {sid}`) downloads an official PDF that documents your wallet and your
