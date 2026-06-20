@@ -1,0 +1,35 @@
+{
+  "schema": "molgang.multilingual.terms/v1",
+  "note": "Multilingual names for the chemistry ground truth in src/molgang/chemistry.py. Each name carries an implicit BCP-47 `lang` (the key) and base-direction (`dir`) from the `languages` table below, per the W3C string-meta design (Sprint 3 #32). Real reference translations only — no synthetic data. Keys MUST stay in sync with ELEMENTS/MOLECULES.",
+  "languages": [
+    {"lang": "en", "name": "English", "dir": "ltr"},
+    {"lang": "nl", "name": "Nederlands", "dir": "ltr"},
+    {"lang": "ru", "name": "Русский", "dir": "ltr"},
+    {"lang": "zh", "name": "中文", "dir": "ltr"},
+    {"lang": "ar", "name": "العربية", "dir": "rtl"}
+  ],
+  "elements": {
+    "H":  {"atomic_number": 1,  "names": {"en": "Hydrogen", "nl": "Waterstof", "ru": "Водород",  "zh": "氢", "ar": "هيدروجين"}},
+    "C":  {"atomic_number": 6,  "names": {"en": "Carbon",   "nl": "Koolstof",  "ru": "Углерод",  "zh": "碳", "ar": "كربون"}},
+    "N":  {"atomic_number": 7,  "names": {"en": "Nitrogen", "nl": "Stikstof",  "ru": "Азот",     "zh": "氮", "ar": "نيتروجين"}},
+    "O":  {"atomic_number": 8,  "names": {"en": "Oxygen",   "nl": "Zuurstof",  "ru": "Кислород", "zh": "氧", "ar": "أكسجين"}},
+    "Na": {"atomic_number": 11, "names": {"en": "Sodium",   "nl": "Natrium",   "ru": "Натрий",   "zh": "钠", "ar": "صوديوم"}},
+    "Cl": {"atomic_number": 17, "names": {"en": "Chlorine", "nl": "Chloor",    "ru": "Хлор",     "zh": "氯", "ar": "كلور"}},
+    "S":  {"atomic_number": 16, "names": {"en": "Sulfur",   "nl": "Zwavel",    "ru": "Сера",     "zh": "硫", "ar": "كبريت"}},
+    "Ca": {"atomic_number": 20, "names": {"en": "Calcium",  "nl": "Calcium",   "ru": "Кальций",  "zh": "钙", "ar": "كالسيوم"}},
+    "Fe": {"atomic_number": 26, "names": {"en": "Iron",     "nl": "IJzer",     "ru": "Железо",   "zh": "铁", "ar": "حديد"}},
+    "He": {"atomic_number": 2,  "names": {"en": "Helium",   "nl": "Helium",    "ru": "Гелий",    "zh": "氦", "ar": "هيليوم"}}
+  },
+  "molecules": {
+    "H2O":     {"names": {"en": "Water",             "nl": "Water",            "ru": "Вода",                 "zh": "水",     "ar": "ماء"}},
+    "CO2":     {"names": {"en": "Carbon dioxide",    "nl": "Koolstofdioxide",  "ru": "Углекислый газ",       "zh": "二氧化碳", "ar": "ثاني أكسيد الكربون"}},
+    "O2":      {"names": {"en": "Oxygen gas",        "nl": "Zuurstofgas",      "ru": "Кислород",             "zh": "氧气",   "ar": "أكسجين"}},
+    "NaCl":    {"names": {"en": "Table salt",        "nl": "Keukenzout",       "ru": "Поваренная соль",      "zh": "食盐",   "ar": "ملح الطعام"}},
+    "CH4":     {"names": {"en": "Methane",           "nl": "Methaan",          "ru": "Метан",                "zh": "甲烷",   "ar": "ميثان"}},
+    "NH3":     {"names": {"en": "Ammonia",           "nl": "Ammoniak",         "ru": "Аммиак",               "zh": "氨",     "ar": "أمونيا"}},
+    "HCl":     {"names": {"en": "Hydrochloric acid", "nl": "Zoutzuur",         "ru": "Соляная кислота",      "zh": "盐酸",   "ar": "حمض الهيدروكلوريك"}},
+    "C6H12O6": {"names": {"en": "Glucose",           "nl": "Glucose",          "ru": "Глюкоза",              "zh": "葡萄糖", "ar": "جلوكوز"}},
+    "CaCO3":   {"names": {"en": "Calcium carbonate", "nl": "Calciumcarbonaat", "ru": "Карбонат кальция",     "zh": "碳酸钙", "ar": "كربونات الكالسيوم"}},
+    "H2":      {"names": {"en": "Hydrogen gas",      "nl": "Waterstofgas",     "ru": "Водород (газ)",        "zh": "氢气",   "ar": "غاز الهيدروجين"}}
+  }
+}
