@@ -220,9 +220,12 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
             page.wait_for_timeout(600)
             page.screenshot(path=str(shots / "04-woven.png"))
 
-            # 🏅 Progress tab — quests, achievements & seasonal leaderboard render (#110/#111/#112)
+            # 🏅 Progress tab — ladder, quests, achievements & seasonal leaderboard (#110-#113)
             _click(page, '#tabs button[data-view="progress"]')
             page.wait_for_selector("#progress:not(.hidden)", timeout=10_000)
+            # reputation ladder renders the player's perks (#113); "Faucet access" is the level-1 perk
+            if not _wait_for_contains(page, "#ladder", "Faucet access", timeout_ms=10_000):
+                failures.append("reputation ladder did not render the player's perks")
             if not _wait_for_contains(page, "#quests-list", "First bond", timeout_ms=10_000):
                 failures.append("quests panel did not render the First bond quest")
             if not _wait_for_contains(page, "#achievements-list", "First bond", timeout_ms=10_000):
