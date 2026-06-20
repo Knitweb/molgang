@@ -76,6 +76,8 @@ def _browser_diag(page, shots: Path, label: str) -> dict:
     try:
         page.screenshot(path=str(shots / f"{label}.png"))
     except Exception:
+        # Best-effort artifact: failing to write a screenshot should not block
+        # collection of more useful browser/server diagnostics below.
         pass
     try:
         return page.evaluate(
