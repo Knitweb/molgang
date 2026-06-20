@@ -9,7 +9,7 @@
 
 ## Versioning policy
 
-- Every engine SHOULD expose `GET /api/version` returning `{"api_version": "1", "engine": "<python|django|php>", "molgang": "<pkg version>", "knitweb": "<engine version>"}`. A client detects drift by comparing `api_version`. _(Implemented in all three engines: the canonical Python bar (`webserver.api_version_info()`), the PHP node (`php/public/index.php` `case 'version'`), and the Django dapp (`bar/views.version`, which reuses `api_version_info()`). The remaining #58 follow-up is the CI conformance diff. `1` is the current contract.)_
+- Every engine SHOULD expose `GET /api/version` returning `{"api_version": "1", "engine": "<python|django|php>", "molgang": "<pkg version>", "knitweb": "<engine version>"}`. A client detects drift by comparing `api_version`. _(Implemented in all three engines: the canonical Python bar (`webserver.api_version_info()`), the PHP node (`php/public/index.php` `case 'version'`), and the Django dapp (`bar/views.version`, which reuses `api_version_info()`). A CI conformance test (`tests/test_api_version_contract.py`) asserts these literals stay in lockstep. `1` is the current contract.)_
 - **Backwards-compatible** changes (new optional response fields, new endpoints) keep `api_version`. **Breaking** changes (renamed/removed fields, changed types) bump it.
 - Clients MUST ignore unknown response fields and MUST NOT depend on field ordering.
 - Balances shown to a player (`PLS`, silk, knits) are the **knitweb account braid** truth, not an independent counter — PHP/Django projections reconcile to the braid.
@@ -65,10 +65,10 @@ explorer over the woven p2p web (NetworkX-backed). Read-only; same concept/tensi
 
 ## Conformance (Sprint 3)
 
-- Add `GET /api/version` to all three engines; CI hits each engine's `/api/version` + a golden endpoint and diffs the JSON shape against this document.
+- `GET /api/version` is implemented on all three engines (Python, PHP, Django). DONE. A textual CI conformance test (`tests/test_api_version_contract.py`) keeps the `api_version` literals in lockstep across `webserver.py`, `php/public/index.php`, and this doc. _(A fuller runtime diff — boot each engine, compare live JSON shapes — is a future enhancement.)_
 - Django live tables (issue #29) push the `/api/state` payload over Channels — the websocket message body is identical to this REST shape.
 - PHP node (`php/`) projects the same `tables`/`account` top-level keys.
 
-_Status: v1 inventory of the canonical engine (this commit). Follow-ups in Sprint 3: implement
-`/api/version`, wire the CI conformance check, and reconcile Django/PHP balance source-of-truth to the
+_Status: v1 contract frozen; `/api/version` live on all three engines with a CI conformance test.
+Remaining Sprint 3 follow-up: reconcile Django/PHP balance source-of-truth to the
 braid._
