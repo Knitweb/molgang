@@ -14,6 +14,9 @@ Chemistry.ELEMENTS = {
 	Fe = {"Iron", "IJzer", 26}, He = {"Helium", "Helium", 2},
 	Mg = {"Magnesium", "Magnesium", 12}, Al = {"Aluminium", "Aluminium", 13},
 	P = {"Phosphorus", "Fosfor", 15}, K = {"Potassium", "Kalium", 19},
+	F = {"Fluorine", "Fluor", 9}, Si = {"Silicon", "Silicium", 14},
+	Zn = {"Zinc", "Zink", 30}, Br = {"Bromine", "Broom", 35},
+	I = {"Iodine", "Jood", 53},
 }
 
 -- formula -> {name_en, name_nl}: the lesson set newcomers learn first
@@ -28,6 +31,11 @@ Chemistry.MOLECULES = {
 	NaOH = {"Sodium hydroxide", "Natriumhydroxide"}, CaO = {"Calcium oxide", "Calciumoxide"},
 	MgO = {"Magnesium oxide", "Magnesiumoxide"}, Al2O3 = {"Aluminium oxide", "Aluminiumoxide"},
 	KCl = {"Potassium chloride", "Kaliumchloride"}, H3PO4 = {"Phosphoric acid", "Fosforzuur"},
+	H2O2 = {"Hydrogen peroxide", "Waterstofperoxide"}, HNO3 = {"Nitric acid", "Salpeterzuur"},
+	H2S = {"Hydrogen sulfide", "Waterstofsulfide"}, NO2 = {"Nitrogen dioxide", "Stikstofdioxide"},
+	KOH = {"Potassium hydroxide", "Kaliumhydroxide"}, SiO2 = {"Silicon dioxide", "Siliciumdioxide"},
+	ZnO = {"Zinc oxide", "Zinkoxide"}, NaF = {"Sodium fluoride", "Natriumfluoride"},
+	KBr = {"Potassium bromide", "Kaliumbromide"}, KI = {"Potassium iodide", "Kaliumjodide"},
 }
 
 -- Curriculum tiers (easiest -> hardest) so quests/missions/ladder can grade content. Mirrors
@@ -37,13 +45,16 @@ Chemistry.TIER_OF = {
 	-- elements
 	H = "elementary", O = "elementary", C = "elementary", N = "elementary", He = "elementary",
 	Na = "middle", Cl = "middle", Ca = "middle", Fe = "middle", Mg = "middle",
-	S = "high", Al = "high", P = "high", K = "high",
+	F = "middle", Zn = "middle",
+	S = "high", Al = "high", P = "high", K = "high", Si = "high", Br = "high", I = "high",
 	-- molecules
 	H2O = "elementary", O2 = "elementary", CO2 = "elementary", H2 = "elementary",
 	NaCl = "middle", CH4 = "middle", NH3 = "middle", HCl = "middle", CaCO3 = "middle",
-	N2 = "middle", CO = "middle",
+	N2 = "middle", CO = "middle", SiO2 = "middle", NaF = "middle",
 	C6H12O6 = "high", SO2 = "high", H2SO4 = "high", NaOH = "high", CaO = "high",
 	MgO = "high", Al2O3 = "high", KCl = "high", H3PO4 = "high",
+	H2O2 = "high", HNO3 = "high", H2S = "high", NO2 = "high", KOH = "high",
+	ZnO = "high", KBr = "high", KI = "high",
 }
 
 -- Curriculum tier of a symbol/formula, or nil if unknown. Pure lookup; isCorrect stays authority.
