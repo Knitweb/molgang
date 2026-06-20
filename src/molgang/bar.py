@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import itertools
 import secrets
+import time
 from dataclasses import dataclass, field
 
 from knitweb.pouw import quorum
@@ -394,6 +395,7 @@ class Bar:
                 "term": prop.term, "by": prop.by_name, "table": prop.table_id,
                 "fiber_cid": s.woven_fiber_cid, "confirmations": s.result.confirms,
                 "is_chemistry": prop.parsed.get("term", "") in MOLECULES,
+                "anchor_ts": int(time.time()),   # weave time → enables seasonal boards (#112)
             })
             # extend the SHARED knitweb web — a term node, a single LINK edge, or (one-to-many
             # knit) every link of the enumeration woven as its own edge.

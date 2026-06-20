@@ -141,6 +141,19 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                     "unlocked": achievements.unlocked_achievements(bar.woven, [], player),
                     "count": achievements.achievement_count(bar.woven, [], player),
                 })
+            if path == "/api/leaderboard":
+                # All-time or current-season ranking (#112). ?season=current for the time-windowed
+                # board, else all-time. Pure derived state — seasons are a view over woven timestamps.
+                import time
+                from urllib.parse import parse_qs, urlparse
+                from . import progression
+                season = (parse_qs(urlparse(self.path).query).get("season") or ["all"])[0]
+                rows_src = [{"formula": w.get("term"), "by": w.get("by"),
+                             "anchor_ts": w.get("anchor_ts")}
+                            for w in bar.woven if w.get("is_chemistry")]
+                if season in ("current", "season"):
+                    return self._json(200, progression.current_season_leaderboard(rows_src, int(time.time())))
+                return self._json(200, {"season": "all", "rows": progression.leaderboard(rows_src)})
             if path == "/api/device":
                 from urllib.parse import parse_qs, urlparse
                 did = (parse_qs(urlparse(self.path).query).get("id") or [""])[0]
