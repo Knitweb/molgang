@@ -12,6 +12,8 @@ Chemistry.ELEMENTS = {
 	Na = {"Sodium", "Natrium", 11}, Cl = {"Chlorine", "Chloor", 17},
 	S = {"Sulfur", "Zwavel", 16}, Ca = {"Calcium", "Calcium", 20},
 	Fe = {"Iron", "IJzer", 26}, He = {"Helium", "Helium", 2},
+	Mg = {"Magnesium", "Magnesium", 12}, Al = {"Aluminium", "Aluminium", 13},
+	P = {"Phosphorus", "Fosfor", 15}, K = {"Potassium", "Kalium", 19},
 }
 
 -- formula -> {name_en, name_nl}: the lesson set newcomers learn first
@@ -21,6 +23,11 @@ Chemistry.MOLECULES = {
 	CH4 = {"Methane", "Methaan"}, NH3 = {"Ammonia", "Ammoniak"},
 	HCl = {"Hydrochloric acid", "Zoutzuur"}, C6H12O6 = {"Glucose", "Glucose"},
 	CaCO3 = {"Calcium carbonate", "Calciumcarbonaat"}, H2 = {"Hydrogen gas", "Waterstofgas"},
+	N2 = {"Nitrogen gas", "Stikstofgas"}, CO = {"Carbon monoxide", "Koolmonoxide"},
+	SO2 = {"Sulfur dioxide", "Zwaveldioxide"}, H2SO4 = {"Sulfuric acid", "Zwavelzuur"},
+	NaOH = {"Sodium hydroxide", "Natriumhydroxide"}, CaO = {"Calcium oxide", "Calciumoxide"},
+	MgO = {"Magnesium oxide", "Magnesiumoxide"}, Al2O3 = {"Aluminium oxide", "Aluminiumoxide"},
+	KCl = {"Potassium chloride", "Kaliumchloride"}, H3PO4 = {"Phosphoric acid", "Fosforzuur"},
 }
 
 -- Parse a flat formula (e.g. "C6H12O6") into {element = count}. Errors on unknown element.
