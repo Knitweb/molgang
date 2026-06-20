@@ -176,3 +176,104 @@ def link_is_sound(link: dict) -> bool:
         return False
     s, o = link.get("subject", ""), link.get("object", "")
     return _term_recognized(s) and _term_recognized(o) and s.casefold() != o.casefold()
+
+
+# -- Reactions (#109) ----------------------------------------------------------------------------
+# A reaction is reactants -> products under optional conditions (temperature/pressure/catalyst).
+# Ground truth is mass balance: every element is conserved across the arrow. Pure, mirrored 1:1 in
+# roblox/Chemistry.lua and php/src/Chemistry.php. `REACTIONS` is the canonical curriculum set.
+_SPECIES = re.compile(r"^\s*(\d*)\s*([A-Za-z0-9]+)\s*$")
+_ARROWS = ("->", "→", "=>")
+
+
+@dataclass(frozen=True)
+class Reaction:
+    """A balanced-or-not claim: ``reactants`` -> ``products`` under ``conditions``.
+
+    ``reactants``/``products`` are tuples of ``(coefficient, formula)``; ``conditions`` is a tuple of
+    free-text qualifiers (e.g. ``("spark",)`` or ``("450C", "200atm", "Fe catalyst")``).
+    """
+
+    reactants: tuple[tuple[int, str], ...]
+    products: tuple[tuple[int, str], ...]
+    conditions: tuple[str, ...] = ()
+
+
+def _parse_side(side: str) -> tuple[tuple[int, str], ...]:
+    out: list[tuple[int, str]] = []
+    for chunk in side.split("+"):
+        m = _SPECIES.match(chunk)
+        if not m:
+            raise ValueError(f"unparseable reaction species {chunk!r}")
+        parse_formula(m.group(2))                       # validate elements (raises on unknown)
+        out.append((int(m.group(1)) if m.group(1) else 1, m.group(2)))
+    if not out:
+        raise ValueError("reaction side has no species")
+    return tuple(out)
+
+
+def parse_equation(text: str) -> Reaction:
+    """Parse ``"2 H2 + O2 -> 2 H2O @ spark"`` into a :class:`Reaction`.
+
+    Accepts ``->``, ``→`` or ``=>`` as the arrow and an optional ``@ cond1, cond2`` suffix.
+    Raises ``ValueError`` on a malformed equation (missing arrow, empty side, bad species).
+    """
+    text = (text or "").strip()
+    conditions: tuple[str, ...] = ()
+    if "@" in text:
+        text, _, cond = text.partition("@")
+        conditions = tuple(c.strip() for c in cond.split(",") if c.strip())
+    arrow = next((a for a in _ARROWS if a in text), None)
+    if arrow is None:
+        raise ValueError("reaction needs an arrow (->) between reactants and products")
+    left, _, right = text.partition(arrow)
+    return Reaction(reactants=_parse_side(left), products=_parse_side(right), conditions=conditions)
+
+
+def _tally(species: tuple[tuple[int, str], ...]) -> dict[str, int]:
+    total: dict[str, int] = {}
+    for coeff, formula in species:
+        for el, n in parse_formula(formula).items():
+            total[el] = total.get(el, 0) + coeff * n
+    return total
+
+
+def reaction_is_balanced(reaction: Reaction) -> bool:
+    """Ground truth an honest peer votes on: is every element conserved across the arrow?"""
+    try:
+        return _tally(reaction.reactants) == _tally(reaction.products)
+    except ValueError:
+        return False
+
+
+# Canonical curriculum reactions: id -> {name, type, tier, equation}. Each equation is balanced
+# (a test asserts it) and tier-tagged like the molecule table. Mirrored 1:1 into Lua/PHP.
+REACTIONS: dict[str, dict] = {
+    "combustion-hydrogen": {"name": "Combustion of hydrogen", "type": "combustion", "tier": "middle",
+                            "equation": "2 H2 + O2 -> 2 H2O @ spark"},
+    "combustion-methane": {"name": "Combustion of methane", "type": "combustion", "tier": "middle",
+                           "equation": "CH4 + 2 O2 -> CO2 + 2 H2O @ spark"},
+    "combustion-carbon": {"name": "Combustion of carbon", "type": "combustion", "tier": "middle",
+                          "equation": "C + O2 -> CO2"},
+    "synthesis-ammonia": {"name": "Haber synthesis of ammonia", "type": "synthesis", "tier": "high",
+                          "equation": "N2 + 3 H2 -> 2 NH3 @ 450C, 200atm, Fe catalyst"},
+    "synthesis-sulfur-dioxide": {"name": "Burning sulfur", "type": "synthesis", "tier": "high",
+                                 "equation": "S + O2 -> SO2 @ burn"},
+    "neutralisation-hcl-naoh": {"name": "Neutralisation of hydrochloric acid", "type": "neutralisation",
+                                "tier": "high", "equation": "HCl + NaOH -> NaCl + H2O"},
+    "decomposition-limestone": {"name": "Decomposition of limestone", "type": "decomposition",
+                                "tier": "high", "equation": "CaCO3 -> CaO + CO2 @ heat"},
+}
+
+REACTION_TYPES: tuple[str, ...] = ("combustion", "synthesis", "neutralisation", "decomposition")
+
+
+def reaction(rid: str) -> Reaction:
+    """The parsed :class:`Reaction` for a canonical ``REACTIONS`` id."""
+    return parse_equation(REACTIONS[rid]["equation"])
+
+
+def reaction_tier(rid: str) -> str | None:
+    """Curriculum tier of a canonical reaction id, or ``None`` if unknown."""
+    entry = REACTIONS.get(rid)
+    return entry["tier"] if entry else None

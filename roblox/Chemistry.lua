@@ -83,4 +83,44 @@ function Chemistry.isCorrect(formula: string): boolean
 	return ok
 end
 
+-- Reactions (#109): reactants -> products under optional conditions. Balanced iff every element is
+-- conserved across the arrow. Mirrors src/molgang/chemistry.py REACTIONS + reaction_is_balanced 1:1.
+Chemistry.REACTION_TYPES = {"combustion", "synthesis", "neutralisation", "decomposition"}
+Chemistry.REACTIONS = {
+	["combustion-hydrogen"] = {name = "Combustion of hydrogen", type = "combustion", tier = "middle", equation = "2 H2 + O2 -> 2 H2O @ spark"},
+	["combustion-methane"] = {name = "Combustion of methane", type = "combustion", tier = "middle", equation = "CH4 + 2 O2 -> CO2 + 2 H2O @ spark"},
+	["combustion-carbon"] = {name = "Combustion of carbon", type = "combustion", tier = "middle", equation = "C + O2 -> CO2"},
+	["synthesis-ammonia"] = {name = "Haber synthesis of ammonia", type = "synthesis", tier = "high", equation = "N2 + 3 H2 -> 2 NH3 @ 450C, 200atm, Fe catalyst"},
+	["synthesis-sulfur-dioxide"] = {name = "Burning sulfur", type = "synthesis", tier = "high", equation = "S + O2 -> SO2 @ burn"},
+	["neutralisation-hcl-naoh"] = {name = "Neutralisation of hydrochloric acid", type = "neutralisation", tier = "high", equation = "HCl + NaOH -> NaCl + H2O"},
+	["decomposition-limestone"] = {name = "Decomposition of limestone", type = "decomposition", tier = "high", equation = "CaCO3 -> CaO + CO2 @ heat"},
+}
+
+-- Tally elements on one side ("2 H2 + O2") into {element = count}; errors on a bad species.
+local function tallySide(side: string): { [string]: number }
+	local total: { [string]: number } = {}
+	for chunk in string.gmatch(side, "[^+]+") do
+		local coeff, formula = string.match(chunk, "^%s*(%d*)%s*([A-Za-z0-9]+)%s*$")
+		if not formula then error("unparseable species " .. chunk) end
+		local n = (coeff ~= "" and tonumber(coeff)) or 1
+		for sym, cnt in pairs(Chemistry.parseFormula(formula)) do
+			total[sym] = (total[sym] or 0) + n * cnt
+		end
+	end
+	return total
+end
+
+-- True iff every element is conserved across the arrow. Parses an equation (optional "@ conditions").
+function Chemistry.reactionIsBalanced(equation: string): boolean
+	local body = string.gsub(equation, "@.*$", "")
+	local arrow = string.find(body, "->", 1, true)
+	if not arrow then return false end
+	local okL, left = pcall(tallySide, string.sub(body, 1, arrow - 1))
+	local okR, right = pcall(tallySide, string.sub(body, arrow + 2))
+	if not okL or not okR then return false end
+	for k, v in pairs(left) do if right[k] ~= v then return false end end
+	for k, v in pairs(right) do if left[k] ~= v then return false end end
+	return true
+end
+
 return Chemistry
