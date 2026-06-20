@@ -18,6 +18,7 @@ from molgang.registry import Registry
 
 _lock = threading.Lock()
 _bar: Bar | None = None
+PULSE_HOST: dict | None = None
 
 
 def _build_bar() -> Bar:
@@ -39,6 +40,17 @@ def get_bar() -> Bar:
             if _bar is None:
                 _bar = _build_bar()
     return _bar
+
+
+def state_snapshot(sid: str | None = None) -> dict:
+    """Return the canonical `/api/state` shape for Django HTTP and websocket paths."""
+    snapshot = get_bar().state(sid)
+    snapshot["pulse_host"] = PULSE_HOST
+    return snapshot
+
+
+def pulse_host() -> dict | None:
+    return PULSE_HOST
 
 
 def reset_bar() -> None:

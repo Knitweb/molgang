@@ -24,6 +24,7 @@ DEBUG = os.environ.get("MOLGANG_DEBUG", "1") != "0"
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
+    "channels",
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
     "rest_framework",
@@ -46,6 +47,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "molgang_web.wsgi.application"
+ASGI_APPLICATION = "molgang_web.asgi.application"
 
 # The engine keeps its own state in the knitweb world file + sqlite registry, so Django's
 # ORM is unused. Point at an in-memory sqlite to satisfy framework checks without a real DB.
@@ -64,6 +66,18 @@ MOLGANG_WORLD = os.environ.get("MOLGANG_WORLD")        # None -> engine default 
 MOLGANG_REGISTRY = os.environ.get("MOLGANG_REGISTRY")  # None -> no device registry
 
 STATIC_URL = "static/"
+
+# Channels: in-memory is deterministic and dependency-free for local/dev tests.
+# Production can replace this with channels_redis without changing the consumer
+# contract or websocket payload shape.
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": os.environ.get(
+            "MOLGANG_CHANNEL_LAYER",
+            "channels.layers.InMemoryChannelLayer",
+        ),
+    },
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
