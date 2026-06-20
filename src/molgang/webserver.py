@@ -217,6 +217,14 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                                  device=b.get("device"))
                     return self._json(200, {"sid": s.sid, "avatar": s.avatar,
                                             "address": s.player.node.address})
+                if self.path == "/api/heartbeat":
+                    return self._json(200, bar.touch(b["sid"]))
+                if self.path == "/api/leave":
+                    bar.leave(b["sid"])
+                    return self._json(200, {"ok": True})
+                if self.path == "/api/stand":
+                    bar.stand(b["sid"])
+                    return self._json(200, bar.state(b["sid"]))
                 if self.path == "/api/sit":
                     bar.sit(b["sid"], b["table"]); return self._json(200, bar.state(b["sid"]))
                 if self.path == "/api/table/rename":

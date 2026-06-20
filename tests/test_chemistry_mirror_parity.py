@@ -80,6 +80,35 @@ def _php_tiers():
     return {m[0]: m[1] for m in re.findall(r"'(\w+)'\s*=>\s*'(\w+)'", blk)}
 
 
+# --- reaction tables: id -> (type, tier, equation) (#109) ---
+def _py_reactions():
+    blk = _slice(PY, "REACTIONS:", "REACTION_TYPES")
+    return {m[0]: (m[1], m[2], m[3]) for m in re.findall(
+        r'"([\w-]+)":\s*\{"name":\s*"[^"]*",\s*"type":\s*"(\w+)",\s*"tier":\s*"(\w+)",\s*"equation":\s*"([^"]+)"\}',
+        blk)}
+
+
+def _lua_reactions():
+    blk = _slice(LUA, "Chemistry.REACTIONS", "local function tallySide")
+    return {m[0]: (m[1], m[2], m[3]) for m in re.findall(
+        r'\["([\w-]+)"\]\s*=\s*\{name = "[^"]*", type = "(\w+)", tier = "(\w+)", equation = "([^"]+)"\}',
+        blk)}
+
+
+def _php_reactions():
+    blk = _slice(PHP, "const REACTIONS", "private static function tallySide")
+    return {m[0]: (m[1], m[2], m[3]) for m in re.findall(
+        r"'([\w-]+)'\s*=>\s*\['name' => '[^']*', 'type' => '(\w+)', 'tier' => '(\w+)', 'equation' => '([^']+)'\]",
+        blk)}
+
+
+def test_reactions_mirror_across_all_engines():
+    py = _py_reactions()
+    assert len(py) >= 5, py
+    assert _lua_reactions() == py
+    assert _php_reactions() == py
+
+
 def test_parsers_find_the_tables():
     # guard against a silently-empty regex match masking a real divergence
     assert len(_py_elements()) >= 10 and len(_py_molecules()) >= 10 and len(_py_tiers()) >= 20

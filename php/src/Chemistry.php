@@ -86,6 +86,57 @@ final class Chemistry
         return self::TIER_OF[trim($key)] ?? null;
     }
 
+    // Reactions (#109): reactants -> products under optional conditions. Balanced iff every element
+    // is conserved across the arrow. Mirrors src/molgang/chemistry.py REACTIONS 1:1.
+    public const REACTION_TYPES = ['combustion', 'synthesis', 'neutralisation', 'decomposition'];
+    public const REACTIONS = [
+        'combustion-hydrogen' => ['name' => 'Combustion of hydrogen', 'type' => 'combustion', 'tier' => 'middle', 'equation' => '2 H2 + O2 -> 2 H2O @ spark'],
+        'combustion-methane' => ['name' => 'Combustion of methane', 'type' => 'combustion', 'tier' => 'middle', 'equation' => 'CH4 + 2 O2 -> CO2 + 2 H2O @ spark'],
+        'combustion-carbon' => ['name' => 'Combustion of carbon', 'type' => 'combustion', 'tier' => 'middle', 'equation' => 'C + O2 -> CO2'],
+        'synthesis-ammonia' => ['name' => 'Haber synthesis of ammonia', 'type' => 'synthesis', 'tier' => 'high', 'equation' => 'N2 + 3 H2 -> 2 NH3 @ 450C, 200atm, Fe catalyst'],
+        'synthesis-sulfur-dioxide' => ['name' => 'Burning sulfur', 'type' => 'synthesis', 'tier' => 'high', 'equation' => 'S + O2 -> SO2 @ burn'],
+        'neutralisation-hcl-naoh' => ['name' => 'Neutralisation of hydrochloric acid', 'type' => 'neutralisation', 'tier' => 'high', 'equation' => 'HCl + NaOH -> NaCl + H2O'],
+        'decomposition-limestone' => ['name' => 'Decomposition of limestone', 'type' => 'decomposition', 'tier' => 'high', 'equation' => 'CaCO3 -> CaO + CO2 @ heat'],
+    ];
+
+    /** Tally elements on one side ("2 H2 + O2") into [element => count], or null on a bad species. */
+    private static function tallySide(string $side): ?array
+    {
+        $total = [];
+        foreach (explode('+', $side) as $chunk) {
+            if (!preg_match('~^\s*(\d*)\s*([A-Za-z0-9]+)\s*$~', $chunk, $m)) {
+                return null;
+            }
+            $atoms = self::parseFormula($m[2]);
+            if ($atoms === null) {
+                return null;
+            }
+            $n = $m[1] !== '' ? (int) $m[1] : 1;
+            foreach ($atoms as $sym => $cnt) {
+                $total[$sym] = ($total[$sym] ?? 0) + $n * $cnt;
+            }
+        }
+        return $total;
+    }
+
+    /** True iff every element is conserved across the arrow. Parses an equation (optional "@ cond"). */
+    public static function reactionIsBalanced(string $equation): bool
+    {
+        $body = preg_replace('~@.*$~', '', $equation);
+        $pos = strpos($body, '->');
+        if ($pos === false) {
+            return false;
+        }
+        $left = self::tallySide(substr($body, 0, $pos));
+        $right = self::tallySide(substr($body, $pos + 2));
+        if ($left === null || $right === null) {
+            return false;
+        }
+        ksort($left);
+        ksort($right);
+        return $left === $right;
+    }
+
     /** Parse a flat formula (e.g. C6H12O6) into {element: count}, or null if unparseable. */
     public static function parseFormula(string $formula): ?array
     {
