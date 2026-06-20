@@ -49,7 +49,7 @@ def _wait_for_api(base: str, timeout_s: float = 20.0) -> None:
 
 def _wait_for_text(page, selector: str, expected: str, timeout_ms: int = 10_000) -> bool:
     return page.wait_for_function(
-        "(s, v) => (document.querySelector(s)?.textContent || '').trim() === v",
+        "([s, v]) => (document.querySelector(s)?.textContent || '').trim() === v",
         arg=(selector, expected),
         timeout=timeout_ms,
     ) is not None
@@ -57,7 +57,7 @@ def _wait_for_text(page, selector: str, expected: str, timeout_ms: int = 10_000)
 
 def _wait_for_contains(page, selector: str, expected: str, timeout_ms: int = 15_000) -> bool:
     return page.wait_for_function(
-        "(s, v) => (document.querySelector(s)?.textContent || '').includes(v)",
+        "([s, v]) => (document.querySelector(s)?.textContent || '').includes(v)",
         arg=(selector, expected),
         timeout=timeout_ms,
     ) is not None
@@ -69,6 +69,43 @@ def _click(page, selector: str) -> None:
         "(s) => { const el = document.querySelector(s); if (!el) throw new Error(`missing ${s}`); el.click(); }",
         selector,
     )
+
+
+def _browser_diag(page, shots: Path, label: str) -> dict:
+    """Collect enough browser/server state to make CI timeouts actionable."""
+    try:
+        page.screenshot(path=str(shots / f"{label}.png"))
+    except Exception:
+        pass
+    try:
+        return page.evaluate(
+            """async () => {
+              const sid = localStorage.getItem("molgang_sid") || "";
+              const table = localStorage.getItem("molgang_table") || "";
+              let state = null;
+              try {
+                const res = await fetch("/api/state?sid=" + encodeURIComponent(sid));
+                state = await res.json();
+              } catch (e) {
+                state = {error: String(e)};
+              }
+              const current = state && state.tables && state.you
+                ? state.tables.find((t) => t.id === state.you.table)
+                : null;
+              return {
+                sid,
+                table,
+                term: document.querySelector("#term")?.value || "",
+                fabricText: document.querySelector("#fabric")?.textContent || "",
+                openText: document.querySelector("#open")?.textContent || "",
+                you: state ? state.you : null,
+                currentFabric: current ? current.fabric : null,
+                currentOpen: current ? current.open : null,
+              };
+            }"""
+        )
+    except Exception as e:
+        return {"diagnostic_error": str(e)}
 
 
 def _serve_process(base_dir: Path, host: str, port: int) -> subprocess.Popen[str]:
@@ -161,13 +198,19 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
             page.fill("#term", term)
             _click(page, "#knit")
 
-            if not _wait_for_contains(page, "#fabric", term, timeout_ms=15_000):
+            try:
+                woven_visible = _wait_for_contains(page, "#fabric", term, timeout_ms=15_000)
+            except Exception as e:
+                failures.append(f"term '{term}' never appeared in table fabric; diag={_browser_diag(page, shots, '04-timeout')}; error={e}")
+                woven_visible = False
+            if not woven_visible:
                 failures.append(f"term '{term}' never appeared in table fabric")
-            if not _wait_for_text(page, "#me-knits", "1", timeout_ms=8_000):
-                failures.append("successful knit did not increment the knit counter")
-            silk_after = int((page.text_content("#me-silk") or "0").strip() or "0")
-            if silk_after < 10:
-                failures.append("successful useful work did not restore enough silk to keep knitting")
+            else:
+                if not _wait_for_text(page, "#me-knits", "1", timeout_ms=8_000):
+                    failures.append("successful knit did not increment the knit counter")
+                silk_after = int((page.text_content("#me-silk") or "0").strip() or "0")
+                if silk_after < 10:
+                    failures.append("successful useful work did not restore enough silk to keep knitting")
 
             open_block = (page.text_content("#open") or "")
             if term in open_block and "✓" not in open_block:
