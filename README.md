@@ -160,6 +160,14 @@ PYTHONPATH=src:/path/to/pulse/src python3 bridge/sync.py \
 (`bridge/ingest.py` is the upload half on its own; `bridge/snapshot.py` the download half.)
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full design.
 
+## For teachers
+
+MOLGANG is a graded elementary-to-high-school chemistry curriculum played as peer review — and the
+value is **reputation/woven-knowledge only, never tokens or NFTs**. See
+[`docs/CURRICULUM.md`](docs/CURRICULUM.md) for the tier↔learning-objective mapping and a quick-start
+for running a class session (`molgang serve` or the 5mart.ml node), including where students find
+quests, achievements, and the seasonal leaderboard.
+
 ## Community
 
 Contributions welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md),

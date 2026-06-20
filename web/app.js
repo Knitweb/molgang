@@ -96,6 +96,8 @@ function start() {
   $("me-cert").onclick = requestCertificate;
   $("spiral-links").oninput = updateSpiralCost;
   $("spiral-modal").onclick = (e) => { if (e.target.id === "spiral-modal") closeSpiralModal(); };
+  $("lb-all").onclick = () => { lbSeason = "all"; refresh(); };
+  $("lb-season").onclick = () => { lbSeason = "season"; refresh(); };
   setActiveTab();
   refresh();
   if (refreshTimer) clearInterval(refreshTimer);
@@ -111,17 +113,18 @@ function resetSession() {
   refreshTimer = null;
   $("me").classList.add("hidden");
   $("tabs").classList.add("hidden");
-  ["floor", "table", "ledger", "explorer", "web", "records", "monitor"].forEach((v) => $(v).classList.add("hidden"));
+  ["floor", "table", "ledger", "explorer", "web", "progress", "records", "monitor"].forEach((v) => $(v).classList.add("hidden"));
   $("enter").classList.remove("hidden");
 }
 
 function setActiveTab() {
   document.querySelectorAll("#tabs button").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === view));
-  ["floor", "table", "ledger", "explorer", "web", "records", "monitor"].forEach((v) => $(v).classList.add("hidden"));
+  ["floor", "table", "ledger", "explorer", "web", "progress", "records", "monitor"].forEach((v) => $(v).classList.add("hidden"));
   if (view === "ledger") $("ledger").classList.remove("hidden");
   else if (view === "explorer") $("explorer").classList.remove("hidden");
   else if (view === "web") $("web").classList.remove("hidden");
+  else if (view === "progress") $("progress").classList.remove("hidden");
   else if (view === "records") $("records").classList.remove("hidden");
   else if (view === "monitor") $("monitor").classList.remove("hidden");
   else $(table ? "table" : "floor").classList.remove("hidden");
@@ -157,6 +160,7 @@ async function refresh() {
   if (view === "ledger") renderLedger(s.my_knits);
   else if (view === "explorer") renderExplorer(s.explorer);
   else if (view === "web") renderWeb(await api("/api/web"));
+  else if (view === "progress") renderProgress(s);
   else if (view === "records") renderRecords(s);
   else if (view === "monitor") renderMonitor();
   else if (table) renderTable(s);
@@ -333,6 +337,42 @@ function renderSpirals(t) {
       refresh();
     };
   });
+}
+
+// 🏅 Progress — quests, achievements & seasonal standing (#110/#111/#112). All reputation/XP,
+// never tokens. Reads the dedicated /api endpoints scoped to the current player.
+let lbSeason = "all";   // "all" | "season" — leaderboard toggle state
+
+async function renderProgress(s) {
+  const player = s && s.you ? s.you.name : "";
+  const q = await api("/api/quests?player=" + encodeURIComponent(player));
+  $("quests-list").innerHTML = (q.all || []).map((x) =>
+    `<div class="progress-item ${x.complete ? "done" : ""}" data-quest="${esc(x.id)}">
+       <span class="pi-title">${x.complete ? "✅" : "🎯"} ${esc(x.title)}</span>
+       <span class="pi-desc dim small">${esc(x.desc)}</span>
+       <span class="pi-bar"><i style="width:${Math.max(0, Math.min(100, x.pct))}%"></i></span>
+       <span class="pi-meta dim small">${x.done}/${x.need} · ${fmt(x.xp_reward)} XP</span>
+     </div>`).join("") || '<p class="dim small">No quests yet — weave a molecule to start.</p>';
+
+  const a = await api("/api/achievements?player=" + encodeURIComponent(player));
+  $("achievements-list").innerHTML = (a.achievements || []).map((x) =>
+    `<span class="badge ${x.unlocked ? "unlocked" : "locked"}" data-badge="${esc(x.id)}"
+       title="${esc(x.desc)}">${x.unlocked ? "🏅" : "🔒"} ${esc(x.title)}</span>`).join("");
+
+  $("lb-all").classList.toggle("active", lbSeason === "all");
+  $("lb-season").classList.toggle("active", lbSeason === "season");
+  const lb = await api("/api/leaderboard?season=" + (lbSeason === "season" ? "current" : "all"));
+  const rows = lb.rows || [];
+  $("season-board").innerHTML = rows.length
+    ? rows.map((r, i) => {
+        const rank = ["🥇", "🥈", "🥉"][i] || ("#" + (i + 1));
+        return `<div class="record-row">
+          <span class="record-rank">${rank}</span>
+          <span><b>${esc(r.player)}</b> <span class="dim small">· ${fmt(r.molecules)} molecules · ${esc(r.title)}</span></span>
+          <span class="record-len">${fmt(r.xp)} XP</span>
+        </div>`;
+      }).join("")
+    : `<div class="dim small">no ranked players ${lbSeason === "season" ? "this season yet" : "yet"} — weave a molecule to appear here</div>`;
 }
 
 function renderRecords(s) {

@@ -24,6 +24,15 @@ ELEMENTS: dict[str, tuple[str, str, int]] = {
     "Ca": ("Calcium", "Calcium", 20),
     "Fe": ("Iron", "IJzer", 26),
     "He": ("Helium", "Helium", 2),
+    "Mg": ("Magnesium", "Magnesium", 12),
+    "Al": ("Aluminium", "Aluminium", 13),
+    "P": ("Phosphorus", "Fosfor", 15),
+    "K": ("Potassium", "Kalium", 19),
+    "F": ("Fluorine", "Fluor", 9),
+    "Si": ("Silicon", "Silicium", 14),
+    "Zn": ("Zinc", "Zink", 30),
+    "Br": ("Bromine", "Broom", 35),
+    "I": ("Iodine", "Jood", 53),
 }
 
 # Known molecules: formula -> (name_en, name_nl). The lesson set newcomers learn first.
@@ -38,7 +47,59 @@ MOLECULES: dict[str, tuple[str, str]] = {
     "C6H12O6": ("Glucose", "Glucose"),
     "CaCO3": ("Calcium carbonate", "Calciumcarbonaat"),
     "H2": ("Hydrogen gas", "Waterstofgas"),
+    "N2": ("Nitrogen gas", "Stikstofgas"),
+    "CO": ("Carbon monoxide", "Koolmonoxide"),
+    "SO2": ("Sulfur dioxide", "Zwaveldioxide"),
+    "H2SO4": ("Sulfuric acid", "Zwavelzuur"),
+    "NaOH": ("Sodium hydroxide", "Natriumhydroxide"),
+    "CaO": ("Calcium oxide", "Calciumoxide"),
+    "MgO": ("Magnesium oxide", "Magnesiumoxide"),
+    "Al2O3": ("Aluminium oxide", "Aluminiumoxide"),
+    "KCl": ("Potassium chloride", "Kaliumchloride"),
+    "H3PO4": ("Phosphoric acid", "Fosforzuur"),
+    "H2O2": ("Hydrogen peroxide", "Waterstofperoxide"),
+    "HNO3": ("Nitric acid", "Salpeterzuur"),
+    "H2S": ("Hydrogen sulfide", "Waterstofsulfide"),
+    "NO2": ("Nitrogen dioxide", "Stikstofdioxide"),
+    "KOH": ("Potassium hydroxide", "Kaliumhydroxide"),
+    "SiO2": ("Silicon dioxide", "Siliciumdioxide"),
+    "ZnO": ("Zinc oxide", "Zinkoxide"),
+    "NaF": ("Sodium fluoride", "Natriumfluoride"),
+    "KBr": ("Potassium bromide", "Kaliumbromide"),
+    "KI": ("Potassium iodide", "Kaliumjodide"),
 }
+
+# Curriculum tiers (scheikunde), ordered easiest → hardest, so quests, missions, and the
+# seasonal ladder can grade content (#108). `tier_of()` queries a symbol/formula's level without
+# touching `is_correct()` semantics. Mirrored 1:1 in roblox/Chemistry.lua and php/src/Chemistry.php.
+TIERS: tuple[str, ...] = ("elementary", "middle", "high")
+
+# symbol/formula -> curriculum tier. Covers every key in ELEMENTS and MOLECULES.
+_TIER_OF: dict[str, str] = {
+    # elements
+    "H": "elementary", "O": "elementary", "C": "elementary", "N": "elementary", "He": "elementary",
+    "Na": "middle", "Cl": "middle", "Ca": "middle", "Fe": "middle", "Mg": "middle",
+    "F": "middle", "Zn": "middle",
+    "S": "high", "Al": "high", "P": "high", "K": "high", "Si": "high", "Br": "high", "I": "high",
+    # molecules
+    "H2O": "elementary", "O2": "elementary", "CO2": "elementary", "H2": "elementary",
+    "NaCl": "middle", "CH4": "middle", "NH3": "middle", "HCl": "middle", "CaCO3": "middle",
+    "N2": "middle", "CO": "middle", "SiO2": "middle", "NaF": "middle",
+    "C6H12O6": "high", "SO2": "high", "H2SO4": "high", "NaOH": "high", "CaO": "high",
+    "MgO": "high", "Al2O3": "high", "KCl": "high", "H3PO4": "high",
+    "H2O2": "high", "HNO3": "high", "H2S": "high", "NO2": "high", "KOH": "high",
+    "ZnO": "high", "KBr": "high", "KI": "high",
+}
+
+
+def tier_of(key: str) -> str | None:
+    """Curriculum tier of an element symbol or molecule formula, or ``None`` if unknown.
+
+    Pure lookup — does not parse or validate; ``is_correct()`` stays the authority on correctness.
+    Every entry in ``ELEMENTS`` and ``MOLECULES`` has a tier in ``TIERS``.
+    """
+    return _TIER_OF.get((key or "").strip())
+
 
 _TOKEN = re.compile(r"([A-Z][a-z]?)(\d*)")
 
