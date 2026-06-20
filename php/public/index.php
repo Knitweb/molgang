@@ -29,6 +29,12 @@ function out($data): void { echo json_encode($data, JSON_UNESCAPED_SLASHES | JSO
 
 try {
     switch ($route) {
+        case 'version':
+            // /api/version — contract drift check (Sprint 3 #58, docs/API.md). The PHP node is a
+            // thin client/projection of the canonical Python bar; it speaks the same api_version.
+            out(['api_version' => '1', 'engine' => 'php', 'molgang' => '0.1.0',
+                 'knitweb' => 'n/a (thin client)']);
+
         case 'state':
             out(Bar::state(isset($q['sid']) ? (string) $q['sid'] : null));
 
