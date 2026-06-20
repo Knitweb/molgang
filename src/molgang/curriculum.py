@@ -54,6 +54,11 @@ def progress(woven_formulas: Iterable[str], molecules=None,
 
     Returns ``{"tiers": {tier: {woven, total, pct}}, "woven", "total", "pct"}`` with ``pct`` a
     0..100 int. Unknown/duplicate woven formulas are ignored, so the numbers can't exceed the totals.
+
+    ``pct`` is an integer *floor* (``100 * woven // total``), never a rounded float: a rounded
+    percentage can read 100 with a molecule still missing (``round(100*199/200) == 100``), and that
+    value drives a discrete completion decision (the Polymath badge / ``all_tiers_complete``). Floor
+    keeps ``pct == 100`` exactly equivalent to ``woven == total`` and the value path integer-only.
     """
     molecules, tier_of = _ground_truth(molecules, tier_of)
     totals = tier_totals(molecules, tier_of)
@@ -62,10 +67,10 @@ def progress(woven_formulas: Iterable[str], molecules=None,
     for t in TIER_ORDER:
         woven = sum(1 for f in have if tier_of(f) == t)
         total = totals[t]
-        per[t] = {"woven": woven, "total": total, "pct": round(100 * woven / total) if total else 0}
+        per[t] = {"woven": woven, "total": total, "pct": 100 * woven // total if total else 0}
     grand = sum(totals.values())
     return {"tiers": per, "woven": len(have), "total": grand,
-            "pct": round(100 * len(have) / grand) if grand else 0}
+            "pct": 100 * len(have) // grand if grand else 0}
 
 
 def current_tier(woven_formulas: Iterable[str], molecules=None,

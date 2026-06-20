@@ -81,7 +81,7 @@ def _context(woven: Iterable[dict], votes: Iterable[dict], by: str | None,
     return {
         "distinct": prog["woven"],
         "tier_complete": tier_complete,
-        "all_tiers_complete": prog["total"] > 0 and prog["pct"] == 100,
+        "all_tiers_complete": prog["total"] > 0 and prog["woven"] >= prog["total"],
         "reactions": reactions,
         "honest_votes": honest,
     }
