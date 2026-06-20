@@ -3,6 +3,7 @@
 Serves the bar UI (the `web/` folder) AND a small JSON API over one live `Bar`. The SAME
 endpoints are used by humans (the browser) and machines (bots/agents) — dual play:
 
+    GET  /api/version                 {api_version, engine, molgang, knitweb} — contract drift check (#58)
     GET  /api/state?sid=…              full bar snapshot (tables, seats, avatars, open knits)
     POST /api/join     {name,avatar,table?}   walk in (free silk + pulses), optionally sit
     POST /api/sit      {sid,table}            take a seat at a table
@@ -28,6 +29,21 @@ from .pulse_host import bootstrap_host, default_wallet_path
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web")
 _CTYPE = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
           ".json": "application/json", ".svg": "image/svg+xml"}
+
+# Frozen /api contract version (Sprint 3 #58, see docs/API.md). Bump only on a breaking change.
+API_VERSION = "1"
+
+
+def api_version_info() -> dict:
+    """Identity of this engine + the /api contract version, so clients can detect drift."""
+    from . import __version__ as molgang_version
+    try:
+        import knitweb
+        knitweb_version = getattr(knitweb, "__version__", "unknown")
+    except Exception:
+        knitweb_version = "unavailable"
+    return {"api_version": API_VERSION, "engine": "python",
+            "molgang": molgang_version, "knitweb": knitweb_version}
 
 
 def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*",
@@ -92,6 +108,8 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 state = bar.state(sid)
                 state["pulse_host"] = pulse_host
                 return self._json(200, state)
+            if path == "/api/version":
+                return self._json(200, api_version_info())
             if path == "/api/pulse":
                 return self._json(200, pulse_host or {})
             if path == "/api/suggested":
