@@ -141,7 +141,9 @@ def reputation_threshold(seated_levels: list[int], n_voters: int) -> int:
     from knitweb.pouw import quorum
 
     base = quorum.default_threshold(n_voters)
-    if seated_levels and sum(seated_levels) / len(seated_levels) >= 6:   # avg level ≥ Catalyst
+    # Integer-exact mean ≥ 6 (cross-multiplied, no float division): this gate decides the spiral
+    # consensus threshold k that flows into settle_spiral capture/reward, so it stays integer-only.
+    if seated_levels and sum(seated_levels) >= 6 * len(seated_levels):   # avg level ≥ Catalyst
         bumped = base + 1
         if bumped <= n_voters and 2 * bumped > n_voters:
             return bumped
