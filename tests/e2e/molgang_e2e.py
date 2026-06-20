@@ -218,6 +218,25 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
 
             page.wait_for_timeout(600)
             page.screenshot(path=str(shots / "04-woven.png"))
+
+            # 🏅 Progress tab — quests, achievements & seasonal leaderboard render (#110/#111/#112)
+            _click(page, '#tabs button[data-view="progress"]')
+            page.wait_for_selector("#progress:not(.hidden)", timeout=10_000)
+            if not _wait_for_contains(page, "#quests-list", "First bond", timeout_ms=10_000):
+                failures.append("quests panel did not render the First bond quest")
+            if not _wait_for_contains(page, "#achievements-list", "First bond", timeout_ms=10_000):
+                failures.append("achievements panel did not render the First bond badge")
+            if term == "H2O":
+                # weaving a known molecule must complete first-bond, unlock its badge, rank the player
+                if not _wait_for_contains(page, "#quests-list", "✅ First bond", timeout_ms=10_000):
+                    failures.append("first-bond quest did not show complete after weaving H2O")
+                if not _wait_for_contains(page, "#achievements-list", "\U0001f3c5 First bond", timeout_ms=10_000):
+                    failures.append("first-bond badge did not unlock after weaving H2O")
+                if not _wait_for_contains(page, "#season-board", "Playwright", timeout_ms=10_000):
+                    failures.append("player not listed on the all-time leaderboard")
+            _click(page, "#lb-season")            # season toggle switches the board without error
+            page.wait_for_timeout(400)
+            page.screenshot(path=str(shots / "05-progress.png"))
         finally:
             browser.close()
 

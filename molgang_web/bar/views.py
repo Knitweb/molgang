@@ -60,6 +60,14 @@ def pulse(request):
 
 
 @api_view(["GET"])
+def version(request):
+    # /api/version — contract drift check (Sprint 3 #58). Reuse the canonical bar's version
+    # computation so api_version/molgang/knitweb stay in lockstep; only the engine differs.
+    from molgang.webserver import api_version_info
+    return Response({**api_version_info(), "engine": "django"})
+
+
+@api_view(["GET"])
 def suggested(request):
     return Response({"terms": suggested_terms()})
 

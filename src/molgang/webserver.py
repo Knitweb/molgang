@@ -3,6 +3,7 @@
 Serves the bar UI (the `web/` folder) AND a small JSON API over one live `Bar`. The SAME
 endpoints are used by humans (the browser) and machines (bots/agents) — dual play:
 
+    GET  /api/version                 {api_version, engine, molgang, knitweb} — contract drift check (#58)
     GET  /api/state?sid=…              full bar snapshot (tables, seats, avatars, open knits)
     POST /api/join     {name,avatar,table?}   walk in (free silk + pulses), optionally sit
     POST /api/sit      {sid,table}            take a seat at a table
@@ -28,6 +29,21 @@ from .pulse_host import bootstrap_host, default_wallet_path
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web")
 _CTYPE = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
           ".json": "application/json", ".svg": "image/svg+xml"}
+
+# Frozen /api contract version (Sprint 3 #58, see docs/API.md). Bump only on a breaking change.
+API_VERSION = "1"
+
+
+def api_version_info() -> dict:
+    """Identity of this engine + the /api contract version, so clients can detect drift."""
+    from . import __version__ as molgang_version
+    try:
+        import knitweb
+        knitweb_version = getattr(knitweb, "__version__", "unknown")
+    except Exception:
+        knitweb_version = "unavailable"
+    return {"api_version": API_VERSION, "engine": "python",
+            "molgang": molgang_version, "knitweb": knitweb_version}
 
 
 def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*",
@@ -92,12 +108,52 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 state = bar.state(sid)
                 state["pulse_host"] = pulse_host
                 return self._json(200, state)
+            if path == "/api/version":
+                return self._json(200, api_version_info())
             if path == "/api/pulse":
                 return self._json(200, pulse_host or {})
             if path == "/api/suggested":
                 return self._json(200, {"terms": suggested_terms()})
             if path == "/api/web":
                 return self._json(200, bar.web_view())
+            if path == "/api/quests":
+                # Tier-graded goals derived from a player's woven molecules (#110). Read-only;
+                # ?player=<name> scopes to one peer (omit for the whole bar). Pure derived state.
+                from urllib.parse import parse_qs, urlparse
+                from . import quests
+                player = (parse_qs(urlparse(self.path).query).get("player") or [None])[0]
+                return self._json(200, {
+                    "player": player,
+                    "active": quests.active_quests(bar.woven, player),
+                    "all": quests.quest_progress(bar.woven, player),
+                    "quest_xp": quests.quest_xp(bar.woven, player),
+                })
+            if path == "/api/achievements":
+                # Milestone badges derived from woven molecules (#111). Read-only/pure; reputation
+                # only (no tokens). ?player=<name> scopes to one peer. Vote-based badges stay locked
+                # until the bar records per-voter honesty (woven-based badges work today).
+                from urllib.parse import parse_qs, urlparse
+                from . import achievements
+                player = (parse_qs(urlparse(self.path).query).get("player") or [None])[0]
+                return self._json(200, {
+                    "player": player,
+                    "achievements": achievements.evaluate(bar.woven, [], player),
+                    "unlocked": achievements.unlocked_achievements(bar.woven, [], player),
+                    "count": achievements.achievement_count(bar.woven, [], player),
+                })
+            if path == "/api/leaderboard":
+                # All-time or current-season ranking (#112). ?season=current for the time-windowed
+                # board, else all-time. Pure derived state — seasons are a view over woven timestamps.
+                import time
+                from urllib.parse import parse_qs, urlparse
+                from . import progression
+                season = (parse_qs(urlparse(self.path).query).get("season") or ["all"])[0]
+                rows_src = [{"formula": w.get("term"), "by": w.get("by"),
+                             "anchor_ts": w.get("anchor_ts")}
+                            for w in bar.woven if w.get("is_chemistry")]
+                if season in ("current", "season"):
+                    return self._json(200, progression.current_season_leaderboard(rows_src, int(time.time())))
+                return self._json(200, {"season": "all", "rows": progression.leaderboard(rows_src)})
             if path == "/api/device":
                 from urllib.parse import parse_qs, urlparse
                 did = (parse_qs(urlparse(self.path).query).get("id") or [""])[0]

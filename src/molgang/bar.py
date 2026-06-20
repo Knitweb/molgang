@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import itertools
 import secrets
+import time
 from dataclasses import dataclass, field
 
 from knitweb.pouw import quorum
@@ -466,6 +467,7 @@ class Bar:
                 "term": prop.term, "by": prop.by_name, "table": prop.table_id,
                 "fiber_cid": s.woven_fiber_cid, "confirmations": s.result.confirms,
                 "is_chemistry": prop.parsed.get("term", "") in MOLECULES,
+                "anchor_ts": int(time.time()),   # weave time → enables seasonal boards (#112)
             })
             # extend the SHARED knitweb web — a term node, a single LINK edge, or (one-to-many
             # knit) every link of the enumeration woven as its own edge.
@@ -529,11 +531,14 @@ class Bar:
         my_spirals = [sv for sv in self.spirals.values() if sv.by == sid]
         votes_cast = (sum(1 for p in self.proposals.values() if sid in p.voters)
                       + sum(1 for sv in self.spirals.values() if sid in sv.voters))
+        from . import achievements
         work_summary = {
             "terms_proposed": len(my_props),
             "knits_woven": sum(1 for p in my_props if p.woven),
             "spirals_captured": sum(1 for sv in my_spirals if sv.captured),
             "votes_cast": votes_cast,
+            # woven-knowledge proof — reputation, not a bearer token (#111, no-NFT rule)
+            "achievements_unlocked": achievements.achievement_count(self.woven, [], sess.name),
         }
         return {
             "holder": sess.name,
