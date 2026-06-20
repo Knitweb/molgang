@@ -18,7 +18,11 @@
     "S":  {"atomic_number": 16, "names": {"en": "Sulfur",   "nl": "Zwavel",    "ru": "Сера",     "zh": "硫", "ar": "كبريت"}},
     "Ca": {"atomic_number": 20, "names": {"en": "Calcium",  "nl": "Calcium",   "ru": "Кальций",  "zh": "钙", "ar": "كالسيوم"}},
     "Fe": {"atomic_number": 26, "names": {"en": "Iron",     "nl": "IJzer",     "ru": "Железо",   "zh": "铁", "ar": "حديد"}},
-    "He": {"atomic_number": 2,  "names": {"en": "Helium",   "nl": "Helium",    "ru": "Гелий",    "zh": "氦", "ar": "هيليوم"}}
+    "He": {"atomic_number": 2,  "names": {"en": "Helium",   "nl": "Helium",    "ru": "Гелий",    "zh": "氦", "ar": "هيليوم"}},
+    "Mg": {"atomic_number": 12, "names": {"en": "Magnesium", "nl": "Magnesium", "ru": "Магний",   "zh": "镁", "ar": "مغنيسيوم"}},
+    "Al": {"atomic_number": 13, "names": {"en": "Aluminium", "nl": "Aluminium", "ru": "Алюминий", "zh": "铝", "ar": "ألومنيوم"}},
+    "P":  {"atomic_number": 15, "names": {"en": "Phosphorus","nl": "Fosfor",    "ru": "Фосфор",   "zh": "磷", "ar": "فوسفور"}},
+    "K":  {"atomic_number": 19, "names": {"en": "Potassium", "nl": "Kalium",    "ru": "Калий",    "zh": "钾", "ar": "بوتاسيوم"}}
   },
   "molecules": {
     "H2O":     {"names": {"en": "Water",             "nl": "Water",            "ru": "Вода",                 "zh": "水",     "ar": "ماء"}},
@@ -36,6 +40,10 @@
     "SO2":     {"names": {"en": "Sulfur dioxide",    "nl": "Zwaveldioxide",    "ru": "Диоксид серы",         "zh": "二氧化硫", "ar": "ثاني أكسيد الكبريت"}},
     "H2SO4":   {"names": {"en": "Sulfuric acid",     "nl": "Zwavelzuur",       "ru": "Серная кислота",       "zh": "硫酸",   "ar": "حمض الكبريتيك"}},
     "NaOH":    {"names": {"en": "Sodium hydroxide",  "nl": "Natriumhydroxide", "ru": "Гидроксид натрия",     "zh": "氢氧化钠", "ar": "هيدروكسيد الصوديوم"}},
-    "CaO":     {"names": {"en": "Calcium oxide",     "nl": "Calciumoxide",     "ru": "Оксид кальция",        "zh": "氧化钙", "ar": "أكسيد الكالسيوم"}}
+    "CaO":     {"names": {"en": "Calcium oxide",     "nl": "Calciumoxide",     "ru": "Оксид кальция",        "zh": "氧化钙", "ar": "أكسيد الكالسيوم"}},
+    "MgO":     {"names": {"en": "Magnesium oxide",   "nl": "Magnesiumoxide",   "ru": "Оксид магния",         "zh": "氧化镁", "ar": "أكسيد المغنيسيوم"}},
+    "Al2O3":   {"names": {"en": "Aluminium oxide",   "nl": "Aluminiumoxide",   "ru": "Оксид алюминия",       "zh": "氧化铝", "ar": "أكسيد الألومنيوم"}},
+    "KCl":     {"names": {"en": "Potassium chloride","nl": "Kaliumchloride",   "ru": "Хлорид калия",         "zh": "氯化钾", "ar": "كلوريد البوتاسيوم"}},
+    "H3PO4":   {"names": {"en": "Phosphoric acid",   "nl": "Fosforzuur",       "ru": "Фосфорная кислота",    "zh": "磷酸",   "ar": "حمض الفوسفوريك"}}
   }
 }

@@ -24,6 +24,10 @@ ELEMENTS: dict[str, tuple[str, str, int]] = {
     "Ca": ("Calcium", "Calcium", 20),
     "Fe": ("Iron", "IJzer", 26),
     "He": ("Helium", "Helium", 2),
+    "Mg": ("Magnesium", "Magnesium", 12),
+    "Al": ("Aluminium", "Aluminium", 13),
+    "P": ("Phosphorus", "Fosfor", 15),
+    "K": ("Potassium", "Kalium", 19),
 }
 
 # Known molecules: formula -> (name_en, name_nl). The lesson set newcomers learn first.
@@ -44,6 +48,10 @@ MOLECULES: dict[str, tuple[str, str]] = {
     "H2SO4": ("Sulfuric acid", "Zwavelzuur"),
     "NaOH": ("Sodium hydroxide", "Natriumhydroxide"),
     "CaO": ("Calcium oxide", "Calciumoxide"),
+    "MgO": ("Magnesium oxide", "Magnesiumoxide"),
+    "Al2O3": ("Aluminium oxide", "Aluminiumoxide"),
+    "KCl": ("Potassium chloride", "Kaliumchloride"),
+    "H3PO4": ("Phosphoric acid", "Fosforzuur"),
 }
 
 _TOKEN = re.compile(r"([A-Z][a-z]?)(\d*)")
