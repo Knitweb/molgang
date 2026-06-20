@@ -59,6 +59,47 @@ def leaderboard(woven: list[dict]) -> list[dict]:
     return rows
 
 
+# -- Seasonal (time-windowed) leaderboards (#112) ------------------------------------------------
+# Seasons are a *view* over woven timestamps — no separate authority, the all-time leaderboard()
+# above stays the lifetime board. A season is a fixed window of SEASON_DAYS indexed from the unix
+# epoch, so a season id derives deterministically from any timestamp.
+SEASON_DAYS = 30
+_SEASON_SECONDS = SEASON_DAYS * 86_400
+
+
+def season_id(ts: int) -> str:
+    """Deterministic season id for a unix timestamp (e.g. ``"S642"``)."""
+    return f"S{int(ts) // _SEASON_SECONDS}"
+
+
+def season_window(sid: str) -> tuple[int, int]:
+    """The ``[start, until)`` unix-second bounds for a season id."""
+    idx = int(sid[1:]) if isinstance(sid, str) and sid.startswith("S") else int(sid)
+    return idx * _SEASON_SECONDS, (idx + 1) * _SEASON_SECONDS
+
+
+def _in_window(item: dict, since: int, until: int) -> bool:
+    ts = item.get("anchor_ts")
+    return ts is not None and since <= ts < until
+
+
+def seasonal_leaderboard(woven: list[dict], *, since: int, until: int) -> list[dict]:
+    """The all-time ranking restricted to woven items whose ``anchor_ts`` is in ``[since, until)``.
+
+    Pure derived state with the same XP tally + tie-break (``-xp``, then player id) as
+    :func:`leaderboard`. Items lacking an ``anchor_ts`` are not part of any bounded season.
+    """
+    return leaderboard([w for w in woven if _in_window(w, since, until)])
+
+
+def current_season_leaderboard(woven: list[dict], now: int) -> dict:
+    """The current season's id, ``[since, until)`` window, and ranked rows for timestamp ``now``."""
+    sid = season_id(now)
+    since, until = season_window(sid)
+    return {"season": sid, "since": since, "until": until,
+            "rows": seasonal_leaderboard(woven, since=since, until=until)}
+
+
 def reputation_threshold(seated_levels: list[int], n_voters: int) -> int:
     """A reputation-scaled BFT threshold: a high-level (Catalyst+) table demands a stricter
     supermajority. It only ever *raises* k, and only when the quorum invariant (k ≤ n and
