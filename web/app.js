@@ -31,6 +31,7 @@ let chosenAvatar = null;
 let view = "bar";
 let table = localStorage.getItem("molgang_table") || null;
 let refreshTimer = null;
+const TUTORIAL_DONE_KEY = "molgang_tutorial_done_v1";
 
 // a stable per-device id (browser-legal stand-in for IMEI) → the same PLS wallet every visit
 const DEVICE_ID = (() => {
@@ -43,8 +44,240 @@ const DEVICE_ID = (() => {
   return d;
 })();
 
+// ---- first-run tutorial / small i18n layer ----
+const STRINGS = {
+  en: {
+    "tutorial.replay": "🎓 Tutorial",
+    "tutorial.replayTitle": "Replay tutorial",
+    "tutorial.step": "Step",
+    "tutorial.skip": "Skip",
+    "tutorial.done": "Tutorial complete",
+    "tutorial.walkin.title": "Pick an avatar and claim the faucet",
+    "tutorial.walkin.body": "Choose a name and avatar, then walk in. This creates a device wallet with starter silk and PLS.",
+    "tutorial.walkin.primary": "Walk in when ready",
+    "tutorial.seat.title": "Take a seat",
+    "tutorial.seat.body": "Tables are where knits happen. Sit with NPC peers so your first useful work can reach quorum.",
+    "tutorial.seat.primary": "Take a seat",
+    "tutorial.knit.title": "Knit a real term",
+    "tutorial.knit.body": "Silk pays for a proposed knit. Use H2O for the first run; peers can validate it immediately.",
+    "tutorial.knit.primary": "Knit H2O",
+    "tutorial.vote.title": "Peers vote with pulses",
+    "tutorial.vote.body": "Each peer stakes PLS on the verdict. A confirming quorum weaves your term into the fabric.",
+    "tutorial.vote.primary": "Show fabric",
+    "tutorial.fabric.title": "Woven into the fabric",
+    "tutorial.fabric.body": "Your knit is now a Fiber-backed contribution. Silk and PLS rewards keep useful players knitting.",
+    "tutorial.fabric.primary": "Finish",
+  },
+  nl: {
+    "tutorial.replay": "🎓 Tutorial",
+    "tutorial.replayTitle": "Tutorial opnieuw afspelen",
+    "tutorial.step": "Stap",
+    "tutorial.skip": "Overslaan",
+    "tutorial.done": "Tutorial voltooid",
+    "tutorial.walkin.title": "Kies een avatar en claim de faucet",
+    "tutorial.walkin.body": "Kies een naam en avatar en loop naar binnen. Dit maakt een device-wallet met start-silk en PLS.",
+    "tutorial.walkin.primary": "Loop binnen wanneer je klaar bent",
+    "tutorial.seat.title": "Neem plaats",
+    "tutorial.seat.body": "Aan tafels gebeurt het knitten. Ga zitten bij NPC-peers zodat je eerste nuttige werk quorum kan halen.",
+    "tutorial.seat.primary": "Neem plaats",
+    "tutorial.knit.title": "Knit een echte term",
+    "tutorial.knit.body": "Silk betaalt voor een voorgestelde knit. Gebruik H2O voor de eerste ronde; peers kunnen die direct valideren.",
+    "tutorial.knit.primary": "Knit H2O",
+    "tutorial.vote.title": "Peers stemmen met pulses",
+    "tutorial.vote.body": "Elke peer staket PLS op het oordeel. Een bevestigend quorum weeft je term in de fabric.",
+    "tutorial.vote.primary": "Toon fabric",
+    "tutorial.fabric.title": "Geweven in de fabric",
+    "tutorial.fabric.body": "Je knit is nu een Fiber-bijdrage. Silk- en PLS-beloningen houden nuttige spelers aan het knitten.",
+    "tutorial.fabric.primary": "Afronden",
+  },
+};
+
+function locale() {
+  const saved = (localStorage.getItem("molgang_locale") || "").toLowerCase();
+  const lang = saved || (document.documentElement.lang || navigator.language || "en").toLowerCase();
+  return lang.startsWith("nl") ? "nl" : "en";
+}
+
+function t(key) {
+  const lang = locale();
+  return (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.en[key] || key;
+}
+
+const TOUR_STEPS = [
+  {
+    id: "walkin",
+    target: "#enter .card",
+    title: "tutorial.walkin.title",
+    body: "tutorial.walkin.body",
+    primary: "tutorial.walkin.primary",
+    action: () => $("name").focus(),
+  },
+  {
+    id: "seat",
+    target: "#floor .table-card .join-table",
+    title: "tutorial.seat.title",
+    body: "tutorial.seat.body",
+    primary: "tutorial.seat.primary",
+    action: () => document.querySelector("#floor .table-card .join-table")?.click(),
+  },
+  {
+    id: "knit",
+    target: "#term",
+    title: "tutorial.knit.title",
+    body: "tutorial.knit.body",
+    primary: "tutorial.knit.primary",
+    action: () => {
+      $("term").value = "H2O";
+      $("knit").click();
+    },
+  },
+  {
+    id: "vote",
+    target: "#seats",
+    title: "tutorial.vote.title",
+    body: "tutorial.vote.body",
+    primary: "tutorial.vote.primary",
+    action: () => {
+      tour.step = Math.max(tour.step, 4);
+      renderTutorial();
+    },
+  },
+  {
+    id: "fabric",
+    target: "#fabric",
+    title: "tutorial.fabric.title",
+    body: "tutorial.fabric.body",
+    primary: "tutorial.fabric.primary",
+    action: () => finishTutorial(),
+  },
+];
+
+let tour = { active: false, step: 0, lastState: null };
+
+function tutorialDone() {
+  return Boolean(localStorage.getItem(TUTORIAL_DONE_KEY));
+}
+
+function setupTutorialUi() {
+  const replay = $("tutorial-replay");
+  if (replay) {
+    replay.textContent = t("tutorial.replay");
+    replay.title = t("tutorial.replayTitle");
+    replay.onclick = () => startTutorial(true);
+  }
+  if ($("tour-layer")) return;
+  const layer = document.createElement("div");
+  layer.id = "tour-layer";
+  layer.className = "tour-layer hidden";
+  layer.innerHTML = `
+    <div id="tour-dim" class="tour-dim"></div>
+    <div id="tour-highlight" class="tour-highlight"></div>
+    <div id="tour-card" class="tour-card" role="dialog" aria-live="polite">
+      <div id="tour-kicker" class="tour-kicker"></div>
+      <h3 id="tour-title"></h3>
+      <p id="tour-body"></p>
+      <div class="tour-actions">
+        <button id="tour-skip" class="ghost"></button>
+        <button id="tour-primary"></button>
+      </div>
+    </div>`;
+  document.body.appendChild(layer);
+  $("tour-skip").onclick = skipTutorial;
+  window.addEventListener("resize", renderTutorial);
+  window.addEventListener("scroll", renderTutorial, true);
+}
+
+function startTutorial(force = false) {
+  setupTutorialUi();
+  if (!force && tutorialDone()) return;
+  tour.active = true;
+  tour.step = force && sid ? tutorialStepFromState(tour.lastState) : 0;
+  renderTutorial();
+}
+
+function skipTutorial() {
+  localStorage.setItem(TUTORIAL_DONE_KEY, "skipped");
+  hideTutorial();
+}
+
+function finishTutorial() {
+  localStorage.setItem(TUTORIAL_DONE_KEY, "done");
+  hideTutorial();
+  if (sid) showToast(t("tutorial.done"));
+}
+
+function hideTutorial() {
+  tour.active = false;
+  $("tour-layer")?.classList.add("hidden");
+  document.querySelectorAll(".tour-target").forEach((el) => el.classList.remove("tour-target"));
+}
+
+function tutorialStepFromState(s) {
+  if (!sid || !$("enter")?.classList.contains("hidden")) return 0;
+  if (!s || !s.you || !s.you.table) return 1;
+  if ((s.you.knits_made || 0) <= 0) return 2;
+  const current = (s.tables || []).find((x) => x.id === s.you.table);
+  if (current && (current.fabric || []).length && tour.step >= 4) return 4;
+  return 3;
+}
+
+function syncTutorial(s) {
+  if (!tour.active) return;
+  tour.lastState = s || tour.lastState;
+  tour.step = Math.max(tour.step, tutorialStepFromState(s));
+  requestAnimationFrame(renderTutorial);
+}
+
+function clamp(n, lo, hi) {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function renderTutorial() {
+  setupTutorialUi();
+  const layer = $("tour-layer");
+  if (!tour.active || !layer) return;
+  const step = TOUR_STEPS[clamp(tour.step, 0, TOUR_STEPS.length - 1)];
+  const target = document.querySelector(step.target);
+  layer.classList.remove("hidden");
+  document.querySelectorAll(".tour-target").forEach((el) => el.classList.remove("tour-target"));
+  if (target) target.classList.add("tour-target");
+
+  $("tour-kicker").textContent = `${t("tutorial.step")} ${tour.step + 1}/${TOUR_STEPS.length}`;
+  $("tour-title").textContent = t(step.title);
+  $("tour-body").textContent = t(step.body);
+  $("tour-skip").textContent = t("tutorial.skip");
+  $("tour-primary").textContent = t(step.primary);
+  $("tour-primary").onclick = step.action;
+
+  const hl = $("tour-highlight");
+  const card = $("tour-card");
+  if (!target) {
+    hl.classList.add("hidden");
+    card.style.left = "50%";
+    card.style.top = "50%";
+    card.style.transform = "translate(-50%, -50%)";
+    return;
+  }
+  const r = target.getBoundingClientRect();
+  hl.classList.remove("hidden");
+  hl.style.left = `${Math.max(8, r.left - 8)}px`;
+  hl.style.top = `${Math.max(8, r.top - 8)}px`;
+  hl.style.width = `${r.width + 16}px`;
+  hl.style.height = `${r.height + 16}px`;
+
+  const cardW = Math.min(360, window.innerWidth - 28);
+  const left = clamp(r.left, 14, window.innerWidth - cardW - 14);
+  const below = r.bottom + 14;
+  const top = below < window.innerHeight - 190 ? below : Math.max(14, r.top - 214);
+  card.style.width = `${cardW}px`;
+  card.style.left = `${left}px`;
+  card.style.top = `${top}px`;
+  card.style.transform = "none";
+}
+
 // ---- walk-in ----
 async function boot() {
+  setupTutorialUi();
   const avs = (await api("/api/state")).avatars || [];
   $("avatars").innerHTML = "";
   avs.forEach((a, i) => {
@@ -61,6 +294,7 @@ async function boot() {
   });
   chosenAvatar = avs[0].id;
   $("go").onclick = walkIn;
+  if (!sid && !tutorialDone()) startTutorial();
   if (sid) { $("enter").classList.add("hidden"); start(); }
 }
 
@@ -86,6 +320,7 @@ async function reconnectDevice() {
 }
 
 function start() {
+  setupTutorialUi();
   $("me").classList.remove("hidden");
   $("tabs").classList.remove("hidden");
   document.querySelectorAll("#tabs button").forEach((b) => {
@@ -166,6 +401,7 @@ async function refresh() {
   else if (table) renderTable(s);
   else renderFloor(s);
   setActiveTab();
+  syncTutorial(s);
 }
 
 function renderPulseHost(host) {

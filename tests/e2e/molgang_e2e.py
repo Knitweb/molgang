@@ -178,6 +178,19 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
             page.wait_for_selector("#avatars .av-pick", timeout=15_000)
             page.screenshot(path=str(shots / "01-walkin.png"))
 
+            tutorial_flow = term == "H2O"
+            if tutorial_flow:
+                if not _wait_for_contains(page, "#tour-title", "Pick an avatar", timeout_ms=10_000):
+                    failures.append("first-run tutorial did not open on the walk-in screen")
+                _click(page, "#tour-skip")
+                page.wait_for_function(
+                    "() => document.querySelector('#tour-layer')?.classList.contains('hidden')",
+                    timeout=5_000,
+                )
+                _click(page, "#tutorial-replay")
+                if not _wait_for_contains(page, "#tour-title", "Pick an avatar", timeout_ms=5_000):
+                    failures.append("tutorial replay did not restart the walk-in step")
+
             page.fill("#name", "🤖 Playwright")
             _click(page, "#go")
             page.wait_for_selector("#floor:not(.hidden) .table-card", timeout=15_000)
@@ -192,13 +205,23 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
                 failures.append("wallet pill missing after join")
             page.screenshot(path=str(shots / "02-floor.png"))
 
-            _click(page, "#floor .table-card .join-table")
+            if tutorial_flow:
+                if not _wait_for_contains(page, "#tour-title", "Take a seat", timeout_ms=10_000):
+                    failures.append("tutorial did not advance to the seat step")
+                _click(page, "#tour-primary")
+            else:
+                _click(page, "#floor .table-card .join-table")
             page.wait_for_selector("#table:not(.hidden) #knit", timeout=15_000)
             page.wait_for_timeout(400)
             page.screenshot(path=str(shots / "03-table.png"))
 
-            page.fill("#term", term)
-            _click(page, "#knit")
+            if tutorial_flow:
+                if not _wait_for_contains(page, "#tour-title", "Knit a real term", timeout_ms=10_000):
+                    failures.append("tutorial did not advance to the knit step")
+                _click(page, "#tour-primary")
+            else:
+                page.fill("#term", term)
+                _click(page, "#knit")
 
             try:
                 woven_visible = _wait_for_contains(page, "#fabric", term, timeout_ms=15_000)
@@ -220,6 +243,21 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
 
             page.wait_for_timeout(600)
             page.screenshot(path=str(shots / "04-woven.png"))
+
+            if tutorial_flow:
+                if not _wait_for_contains(page, "#tour-title", "Peers vote", timeout_ms=10_000):
+                    failures.append("tutorial did not explain peer voting after a knit")
+                _click(page, "#tour-primary")
+                if not _wait_for_contains(page, "#tour-title", "Woven into the fabric", timeout_ms=5_000):
+                    failures.append("tutorial did not finish on the fabric step")
+                _click(page, "#tour-primary")
+                page.wait_for_function(
+                    "() => document.querySelector('#tour-layer')?.classList.contains('hidden')",
+                    timeout=5_000,
+                )
+                done = page.evaluate("localStorage.getItem('molgang_tutorial_done_v1')")
+                if done != "done":
+                    failures.append("tutorial completion was not remembered per device")
 
             # 🏅 Progress tab — ladder, quests, achievements & seasonal leaderboard (#110-#113)
             _click(page, '#tabs button[data-view="progress"]')

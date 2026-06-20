@@ -62,6 +62,7 @@ header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px
 @keyframes scan{to{background-position:200% 0}}
 .brand{font-size:19px;letter-spacing:.2px;text-shadow:var(--glow) rgba(139,92,255,.5)}
 .pulse-host{background:var(--glass);border:1px solid var(--line);border-radius:999px;padding:5px 12px;backdrop-filter:blur(6px)}
+.help-btn{padding:6px 11px;border-radius:999px;font-size:12px;white-space:nowrap}
 .me{display:flex;align-items:center;gap:9px;margin-left:auto;flex-wrap:wrap}
 .me .av{font-size:23px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
 .bal{background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:6px 12px;font-size:13px;
@@ -79,6 +80,22 @@ header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px
   backdrop-filter:blur(18px) saturate(1.25);box-shadow:var(--shadow-3d),var(--glow) rgba(139,92,255,.25);
   transform:perspective(1200px) rotateX(4deg);animation:rise .6s cubic-bezier(.2,.9,.3,1.2)}
 @keyframes rise{from{opacity:0;transform:perspective(1200px) rotateX(14deg) translateY(40px) scale(.96)}}
+
+/* first-run coach marks */
+.tour-layer{position:fixed;inset:0;z-index:40;pointer-events:none}
+.tour-dim{position:absolute;inset:0;background:rgba(3,5,12,.48);backdrop-filter:blur(1px)}
+.tour-highlight{position:fixed;z-index:41;border:2px solid var(--accent2);border-radius:18px;
+  box-shadow:0 0 0 9999px rgba(3,5,12,.18),var(--glow) rgba(34,227,255,.55);
+  transition:left .18s,top .18s,width .18s,height .18s}
+.tour-card{position:fixed;z-index:42;max-width:360px;border:1px solid var(--line2);border-radius:18px;
+  padding:15px;background:linear-gradient(180deg,rgba(28,36,54,.98),rgba(17,23,38,.98));
+  box-shadow:var(--shadow-3d),var(--glow) rgba(139,92,255,.28);pointer-events:auto}
+.tour-card h3{margin:2px 0 6px;font-size:17px;letter-spacing:0;color:#fff}
+.tour-card p{margin:0 0 13px;color:var(--dim);font-size:13px;line-height:1.45}
+.tour-kicker{color:var(--accent2);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0}
+.tour-actions{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tour-actions button{min-width:96px;padding:9px 12px;font-size:13px}
+.tour-target{position:relative;z-index:41}
 .card h1{margin:.1em 0 .45em;font-size:24px;
   background:linear-gradient(90deg,#fff,var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
 .card label{display:block;margin:14px 0 6px;color:var(--dim);font-size:13px}
@@ -240,6 +257,8 @@ h2,h3{letter-spacing:.2px}
   .me{gap:6px}.bal{font-size:12px;padding:5px 9px}
   main,section{padding:16px 13px}
   .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}.tabs button{white-space:nowrap;flex:0 0 auto}
+  .tour-card{left:14px!important;right:14px;width:auto!important;max-width:none}
+  .tour-actions{align-items:stretch}.tour-actions button{flex:1;min-width:0}
   .floor{grid-template-columns:1fr;perspective:none}
   .table-card,.seat,.ecol{transform:none!important;animation:none}
   .knit-box{flex-direction:column}.knit-box input{min-width:0}
