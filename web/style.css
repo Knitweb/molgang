@@ -251,3 +251,23 @@ h2,h3{letter-spacing:.2px}
   *{animation:none!important}
   .table-card,.seat,.ecol,.overlay .card{transform:none!important;transition:none!important}
 }
+
+/* 🏅 Progress tab — quests, achievement badges, seasonal leaderboard (#110/#111/#112) */
+.progress-list{display:flex;flex-direction:column;gap:8px;margin:8px 0 18px}
+.progress-item{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;
+  padding:10px 14px;border:1px solid var(--line);border-radius:13px;background:var(--panel)}
+.progress-item.done{border-color:var(--ok);box-shadow:0 0 0 1px rgba(52,245,176,.18)}
+.progress-item .pi-title{font-weight:600}
+.progress-item .pi-desc{grid-column:1/2}
+.progress-item .pi-meta{grid-column:2/3;justify-self:end;white-space:nowrap}
+.progress-item .pi-bar{grid-column:1/3;height:6px;border-radius:6px;background:var(--glass);overflow:hidden;margin-top:4px}
+.progress-item .pi-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.progress-item.done .pi-bar i{background:var(--ok)}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}
+.badge{padding:6px 12px;border-radius:999px;border:1px solid var(--line);font-size:13px;background:var(--panel)}
+.badge.unlocked{border-color:var(--gold);color:var(--ink);box-shadow:0 0 14px -6px var(--gold)}
+.badge.locked{color:var(--dim);opacity:.7}
+.leaderboard-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.season-toggle{display:flex;gap:6px}
+.season-toggle button{padding:6px 12px;font-size:13px}
+.season-toggle button.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
