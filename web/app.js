@@ -345,6 +345,17 @@ let lbSeason = "all";   // "all" | "season" — leaderboard toggle state
 
 async function renderProgress(s) {
   const player = s && s.you ? s.you.name : "";
+
+  // 🧗 Reputation ladder — current title, XP to next, and unlocked perks (#113)
+  const you = (s && s.you) || {};
+  const nxt = you.next || {};
+  const climb = nxt.at_max
+    ? `<span class="dim small">max rank reached 🎓</span>`
+    : (nxt.next_title ? `<span class="dim small">${fmt(nxt.xp_to_next)} XP to <b>${esc(nxt.next_title)}</b></span>` : "");
+  $("ladder").innerHTML =
+    `<div class="ladder-now">🏅 <b>L${you.level || 1} ${esc(you.title || "Apprentice")}</b> · ${fmt(you.xp || 0)} XP ${climb}</div>` +
+    `<ul class="perks">${(you.perks || []).map((p) => `<li>✓ ${esc(p)}</li>`).join("")}</ul>`;
+
   const q = await api("/api/quests?player=" + encodeURIComponent(player));
   $("quests-list").innerHTML = (q.all || []).map((x) =>
     `<div class="progress-item ${x.complete ? "done" : ""}" data-quest="${esc(x.id)}">

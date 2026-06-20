@@ -271,3 +271,7 @@ h2,h3{letter-spacing:.2px}
 .season-toggle{display:flex;gap:6px}
 .season-toggle button{padding:6px 12px;font-size:13px}
 .season-toggle button.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.ladder{margin:8px 0 18px;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--panel)}
+.ladder-now{font-size:15px;margin-bottom:6px}
+.ladder .perks{margin:0;padding-left:18px;color:var(--dim);font-size:13px;display:flex;flex-direction:column;gap:2px}
+.ladder .perks li{list-style:none;margin-left:-12px}

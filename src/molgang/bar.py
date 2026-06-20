@@ -568,12 +568,15 @@ class Bar:
         if me:
             w = self._woven_by(sid)
             lvl = progression.level_for(w * progression.XP_PER_WOVEN)
+            xp = w * progression.XP_PER_WOVEN
             you = {"sid": me.sid, "name": me.name, "avatar": me.avatar, "table": me.table_id,
                    "address": me.player.node.address, "device": bool(me.device),
                    "pulses": me.player.pulses, "silk": me.player.silk,
                    "knits_made": sum(1 for p in self.proposals.values() if p.by == sid),
                    "woven": w, "level": lvl, "title": progression.title_for(lvl),
-                   "xp": w * progression.XP_PER_WOVEN, "last_seen": me.last_seen}
+                   "xp": xp, "last_seen": me.last_seen,
+                   "perks": progression.perks_for(lvl),          # reputation ladder (#113)
+                   "next": progression.next_threshold(xp)}
         return {
             "tables": tables,
             "avatars": AVATARS,

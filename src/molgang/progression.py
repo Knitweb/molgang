@@ -28,6 +28,39 @@ def title_for(level: int) -> str:
     return TITLES[min(level, len(TITLES)) - 1]
 
 
+# -- Reputation ladder perks (#113) --------------------------------------------------------------
+# Each level confers a concrete, NON-TOKEN perk — reputation/standing/skill only, nothing tradable.
+# Most are recognition; the Catalyst+ entry maps to the real reputation-weighted quorum already
+# enforced by reputation_threshold() below (so the ladder is a coherent mechanic, not cosmetics).
+PERKS = [
+    "Faucet access — free silk & pulses to weave and vote",            # 1 Apprentice
+    "Brainstorm suggestions in your knit box",                          # 2 Student
+    "Recognized contributor — your knits seed the shared web",          # 3 Lab Assistant
+    "Chemist standing on the class leaderboard",                        # 4 Chemist
+    "Mentor standing in peer review",                                   # 5 Synthesist
+    "Reputation-weighted consensus — a Catalyst+ table demands a stricter quorum",  # 6 Catalyst
+    "Veteran standing — among the longest-serving spiders",            # 7 Alchemist
+    "Laureate — full reputation weight; curriculum steward",           # 8 Laureate
+]
+
+
+def perks_for(level: int) -> list[str]:
+    """All perks a player has unlocked through ``level`` (cumulative, levels 1..8). Non-token."""
+    n = max(0, min(level, len(PERKS)))
+    return PERKS[:n]
+
+
+def next_threshold(xp: int) -> dict:
+    """Climb info for an XP total: next title and the XP still needed (``at_max`` when maxed out)."""
+    level = level_for(xp)
+    if level >= len(LEVELS):
+        return {"level": level, "title": title_for(level), "next_title": None,
+                "xp_to_next": 0, "at_max": True}
+    next_at = LEVELS[level]                       # threshold for level+1 (LEVELS is 0-indexed by level-1)
+    return {"level": level, "title": title_for(level), "next_title": title_for(level + 1),
+            "xp_to_next": max(0, next_at - xp), "at_max": False}
+
+
 def collections(woven: list[dict]) -> dict[str, dict]:
     """Group the woven bonds into per-player collections (keyed by Roblox/knitweb id)."""
     by_player: dict[str, dict] = {}
