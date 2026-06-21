@@ -7,6 +7,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/Bar.php';
 require_once __DIR__ . '/../src/Relay.php';     // knitweb HTTP relay + presence node (Refs #61)
 require_once __DIR__ . '/../src/Onboard.php';   // wallet-signed QR node onboarding (Refs #63)
+require_once __DIR__ . '/../src/Monitor.php';   // read-only health lens for monitor.html (Refs #59 #60)
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -52,6 +53,10 @@ try {
 
         case 'web':
             out(Bar::web());
+
+        case 'monitor':
+            // /api/monitor — read-only health snapshot backing public/monitor.html (Refs #59 #60).
+            out(Monitor::summary());
 
         case 'graph':
             out(Bar::graph($q));
