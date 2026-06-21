@@ -23,7 +23,7 @@ html,body{margin:0;height:100%;background:#0e1117;color:#e8edf4;font-family:-app
 #vrbtn button{background:#2e8b57;color:#fff;border:0;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px #0006}
 #vrbtn button:disabled{background:#39414e;cursor:not-allowed}
 #xr-hint{position:fixed;bottom:60px;right:18px;z-index:10000;max-width:260px;background:#161b22f2;border:1px solid #2a3340;border-radius:10px;padding:10px 14px;font-size:12px;color:#c5cfdb;display:none}
-@media (min-width:721px){#panel{top:72px}}@media (max-width:720px){.bar{top:10px;left:10px;right:10px;gap:8px;padding:8px 10px;max-height:34vh;overflow:auto}.bar .t{width:100%}.bar .hint{display:none}.seg{max-width:100%}.seg button{padding:6px 8px}#panel{left:10px;right:10px;top:auto;bottom:12px;width:auto;max-height:30vh;overflow:auto;padding:12px 14px}#panel h3{font-size:15px}#panel p{font-size:12.5px}}
+@media (min-width:721px){#panel{top:72px}}@media (max-width:720px){.bar{top:10px;left:10px;right:10px;gap:8px;padding:8px 10px;max-height:34vh;overflow:auto}.bar .t{width:100%}.bar .hint{display:none}.seg{max-width:100%}.seg button{padding:6px 8px}#panel{left:10px;right:10px;top:auto;bottom:12px;width:auto;max-height:30vh;overflow:auto;padding:12px 14px}#panel h3{font-size:15px}#panel p{font-size:12.5px}#vrbtn,#vrbtn button,#vrbtn a{top:126px!important;bottom:auto!important}#xr-hint{left:10px;right:10px;top:176px;bottom:auto;max-width:none}}
 </style>
 </head>
 <body>
@@ -153,6 +153,7 @@ function findNodeByObject(obj){
 function setupVR(){
   if(!renderer)return;
   renderer.xr.enabled=true;
+  var hint=document.getElementById('xr-hint');
   var btn=VRButton.createButton(renderer);
   btn.style.position='fixed';
   btn.style.bottom='18px';
@@ -160,7 +161,11 @@ function setupVR(){
   btn.style.zIndex='10001';
   document.getElementById('vrbtn').innerHTML='';
   document.getElementById('vrbtn').appendChild(btn);
-  document.getElementById('xr-hint').style.display='block';
+  if(navigator.xr&&navigator.xr.isSessionSupported){
+    navigator.xr.isSessionSupported('immersive-vr').then(function(ok){hint.style.display=ok?'block':'none';}).catch(function(){hint.style.display='none';});
+  }else{
+    hint.style.display='none';
+  }
 
   // Controllers
   var controllerModelFactory=new XRControllerModelFactory();
