@@ -1,6 +1,6 @@
 "use strict";
-// MOLGANG bar — vanilla JS client. Polls /api/state and renders the bar, your ledger,
-// and the explorer (competing knits in columns). Same API a bot would drive.
+// MOLGANG bar — vanilla JS client. Subscribes to world updates when available,
+// falls back to /api/state polling, and renders the same API a bot would drive.
 
 const $ = (id) => document.getElementById(id);
 // API base resolution (see config.js):
@@ -31,7 +31,12 @@ let chosenAvatar = null;
 let view = "bar";
 let table = localStorage.getItem("molgang_table") || null;
 let refreshTimer = null;
+let worldSocket = null;
+let worldSocketSid = null;
+let worldSocketOpen = false;
+let worldSocketReconnectTimer = null;
 const TUTORIAL_DONE_KEY = "molgang_tutorial_done_v1";
+const WORLD_SOCKET_RECONNECT_MS = 2000;
 
 // a stable per-device id (browser-legal stand-in for IMEI) → the same PLS wallet every visit
 const DEVICE_ID = (() => {
@@ -335,11 +340,17 @@ function start() {
   $("lb-season").onclick = () => { lbSeason = "season"; refresh(); };
   setActiveTab();
   refresh();
+  connectWorldSocket();
   if (refreshTimer) clearInterval(refreshTimer);
-  refreshTimer = setInterval(refresh, 1500);
+  refreshTimer = setInterval(() => {
+    if (isWorldSocketOpen()) return;
+    refresh();
+    connectWorldSocket();
+  }, 1500);
 }
 
 function resetSession() {
+  closeWorldSocket();
   sid = null;
   table = null;
   localStorage.removeItem("molgang_sid");
@@ -368,9 +379,101 @@ function setActiveTab() {
 // ---- render ----
 async function refresh() {
   const s = await api("/api/state?sid=" + encodeURIComponent(sid));
+  return renderState(s);
+}
+
+function worldSocketUrl() {
+  const url = new URL(BASE + "/ws/world/", location.href);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.searchParams.set("sid", sid || "");
+  return url.toString();
+}
+
+function isWorldSocketOpen() {
+  return Boolean(
+    worldSocketOpen &&
+    worldSocket &&
+    typeof WebSocket !== "undefined" &&
+    worldSocket.readyState === WebSocket.OPEN
+  );
+}
+
+function connectWorldSocket() {
+  if (!sid || typeof WebSocket === "undefined") return;
+  if (worldSocketReconnectTimer) {
+    clearTimeout(worldSocketReconnectTimer);
+    worldSocketReconnectTimer = null;
+  }
+  if (
+    worldSocket &&
+    worldSocketSid === sid &&
+    (worldSocket.readyState === WebSocket.OPEN || worldSocket.readyState === WebSocket.CONNECTING)
+  ) {
+    return;
+  }
+
+  closeWorldSocket();
+  let socket;
+  try {
+    socket = new WebSocket(worldSocketUrl());
+  } catch (e) {
+    scheduleWorldSocketReconnect();
+    return;
+  }
+
+  worldSocket = socket;
+  worldSocketSid = sid;
+  worldSocketOpen = false;
+  socket.onopen = () => { worldSocketOpen = true; };
+  socket.onmessage = (event) => {
+    let payload = null;
+    try {
+      payload = JSON.parse(event.data);
+    } catch (e) {
+      return;
+    }
+    if (payload && payload.type === "world.state" && payload.state) {
+      renderState(payload.state);
+    }
+  };
+  socket.onerror = () => { worldSocketOpen = false; };
+  socket.onclose = () => {
+    if (worldSocket === socket) {
+      worldSocket = null;
+      worldSocketSid = null;
+      worldSocketOpen = false;
+      scheduleWorldSocketReconnect();
+    }
+  };
+}
+
+function closeWorldSocket() {
+  if (worldSocketReconnectTimer) {
+    clearTimeout(worldSocketReconnectTimer);
+    worldSocketReconnectTimer = null;
+  }
+  const socket = worldSocket;
+  worldSocket = null;
+  worldSocketSid = null;
+  worldSocketOpen = false;
+  if (socket && socket.readyState !== WebSocket.CLOSED) {
+    socket.close();
+  }
+}
+
+function scheduleWorldSocketReconnect() {
+  if (!sid || worldSocketReconnectTimer) return;
+  worldSocketReconnectTimer = setTimeout(() => {
+    worldSocketReconnectTimer = null;
+    connectWorldSocket();
+  }, WORLD_SOCKET_RECONNECT_MS);
+}
+
+async function renderState(s) {
   renderPulseHost(s.pulse_host);
   if (sid && !s.you) {
     if (await reconnectDevice()) {
+      connectWorldSocket();
       return refresh();
     }
     resetSession();
