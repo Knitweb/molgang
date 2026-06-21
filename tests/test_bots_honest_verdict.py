@@ -69,3 +69,51 @@ def test_bots_confirm_a_brainstorm_term(tmp_path):
 
     verdicts = [v.verdict for v in prop.round.votes]
     assert verdicts and all(v == quorum.Verdict.CONFIRM for v in verdicts)
+
+
+def test_bots_use_parsed_link_when_links_list_is_empty(tmp_path):
+    # Single-link proposals carry the link in `parsed` with `links=[]`; _bots_act must derive the
+    # link from `parsed` (not skip to a blind confirm). An unsound parsed link → mismatch.
+    bar = Bar(str(tmp_path / "w.json"))
+    human = bar.join("Human")
+    bar.sit(human.sid, "periodic")
+    bad = {"kind": "link", "subject": "water", "object": "", "relation": "is"}
+    rnd = game.Round(proposer=human.player, escrow=game.AccountNode(), term="?")
+    prop = Proposal(pid="pparsed", table_id=human.table_id, by=human.sid, by_name="Human",
+                    term="knit", round=rnd, parsed=bad, links=[])  # links empty, parsed is the link
+    bar.proposals["pparsed"] = prop
+    bar._bots_act()
+    verdicts = [v.verdict for v in prop.round.votes]
+    assert verdicts and all(v == quorum.Verdict.MISMATCH for v in verdicts)
+
+
+def _stage_bond(bar, human, formula: str, pid: str) -> Proposal:
+    rnd = game.Round(proposer=human.player, escrow=game.AccountNode(),
+                     bond=game.Bond.propose(formula, formula))
+    prop = Proposal(pid=pid, table_id=human.table_id, by=human.sid, by_name="Human",
+                    term=formula, round=rnd,
+                    parsed={"kind": "term", "term": formula, "label": formula})
+    bar.proposals[pid] = prop
+    return prop
+
+
+def test_bots_reject_a_false_chemistry_bond(tmp_path):
+    # A round carrying a chemistry `bond` is judged by honest_verdict; a false bond (parseable but
+    # not a known molecule, e.g. H3O) → mismatch.
+    bar = Bar(str(tmp_path / "w.json"))
+    human = bar.join("Human")
+    bar.sit(human.sid, "periodic")
+    prop = _stage_bond(bar, human, "H3O", "pbf")
+    bar._bots_act()
+    verdicts = [v.verdict for v in prop.round.votes]
+    assert verdicts and all(v == quorum.Verdict.MISMATCH for v in verdicts)
+
+
+def test_bots_confirm_a_real_chemistry_bond(tmp_path):
+    bar = Bar(str(tmp_path / "w.json"))
+    human = bar.join("Human")
+    bar.sit(human.sid, "periodic")
+    prop = _stage_bond(bar, human, "H2O", "pbt")
+    bar._bots_act()
+    verdicts = [v.verdict for v in prop.round.votes]
+    assert verdicts and all(v == quorum.Verdict.CONFIRM for v in verdicts)
