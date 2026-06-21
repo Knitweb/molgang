@@ -45,6 +45,23 @@ molgang/
 Confirmed useful work is intentionally net-positive in the game economy. Failed or unconfirmed
 work does not mint rewards; voter stakes are refunded.
 
+## Proof-of-Useful-Work certificates
+
+The shareable certificate is a public proof, not a bearer token. Browser/API certificates
+(`POST /api/certificate {sid}`) always include the wallet address, public key, work summary, and
+OriginTrail provenance, and always redact private key material. This is the default social-proof
+surface for learners and operators.
+
+Bearer certificates are local operator exports only. They are intentionally unreachable through
+HTTP and require both CLI flags:
+
+```bash
+molgang certificate --wallet wallet.json --private --confirm-private-key-export
+```
+
+That PDF exposes full wallet control and must be treated as a private key backup, not something
+to share across the web.
+
 ## Real peer-to-peer
 
 `p2p_demo.py` runs each player as a real `AsyncioP2PNode` on a real TCP port; votes cross the

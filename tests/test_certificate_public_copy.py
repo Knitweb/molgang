@@ -28,3 +28,13 @@ def test_public_certificate_api_contract_has_no_client_bearer_mode() -> None:
     assert "bearer/private-key export is local CLI/operator-only" in api
     assert "bearer export is CLI/local only" in webserver
     assert "`{sid, mode?}`" not in api
+
+
+def test_bearer_certificate_docs_require_explicit_cli_confirmation() -> None:
+    readme = _read("README.md")
+    architecture = _read("docs/ARCHITECTURE.md")
+    cli = _read("src/molgang/cli.py")
+
+    assert "--private --confirm-private-key-export" in readme
+    assert "--private --confirm-private-key-export" in architecture
+    assert "--private requires --confirm-private-key-export" in cli

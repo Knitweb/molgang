@@ -126,7 +126,7 @@ def certificate(argv: list[str]) -> int:
     """Generate a PoUW Certificate PDF for a standalone knitweb wallet (a persisted node).
 
         molgang certificate --wallet wallet.json [--out cert.pdf] [--faucet 50]
-        [--holder NAME] [--private]
+        [--holder NAME] [--private --confirm-private-key-export]
     """
     import argparse
 
@@ -142,9 +142,13 @@ def certificate(argv: list[str]) -> int:
     ap.add_argument("--holder", default=None, help="display name for the wallet holder")
     ap.add_argument("--private", action="store_true",
                     help="print wallet PRIVATE key in the PDF (bearer mode)")
+    ap.add_argument("--confirm-private-key-export", action="store_true",
+                    help="required with --private; confirms this bearer PDF exposes wallet control")
     ap.add_argument("--faucet", type=int, default=FAUCET_PULSES,
                     help="faucet baseline for pulses_used = faucet - balance (default the molgang faucet)")
     a = ap.parse_args([x for x in argv if x != "certificate"])
+    if a.private and not a.confirm_private_key_export:
+        ap.error("--private requires --confirm-private-key-export because the PDF becomes a bearer key")
     node = load_node(a.wallet)
     out = certificate_for_node(
         node, out_path=a.out, faucet_pulses=a.faucet, holder=a.holder,
