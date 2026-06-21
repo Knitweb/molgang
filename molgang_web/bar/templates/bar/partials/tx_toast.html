@@ -1,0 +1,15 @@
+{% if toast %}
+<div class="tx-toast tx-toast--{{ toast.tone }}" data-tx-toast data-kind="{{ toast.kind }}" role="status">
+  <strong>{{ toast.title }}</strong>
+  {% if toast.subject %}<span>{{ toast.subject }}</span>{% endif %}
+  {% if toast.message %}<span class="dim">{{ toast.message }}</span>{% endif %}
+  <span class="tx-toast__meta">
+    {{ toast.pulses }} pulses
+    {% if toast.fiber_short %}
+      · <code title="{{ toast.fiber_cid }}">{{ toast.fiber_short }}</code>
+    {% endif %}
+  </span>
+</div>
+{% else %}
+<div class="tx-toast tx-toast--empty" data-tx-toast></div>
+{% endif %}

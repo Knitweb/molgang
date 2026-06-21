@@ -364,7 +364,8 @@ class Bar:
             path = " → ".join([sv.round.links[0]["subject"], *[l["object"] for l in sv.round.links]])
             self.woven.append({"term": f"🕸 {path}", "by": sv.by_name, "table": sv.table_id,
                                "fiber_cid": s.leader_fiber_cid, "confirmations": s.result.confirms,
-                               "is_chemistry": False, "spiral": True})
+                               "is_chemistry": False, "spiral": True,
+                               "cid": sv.cid, "length": sv.length})
             self.spiral_record[sv.table_id] = max(self.spiral_record.get(sv.table_id, 0), sv.length)
 
     # -- presence ----------------------------------------------------------

@@ -35,7 +35,7 @@ from molgang.bar import suggested_terms
 
 from .engine import get_bar, pulse_host, state_snapshot
 from .events import broadcast_world
-from .serializers import account_pill_from_state, portfolio_from_state
+from .serializers import account_pill_from_state, portfolio_from_state, tx_toast_from_state
 
 
 def _error(exc: Exception):
@@ -113,6 +113,23 @@ def portfolio(request):
         request,
         "bar/partials/portfolio.html",
         {"portfolio": portfolio_from_state(snapshot)},
+    )
+
+
+def tx_toast(request):
+    """Render a transaction toast from canonical Bar state and the selected tx id."""
+    snapshot = state_snapshot(request.GET.get("sid"))
+    return render(
+        request,
+        "bar/partials/tx_toast.html",
+        {
+            "toast": tx_toast_from_state(
+                snapshot,
+                request.GET.get("kind", ""),
+                pid=request.GET.get("pid", ""),
+                cid=request.GET.get("cid", ""),
+            )
+        },
     )
 
 
