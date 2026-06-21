@@ -43,14 +43,42 @@ final class Onboard
         return is_file($file) ? (array) require $file : [];
     }
 
+    private static function normalizeScope(string $raw): string
+    {
+        $host = parse_url($raw, PHP_URL_HOST);
+        $scope = strtolower($host !== false && $host !== null ? $host : $raw);
+        $scope = preg_replace('~:\d+$~', '', $scope) ?? '';
+        $scope = preg_replace('~[^a-z0-9._-]+~', '-', $scope) ?? '';
+        $scope = trim($scope, '.-');
+        return $scope !== '' ? $scope : 'localhost';
+    }
+
+    /** Host-neutral scope bound into the signed challenge. */
+    private static function challengeScope(): string
+    {
+        $cfg = self::config();
+        $raw = (string) (
+            $cfg['onboard_scope']
+            ?? $cfg['public_base_url']
+            ?? $cfg['public_host']
+            ?? ($_SERVER['HTTP_HOST'] ?? 'localhost')
+        );
+        return self::normalizeScope($raw);
+    }
+
     /** The public submit endpoint, derived from the current request (works under any base path). */
     private static function endpointUrl(): string
     {
+        $cfg = self::config();
+        if (!empty($cfg['public_base_url']) && preg_match('~^https?://~i', (string) $cfg['public_base_url'])) {
+            return rtrim((string) $cfg['public_base_url'], '/') . '/api/onboard/register';
+        }
         $https = (($_SERVER['HTTPS'] ?? '') !== '' && ($_SERVER['HTTPS'] ?? 'off') !== 'off')
             || (($_SERVER['SERVER_PORT'] ?? '') === '443')
             || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
         $scheme = $https ? 'https' : 'http';
-        $host   = $_SERVER['HTTP_HOST'] ?? '5mart.ml';
+        $host   = $_SERVER['HTTP_HOST'] ?? self::challengeScope();
+        $host   = preg_replace('~[^A-Za-z0-9._:-]+~', '', (string) $host) ?: self::challengeScope();
         // strip "/api/..." back to the dapp base, then append the canonical register route
         $uri  = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
         $base = preg_replace('~/api/.*$~', '', $uri);
@@ -68,7 +96,7 @@ final class Onboard
     {
         $nonce = bin2hex(random_bytes(self::NONCE_BYTES));
         $exp   = self::now() + self::CHALLENGE_TTL_S;
-        $body  = "knitweb-onboard:5mart.ml:{$nonce}:{$exp}";
+        $body  = 'knitweb-onboard:' . self::challengeScope() . ":{$nonce}:{$exp}";
         $mac   = hash_hmac('sha256', $body, self::secret());
         $challenge = "{$body}:{$mac}";
         $endpoint  = self::endpointUrl();
@@ -99,15 +127,18 @@ final class Onboard
         if (count($parts) !== 5) {
             return false;
         }
-        // parts: knitweb-onboard, 5mart.ml, <nonce>, <exp>, <mac>
-        [$tag, $host, $nonce, $exp, $mac] = $parts;
-        if ($tag !== 'knitweb-onboard' || $host !== '5mart.ml' || !ctype_xdigit($nonce) || !ctype_digit($exp)) {
+        // parts: knitweb-onboard, <host-neutral-scope>, <nonce>, <exp>, <mac>
+        [$tag, $scope, $nonce, $exp, $mac] = $parts;
+        if ($tag !== 'knitweb-onboard'
+            || !preg_match('~^[a-z0-9._-]{1,253}$~', $scope)
+            || !ctype_xdigit($nonce)
+            || !ctype_digit($exp)) {
             return false;
         }
         if ((int) $exp < self::now()) {
             return false;   // expired
         }
-        $body = "{$tag}:{$host}:{$nonce}:{$exp}";
+        $body = "{$tag}:{$scope}:{$nonce}:{$exp}";
         $expect = hash_hmac('sha256', $body, self::secret());
         return hash_equals($expect, $mac);
     }
