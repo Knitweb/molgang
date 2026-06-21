@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>📡 MOLGANG — node monitor</title>
+  <style>
+    /* Self-contained: no external CSS, so the monitor renders even if the SPA changes. */
+    :root { --bg:#0d1117; --card:#161b22; --line:#222b36; --fg:#d7dde5; --dim:#8b97a6;
+            --good:#3fb950; --bad:#f85149; --accent:#a371f7; --mono:ui-monospace,Menlo,Consolas,monospace; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg);
+           font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+    header { display:flex; align-items:center; gap:12px; padding:12px 18px;
+             border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); }
+    header .brand { font-size:16px; font-weight:600; }
+    header .dim { color:var(--dim); font-weight:400; }
+    #status { margin-left:auto; font-size:12px; color:var(--dim); }
+    .dot { display:inline-block; width:8px; height:8px; border-radius:50%; vertical-align:middle; }
+    .dot.up { background:var(--good); } .dot.down { background:var(--bad); }
+    main { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr));
+           gap:16px; padding:18px; max-width:1280px; margin:0 auto; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; }
+    .card h2 { margin:0 0 12px; font-size:14px; letter-spacing:.02em; }
+    .kpis { display:flex; flex-wrap:wrap; gap:18px; margin-bottom:8px; }
+    .kpi b { display:block; font-size:24px; font-weight:700; line-height:1.1; }
+    .kpi span { font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.04em; }
+    .accent { color:var(--accent); }
+    table { width:100%; border-collapse:collapse; font-size:12.5px; }
+    th, td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); }
+    th { color:var(--dim); font-weight:500; }
+    .mono { font-family:var(--mono); }
+    .pill { display:inline-block; padding:1px 7px; border-radius:10px; font-size:11px;
+            background:#1f2630; color:var(--dim); }
+    .pill.on { background:rgba(63,185,80,.15); color:var(--good); }
+    .pill.off { background:rgba(248,81,73,.15); color:var(--bad); }
+    .empty { color:var(--dim); font-style:italic; padding:6px 0; }
+    a { color:var(--accent); text-decoration:none; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">📡 <b>MOLGANG</b> <span class="dim">· node monitor</span></div>
+    <div id="node" class="dim mono"></div>
+    <div id="status"><span class="dot down" id="livedot"></span> connecting…</div>
+  </header>
+  <main>
+    <section class="card" id="card-node">
+      <h2>🛰️ Relay node &amp; p2p roster</h2>
+      <div class="kpis" id="node-kpis"></div>
+      <table><thead><tr><th>online node</th><th>endpoint</th><th>age</th></tr></thead>
+        <tbody id="roster"></tbody></table>
+    </section>
+
+    <section class="card" id="card-web">
+      <h2>🧠 Knowledge graph (woven knitweb)</h2>
+      <div class="kpis" id="web-kpis"></div>
+      <table><thead><tr><th>recently woven</th></tr></thead><tbody id="recent-web"></tbody></table>
+    </section>
+
+    <section class="card" id="card-relay">
+      <h2>🔁 Relay throughput</h2>
+      <div class="kpis" id="relay-kpis"></div>
+      <table><thead><tr><th>from</th><th>→ to</th><th>topic</th><th>age</th></tr></thead>
+        <tbody id="relay-recent"></tbody></table>
+    </section>
+
+    <section class="card" id="card-game">
+      <h2>🧪 Game liveness</h2>
+      <div class="kpis" id="game-kpis"></div>
+    </section>
+  </main>
+
+  <script>
+    // Path-prefix-safe: derive the API from this page's own location, so it works whether the
+    // dapp is served at /molgang/ or at the web root. Read-only — only ever GETs /api/monitor.
+    const API = location.pathname.replace(/[^/]*$/, '') + 'api/monitor';
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    const age = (s) => s == null ? '—' : (s < 90 ? s + 's' : Math.round(s/60) + 'm');
+    const kpi = (label, value, cls) =>
+      `<div class="kpi"><b class="${cls||''}">${esc(value)}</b><span>${esc(label)}</span></div>`;
+
+    function render(d) {
+      // -- relay node + roster --
+      const n = d.node || {}, reg = d.registry || {};
+      $('node').textContent = (n.node || '') + ' · ' + (n.scheme || '');
+      $('node-kpis').innerHTML =
+        kpi('registered', reg.registered ?? 0) +
+        kpi('online', reg.online ?? 0, (reg.online > 0) ? 'accent' : '') +
+        kpi('revoked', reg.revoked ?? 0) +
+        kpi('transport', n.transport || '—');
+      const roster = (reg.online_list || []);
+      $('roster').innerHTML = roster.length ? roster.map(p =>
+        `<tr><td class="mono">${esc(p.address)}</td><td class="dim">${esc(p.endpoint || '—')}</td>` +
+        `<td>${esc(age(p.age_s))}</td></tr>`).join('')
+        : `<tr><td colspan="3" class="empty">no nodes online (registered: ${esc(reg.registered ?? 0)})</td></tr>`;
+
+      // -- knowledge graph --
+      const w = d.web || {};
+      $('web-kpis').innerHTML =
+        kpi('nodes', w.nodes ?? 0) + kpi('edges', w.edges ?? 0) +
+        kpi('terms', w.terms ?? 0) + kpi('links', w.links ?? 0) +
+        `<div class="kpi"><b>${w.anchored ? '<span class="pill on">⚓ anchored</span>' : '<span class="pill">unanchored</span>'}</b>` +
+        `<span>provenance</span></div>`;
+      const rw = (w.recent || []);
+      $('recent-web').innerHTML = rw.length ? rw.map(r =>
+        `<tr><td>${esc(r.label || r.term || r.subject || JSON.stringify(r))}` +
+        (r.by ? ` <span class="dim">· ${esc(r.by)}</span>` : '') + `</td></tr>`).join('')
+        : `<tr><td class="empty">nothing woven yet · state_root ${esc((w.state_root||'—').slice(0,16))}</td></tr>`;
+
+      // -- relay throughput --
+      const rl = d.relay || {};
+      $('relay-kpis').innerHTML =
+        kpi('messages', rl.messages ?? 0) + kpi('broadcast', rl.broadcast ?? 0) +
+        kpi('addressed', rl.addressed ?? 0) +
+        kpi('topics', (rl.topics || []).length);
+      const rr = (rl.recent || []);
+      $('relay-recent').innerHTML = rr.length ? rr.map(m =>
+        `<tr><td class="mono">${esc(m.from)}</td><td class="mono">${esc(m.to)}</td>` +
+        `<td>${esc(m.topic)}</td><td>${esc(age(m.age_s))}</td></tr>`).join('')
+        : `<tr><td colspan="4" class="empty">no relayed messages</td></tr>`;
+
+      // -- game --
+      const g = d.game || {};
+      $('game-kpis').innerHTML =
+        kpi('players', g.players ?? 0) + kpi('bots', g.bots ?? 0) +
+        kpi('active sessions', g.active ?? 0, (g.active > 0) ? 'accent' : '') +
+        kpi('woven fibers', g.woven ?? 0) + kpi('votes', g.votes ?? 0);
+    }
+
+    async function tick() {
+      try {
+        const r = await fetch(API, { cache: 'no-store' });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        render(await r.json());
+        $('livedot').className = 'dot up';
+        $('status').innerHTML = '<span class="dot up"></span> live · ' + new Date().toLocaleTimeString();
+      } catch (e) {
+        $('livedot').className = 'dot down';
+        $('status').innerHTML = '<span class="dot down"></span> offline — ' + esc(e.message);
+      }
+    }
+    tick();
+    setInterval(tick, 4000);
+  </script>
+</body>
+</html>

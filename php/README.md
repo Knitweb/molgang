@@ -109,6 +109,25 @@ php php/tests/relay_smoke.php    # signature-gate proof (SQLite, no server): onb
 > uses) verifies under this PHP path, and the PHP-derived `pls1` address byte-matches
 > `knitweb.core.crypto.address`. No native build, no vendored lib.
 
+### Monitor — read-only health dashboard (#59 #60)
+A request-driven health lens over the live node, served by the always-on PHP/nginx (no daemon).
+`public/monitor.html` is a self-contained dashboard (inline CSS+JS, no external deps) that polls
+one endpoint every 4s and renders the node roster, the woven Knitweb (knowledge graph), relay
+throughput and game liveness.
+
+| route | method | purpose |
+|---|---|---|
+| `/api/monitor`   | GET | one read-only snapshot: `node`, `registry`, `relay`, `web`, `game`, `health` |
+| `monitor.html`   | GET | the dashboard (static; path-prefix-safe, works under `/molgang/`) |
+
+`Monitor::summary()` is **strictly read-only** — only `SELECT`/`COUNT`, never an
+`INSERT`/`UPDATE`/`DELETE` — so polling it can never mutate node, relay or game state. It reuses the
+canonical read methods (`Relay::info`/`Relay::online`, `Bar::web`) so it can't drift from what those
+endpoints report, and it surfaces relay **envelopes only** — never message bodies.
+```bash
+php php/tests/monitor_smoke.php   # 13 checks incl. the read-only proof (row counts unchanged) + no-body-leak guard
+```
+
 ## Test
 ```bash
 php php/tests/smoke.php     # join → sit → knit → quorum → woven → web → presence (SQLite, no DB needed)
