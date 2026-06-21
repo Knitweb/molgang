@@ -11,13 +11,31 @@ const $ = (id) => document.getElementById(id);
 const BASE = (typeof window !== "undefined" && window.MOLGANG_API)
   ? window.MOLGANG_API.replace(/\/$/, "")
   : location.pathname.replace(/\/(index\.html)?$/, "");
+const friendlyApiError = (status, data, retryAfter) => {
+  if (status === 429) {
+    return retryAfter
+      ? `Too many actions. Try again in ${retryAfter}s.`
+      : "Too many actions. Try again soon.";
+  }
+  return (data && data.error) || `Request failed (${status})`;
+};
 const api = async (path, method = "GET", body = null) => {
   const r = await fetch(BASE + path, {
     method,
     headers: body ? { "Content-Type": "application/json" } : {},
     body: body ? JSON.stringify(body) : null,
   });
-  return r.json();
+  let data = {};
+  try {
+    data = await r.json();
+  } catch (e) {
+    data = {};
+  }
+  if (!r.ok) {
+    const retryAfter = Number(r.headers.get("Retry-After") || data.retry_after || 0);
+    return { ...data, ok: false, status: r.status, error: friendlyApiError(r.status, data, retryAfter) };
+  }
+  return data;
 };
 
 const avatarImg = (id, cls = "av-img") => `<img class="${cls}" src="avatars/${id}.svg" alt="" />`;
@@ -306,6 +324,7 @@ async function boot() {
 async function walkIn() {
   const name = $("name").value.trim() || "guest";
   const res = await api("/api/join", "POST", { name, avatar: chosenAvatar, device: DEVICE_ID });
+  if (res.error) { showToast(res.error); return; }
   sid = res.sid; localStorage.setItem("molgang_sid", sid);
   localStorage.setItem("molgang_name", name);
   if (chosenAvatar) localStorage.setItem("molgang_avatar", chosenAvatar);
@@ -533,6 +552,7 @@ function renderFloor(s) {
       <button class="join-table">take a seat →</button>`;
     card.querySelector(".join-table").onclick = async () => {
       const st = await api("/api/sit", "POST", { sid, table: t.id });
+      if (st.error) { showToast(st.error); return; }
       table = st.you ? st.you.table : t.id;
       view = "bar"; refresh();
     };
@@ -549,7 +569,8 @@ function renderTable(s) {
     `<div class="seat ${p.you ? "you" : ""}">${avatarImg(p.avatar, "seat-av")}
       <div><b>${p.name}</b><br><span class="dim small">L${p.level} ${p.title} · ${p.woven}🧬</span></div></div>`).join("");
   $("leave-table").onclick = async () => {
-    await api("/api/stand", "POST", { sid });
+    const r = await api("/api/stand", "POST", { sid });
+    if (r.error) { showToast(r.error); return; }
     table = null;
     localStorage.removeItem("molgang_table");
     setActiveTab();
@@ -778,7 +799,13 @@ async function requestCertificate() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sid }),
     });
-    if (!r.ok) { showToast("Could not generate certificate."); return; }
+    if (!r.ok) {
+      let data = {};
+      try { data = await r.json(); } catch (e) { data = {}; }
+      const retryAfter = Number(r.headers.get("Retry-After") || data.retry_after || 0);
+      showToast(friendlyApiError(r.status, data, retryAfter));
+      return;
+    }
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

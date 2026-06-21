@@ -19,6 +19,25 @@
 - All bodies are JSON (`Content-Type: application/json`); `POST` takes a JSON object.
 - A session is identified by an opaque `sid` (from `POST /api/join`); pass it on every authenticated call.
 - Errors return a non-2xx status with `{"error": "<message>"}`.
+- Rate-limited requests return `429`, `Retry-After: <seconds>`, and
+  `{"error": "...", "retry_after": <seconds>}`. The canonical Python bar enforces separate
+  read, ordinary-write, costly-write, and certificate budgets.
+
+## Rate Limits
+
+`molgang serve` ships with a dependency-free token-bucket limiter. Each API request is checked
+against a source bucket and, when the request carries `sid` or `device`, an actor bucket. Defaults:
+
+| Bucket | Routes | Env | Default |
+|---|---|---|---|
+| read | `GET /api/*` | `MOLGANG_RATE_READ`, `MOLGANG_RATE_READ_WINDOW` | 240 / 60s |
+| write | ordinary `POST /api/*` | `MOLGANG_RATE_WRITE`, `MOLGANG_RATE_WRITE_WINDOW` | 60 / 60s |
+| costly | `/api/propose`, `/api/vote`, `/api/spiral/*`, `/api/relay/pull` | `MOLGANG_RATE_COSTLY`, `MOLGANG_RATE_COSTLY_WINDOW` | 20 / 60s |
+| certificate | `/api/certificate` | `MOLGANG_RATE_CERTIFICATE`, `MOLGANG_RATE_CERTIFICATE_WINDOW` | 10 / 300s |
+
+The matching command-line flags are `--rate-read`, `--rate-read-window`, `--rate-write`,
+`--rate-write-window`, `--rate-costly`, `--rate-costly-window`, `--rate-certificate`, and
+`--rate-certificate-window`. Set a limit to `0` to disable that bucket for a local run.
 
 ## Bar API — `:8765` (canonical, `webserver.py`)
 

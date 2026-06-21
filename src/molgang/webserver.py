@@ -20,9 +20,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
+import threading
+from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from ipaddress import ip_address
+from typing import Callable
 
 from .bar import Bar, DEFAULT_FAUCET_SOURCE_CAP, suggested_terms
 from .pulse_host import bootstrap_host, default_wallet_path
@@ -33,6 +37,132 @@ _CTYPE = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
 
 # Frozen /api contract version (Sprint 3 #58, see docs/API.md). Bump only on a breaking change.
 API_VERSION = "1"
+_COSTLY_POST_ROUTES = {
+    "/api/propose",
+    "/api/vote",
+    "/api/spiral/propose",
+    "/api/spiral/vote",
+    "/api/relay/pull",
+}
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return int(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.environ.get(name, str(default)))
+    except ValueError:
+        return default
+
+
+@dataclass(frozen=True)
+class RateLimitRule:
+    limit: int
+    window_s: float
+
+
+@dataclass(frozen=True)
+class RateLimitConfig:
+    read: RateLimitRule
+    write: RateLimitRule
+    costly: RateLimitRule
+    certificate: RateLimitRule
+
+    @classmethod
+    def from_env(cls) -> "RateLimitConfig":
+        return cls(
+            read=RateLimitRule(
+                _env_int("MOLGANG_RATE_READ", 240),
+                _env_float("MOLGANG_RATE_READ_WINDOW", 60.0),
+            ),
+            write=RateLimitRule(
+                _env_int("MOLGANG_RATE_WRITE", 60),
+                _env_float("MOLGANG_RATE_WRITE_WINDOW", 60.0),
+            ),
+            costly=RateLimitRule(
+                _env_int("MOLGANG_RATE_COSTLY", 20),
+                _env_float("MOLGANG_RATE_COSTLY_WINDOW", 60.0),
+            ),
+            certificate=RateLimitRule(
+                _env_int("MOLGANG_RATE_CERTIFICATE", 10),
+                _env_float("MOLGANG_RATE_CERTIFICATE_WINDOW", 300.0),
+            ),
+        )
+
+    def rule_for(self, method: str, path: str) -> RateLimitRule:
+        if method == "GET":
+            return self.read
+        if path == "/api/certificate":
+            return self.certificate
+        if path in _COSTLY_POST_ROUTES:
+            return self.costly
+        return self.write
+
+
+@dataclass(frozen=True)
+class RateLimitDecision:
+    allowed: bool
+    retry_after_s: int = 0
+
+
+class RateLimiter:
+    """Small token-bucket limiter shared by all handler instances."""
+
+    def __init__(self, clock: Callable[[], float] | None = None) -> None:
+        import time
+
+        self._clock = clock or time.monotonic
+        self._lock = threading.Lock()
+        self._buckets: dict[str, tuple[float, float, int, float]] = {}
+        self._ops = 0
+
+    def check(self, rule: RateLimitRule, keys: list[str]) -> RateLimitDecision:
+        limit = int(rule.limit)
+        window_s = float(rule.window_s)
+        if limit <= 0 or window_s <= 0:
+            return RateLimitDecision(True)
+        uniq = list(dict.fromkeys(k for k in keys if k))
+        if not uniq:
+            return RateLimitDecision(True)
+        now = self._clock()
+        refill_per_s = limit / window_s
+        with self._lock:
+            refilled = []
+            retry_after = 0.0
+            for key in uniq:
+                tokens, updated, old_limit, old_window = self._buckets.get(
+                    key, (float(limit), now, limit, window_s))
+                if old_limit != limit or old_window != window_s:
+                    tokens = min(tokens, float(limit))
+                    updated = now
+                else:
+                    tokens = min(float(limit), tokens + max(0.0, now - updated) * refill_per_s)
+                refilled.append((key, tokens))
+                if tokens < 1.0:
+                    retry_after = max(retry_after, (1.0 - tokens) / refill_per_s)
+            if retry_after > 0:
+                for key, tokens in refilled:
+                    self._buckets[key] = (tokens, now, limit, window_s)
+                return RateLimitDecision(False, max(1, math.ceil(retry_after)))
+            for key, tokens in refilled:
+                self._buckets[key] = (tokens - 1.0, now, limit, window_s)
+            self._ops += 1
+            if self._ops % 256 == 0 and len(self._buckets) > 4096:
+                self._sweep(now)
+            return RateLimitDecision(True)
+
+    def _sweep(self, now: float) -> None:
+        stale = [
+            key for key, (tokens, updated, limit, window_s) in self._buckets.items()
+            if tokens >= limit and now - updated > window_s
+        ]
+        for key in stale:
+            self._buckets.pop(key, None)
 
 
 def _trust_forwarded_for(client_host: str) -> bool:
@@ -56,7 +186,11 @@ def api_version_info() -> dict:
 
 
 def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*",
-                 monitor=None, relay=None):
+                 monitor=None, relay=None, rate_limiter: RateLimiter | None = None,
+                 rate_config: RateLimitConfig | None = None):
+    limiter = rate_limiter or RateLimiter()
+    limits = rate_config or RateLimitConfig.from_env()
+
     class Handler(BaseHTTPRequestHandler):
         def _cors(self) -> None:
             # Let the static UI (e.g. https://5mart.ml/molgang/) hit this API cross-origin.
@@ -65,13 +199,16 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 self.send_header("Vary", "Origin")
                 self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
                 self.send_header("Access-Control-Allow-Headers", "Content-Type")
+                self.send_header("Access-Control-Expose-Headers", "Retry-After")
                 self.send_header("Access-Control-Max-Age", "86400")
 
-        def _json(self, code: int, obj) -> None:
+        def _json(self, code: int, obj, headers: dict[str, str] | None = None) -> None:
             body = json.dumps(obj, ensure_ascii=False).encode()
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
+            for k, v in (headers or {}).items():
+                self.send_header(k, v)
             self._cors()
             self.end_headers()
             self.wfile.write(body)
@@ -102,6 +239,35 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return forwarded
             return client
 
+        def _rate_identity(self, body: dict | None = None) -> str | None:
+            if body:
+                actor = body.get("sid") or body.get("device")
+                if actor:
+                    return str(actor)
+            if "?" in self.path:
+                from urllib.parse import parse_qs, urlparse
+                sid = (parse_qs(urlparse(self.path).query).get("sid") or [None])[0]
+                if sid:
+                    return str(sid)
+            return None
+
+        def _rate_limit(self, method: str, path: str, body: dict | None = None) -> bool:
+            source = self._join_source()
+            actor = self._rate_identity(body)
+            keys = [f"{method}:{path}:source:{source}"]
+            if actor:
+                keys.append(f"{method}:{path}:actor:{source}:{actor}")
+            decision = limiter.check(limits.rule_for(method, path), keys)
+            if decision.allowed:
+                return True
+            self._json(
+                429,
+                {"error": f"too many actions; try again in {decision.retry_after_s}s",
+                 "retry_after": decision.retry_after_s},
+                headers={"Retry-After": str(decision.retry_after_s)},
+            )
+            return False
+
         def _static(self, path: str) -> None:
             rel = "index.html" if path in ("/", "") else path.lstrip("/")
             full = os.path.normpath(os.path.join(WEB_DIR, rel))
@@ -118,6 +284,8 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
 
         def do_GET(self) -> None:  # noqa: N802
             path = self.path.split("?")[0]
+            if path.startswith("/api/") and not self._rate_limit("GET", path):
+                return
             if path == "/api/state":
                 from urllib.parse import parse_qs, urlparse
                 sid = parse_qs(urlparse(self.path).query).get("sid", [None])[0]
@@ -228,45 +396,48 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
         def do_POST(self) -> None:  # noqa: N802
             try:
                 b = self._body()
-                if self.path == "/api/join":
+                path = self.path.split("?")[0]
+                if not self._rate_limit("POST", path, b):
+                    return
+                if path == "/api/join":
                     s = bar.join(b.get("name", "guest"), b.get("avatar"), b.get("table"),
                                  device=b.get("device"), source=self._join_source())
                     return self._json(200, {"sid": s.sid, "avatar": s.avatar,
                                             "address": s.player.node.address})
-                if self.path == "/api/heartbeat":
+                if path == "/api/heartbeat":
                     return self._json(200, bar.touch(b["sid"]))
-                if self.path == "/api/leave":
+                if path == "/api/leave":
                     bar.leave(b["sid"])
                     return self._json(200, {"ok": True})
-                if self.path == "/api/stand":
+                if path == "/api/stand":
                     bar.stand(b["sid"])
                     return self._json(200, bar.state(b["sid"]))
-                if self.path == "/api/sit":
+                if path == "/api/sit":
                     bar.sit(b["sid"], b["table"]); return self._json(200, bar.state(b["sid"]))
-                if self.path == "/api/table/rename":
+                if path == "/api/table/rename":
                     bar.rename_table(b["sid"], b["table"], b.get("name", ""))
                     return self._json(200, bar.state(b["sid"]))
-                if self.path == "/api/propose":
+                if path == "/api/propose":
                     p = bar.propose(b["sid"], b["term"]); return self._json(200, {"pid": p.pid})
-                if self.path == "/api/vote":
+                if path == "/api/vote":
                     p = bar.vote(b["sid"], b["pid"], b.get("verdict", "confirm"))
                     return self._json(200, {"pid": p.pid, "settled": p.settled,
                                             "outcome": p.outcome, "woven": p.woven})
-                if self.path == "/api/spiral/propose":
+                if path == "/api/spiral/propose":
                     links = b.get("links") or [x for x in (b.get("text", "")).splitlines() if x.strip()]
                     sv = bar.propose_spiral(b["sid"], links)
                     return self._json(200, {"cid": sv.cid, "length": sv.length,
                                             "state": sv.round.state})
-                if self.path == "/api/spiral/vote":
+                if path == "/api/spiral/vote":
                     sv = bar.vote_spiral(b["sid"], b["cid"], b.get("verdict", "confirm"))
                     return self._json(200, {"cid": sv.cid, "settled": sv.settled,
                                             "captured": sv.captured, "votes": sv.breakdown()})
-                if self.path == "/api/relay/pull":
+                if path == "/api/relay/pull":
                     # on-demand drain of the shared web from the relay (knitweb/molgang#44)
                     if relay is None:
                         return self._json(400, {"error": "relay not enabled (start with --relay URL)"})
                     return self._json(200, relay.pull())
-                if self.path == "/api/certificate":
+                if path == "/api/certificate":
                     import tempfile
 
                     from .certificate import make_pouw_certificate
@@ -329,6 +500,7 @@ def _start_relay(bar: Bar, base: str, wallet: str | None, interval: float):
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="MOLGANG browser bar")
+    default_limits = RateLimitConfig.from_env()
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--world", default=None, help="shared world file (default ~/.molgang/world.json)")
@@ -359,6 +531,28 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--faucet-source-cap", type=int, default=DEFAULT_FAUCET_SOURCE_CAP,
                     help="fresh device faucet claims allowed per request source "
                          "(default env MOLGANG_FAUCET_SOURCE_CAP or 50; <=0 disables)")
+    ap.add_argument("--rate-read", type=int, default=default_limits.read.limit,
+                    help="GET /api requests allowed per source per window "
+                         "(default env MOLGANG_RATE_READ or 240; <=0 disables)")
+    ap.add_argument("--rate-read-window", type=float, default=default_limits.read.window_s,
+                    help="seconds for --rate-read (default env MOLGANG_RATE_READ_WINDOW or 60)")
+    ap.add_argument("--rate-write", type=int, default=default_limits.write.limit,
+                    help="ordinary POST /api requests allowed per source/actor per window "
+                         "(default env MOLGANG_RATE_WRITE or 60; <=0 disables)")
+    ap.add_argument("--rate-write-window", type=float, default=default_limits.write.window_s,
+                    help="seconds for --rate-write (default env MOLGANG_RATE_WRITE_WINDOW or 60)")
+    ap.add_argument("--rate-costly", type=int, default=default_limits.costly.limit,
+                    help="costly write requests allowed per source/actor per window "
+                         "(default env MOLGANG_RATE_COSTLY or 20; <=0 disables)")
+    ap.add_argument("--rate-costly-window", type=float, default=default_limits.costly.window_s,
+                    help="seconds for --rate-costly (default env MOLGANG_RATE_COSTLY_WINDOW or 60)")
+    ap.add_argument("--rate-certificate", type=int, default=default_limits.certificate.limit,
+                    help="certificate renders allowed per source/actor per window "
+                         "(default env MOLGANG_RATE_CERTIFICATE or 10; <=0 disables)")
+    ap.add_argument("--rate-certificate-window", type=float,
+                    default=default_limits.certificate.window_s,
+                    help="seconds for --rate-certificate "
+                         "(default env MOLGANG_RATE_CERTIFICATE_WINDOW or 300)")
     a = ap.parse_args([x for x in argv[1:] if x != "serve"])
     from .registry import Registry
     from .monitor import Monitor
@@ -371,9 +565,15 @@ def main(argv: list[str]) -> int:
                           nodes=a.monitor_nodes)
     relay_wallet = a.relay_wallet or a.wallet
     relay = _start_relay(bar, a.relay, relay_wallet, a.relay_interval) if a.relay else None
+    rate_config = RateLimitConfig(
+        read=RateLimitRule(a.rate_read, a.rate_read_window),
+        write=RateLimitRule(a.rate_write, a.rate_write_window),
+        costly=RateLimitRule(a.rate_costly, a.rate_costly_window),
+        certificate=RateLimitRule(a.rate_certificate, a.rate_certificate_window),
+    )
     srv = ThreadingHTTPServer((a.host, a.port),
                               make_handler(bar, pulse, cors=a.cors or None, monitor=monitor,
-                                           relay=relay))
+                                           relay=relay, rate_config=rate_config))
     print(f"  🍸 MOLGANG bar open at http://{a.host}:{a.port}  (shared web: "
           f"{a.world or '~/.molgang/world.json'}) (Ctrl-C to close)")
     if monitor:
