@@ -28,6 +28,7 @@ urlpatterns = [
     path("api/spiral/vote", views.spiral_vote),
     # --- server-rendered HTMX partials (#28 slices) ---
     path("partials/account-pill", views.account_pill),
+    path("partials/portfolio", views.portfolio),
     # --- dapp UI (the shared web/ folder, at the site root) ---
     path("", views.index),
     # any non-api asset path (app.js, style.css, avatars/foo.svg)
