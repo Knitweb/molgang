@@ -59,6 +59,9 @@ header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px
 @keyframes scan{to{background-position:200% 0}}
 .brand{font-size:19px;letter-spacing:.2px;text-shadow:var(--glow) rgba(139,92,255,.5)}
 .pulse-host{background:var(--glass);border:1px solid var(--line);border-radius:999px;padding:5px 12px;backdrop-filter:blur(6px)}
+.help-btn{padding:6px 11px;border-radius:999px;font-size:12px;white-space:nowrap;
+  background:var(--glass);color:var(--ink);border:1px solid var(--line2);box-shadow:none;backdrop-filter:blur(6px)}
+.help-btn:visited{color:var(--ink)}
 .me{display:flex;align-items:center;gap:9px;margin-left:auto;flex-wrap:wrap}
 .me .av{font-size:23px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
 .bal{background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:6px 12px;font-size:13px;
