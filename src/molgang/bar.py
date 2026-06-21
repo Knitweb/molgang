@@ -12,6 +12,7 @@ This is the server-side game state for the browser UI and the machine API (`webs
 from __future__ import annotations
 
 import itertools
+import os
 import secrets
 import time
 from dataclasses import dataclass, field
@@ -45,6 +46,7 @@ DEFAULT_TABLES = [
 ]
 SEATS_PER_TABLE = 24
 STALE_SESSION_SECONDS = 45.0
+DEFAULT_FAUCET_SOURCE_CAP = int(os.environ.get("MOLGANG_FAUCET_SOURCE_CAP", "50"))
 
 # The day the decaying faucet schedule went live (day 0 = 10,000,000 PLS).
 FAUCET_GENESIS_DATE = date(2026, 6, 20)
@@ -140,9 +142,11 @@ class Bar:
 
     def __init__(self, world_path: str | None = None, registry=None, *,
                  stale_session_s: float = STALE_SESSION_SECONDS,
+                 faucet_source_cap: int = DEFAULT_FAUCET_SOURCE_CAP,
                  clock: Callable[[], float] | None = None) -> None:
         self.registry = registry               # optional device→wallet DB (knitweb Registry)
         self.stale_session_s = float(stale_session_s)
+        self.faucet_source_cap = int(faucet_source_cap)
         self._clock = clock or time.time
         self._next_table_num = 1
         self.tables: dict[str, Table] = {}
@@ -370,7 +374,8 @@ class Bar:
 
     # -- presence ----------------------------------------------------------
     def join(self, name: str, avatar: str | None = None, table_id: str | None = None,
-             device: str | None = None, *, today: date | None = None) -> Session:
+             device: str | None = None, *, today: date | None = None,
+             source: str | None = None) -> Session:
         self.reap_stale()
         if device:
             for sess in self.sessions.values():
@@ -394,6 +399,9 @@ class Bar:
                 player = Player.from_device(device, nm, pulses=saved["pulses"], silk=saved["silk"])
             else:
                 # a fresh device wallet opens the faucet at TODAY's decaying grant
+                if self.registry:
+                    self.registry.claim_faucet(
+                        device, source, cap=self.faucet_source_cap, now=self._now())
                 player = Player.from_device(
                     device, nm, pulses=game.current_faucet_pulses(_faucet_day(today)))
             if self.registry:
