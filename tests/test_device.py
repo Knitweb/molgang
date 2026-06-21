@@ -1,4 +1,5 @@
 """Device-bound wallets + the sqlite registry (phone ↔ stable PLS wallet)."""
+import hashlib
 import io
 import json
 
@@ -11,6 +12,22 @@ def test_device_wallet_is_stable():
     a, b = Player.from_device("phone-XYZ"), Player.from_device("phone-XYZ")
     assert a.node.address == b.node.address
     assert Player.from_device("other-phone").node.address != a.node.address
+
+
+def test_device_wallet_is_not_bare_sha256_of_guessable_id():
+    old_bare = hashlib.sha256(b"molgang:device:phone-XYZ").hexdigest()
+    player = Player.from_device("phone-XYZ")
+
+    assert player.node.priv != old_bare
+
+
+def test_device_wallet_changes_with_domain_secret(monkeypatch):
+    monkeypatch.setenv("MOLGANG_WALLET_SECRET", "domain-a")
+    a = Player.from_device("phone-XYZ")
+    monkeypatch.setenv("MOLGANG_WALLET_SECRET", "domain-b")
+    b = Player.from_device("phone-XYZ")
+
+    assert a.node.address != b.node.address
 
 
 def test_registry_register_and_get(tmp_path):
@@ -114,3 +131,15 @@ def test_join_source_only_trusts_forwarded_for_from_proxy_hosts():
     assert _trust_forwarded_for("10.0.0.5")
     assert not _trust_forwarded_for("8.8.8.8")
     assert not _trust_forwarded_for("not-an-ip")
+
+
+def test_registry_and_world_snapshots_do_not_store_private_key(tmp_path):
+    reg = Registry(str(tmp_path / "r.db"))
+    world = tmp_path / "world.json"
+    bar = Bar(str(world), reg)
+    me = bar.join("Edwin", "laser-maxi", "periodic", device="phone-secret")
+    bar.propose(me.sid, "H2O")
+
+    private_key = me.player.node.priv.encode()
+    assert private_key not in (tmp_path / "r.db").read_bytes()
+    assert me.player.node.priv not in world.read_text(encoding="utf-8")
