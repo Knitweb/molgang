@@ -35,7 +35,12 @@ from molgang.bar import suggested_terms
 
 from .engine import get_bar, pulse_host, state_snapshot
 from .events import broadcast_world
-from .serializers import account_pill_from_state, portfolio_from_state, tx_toast_from_state
+from .serializers import (
+    account_pill_from_state,
+    explorer_from_state,
+    portfolio_from_state,
+    tx_toast_from_state,
+)
 
 
 def _error(exc: Exception):
@@ -130,6 +135,16 @@ def tx_toast(request):
                 cid=request.GET.get("cid", ""),
             )
         },
+    )
+
+
+def explorer_partial(request):
+    """Render competing knit explorer rows from canonical Bar state."""
+    snapshot = state_snapshot(request.GET.get("sid"))
+    return render(
+        request,
+        "bar/partials/explorer.html",
+        {"explorer": explorer_from_state(snapshot, lang=request.GET.get("lang"))},
     )
 
 

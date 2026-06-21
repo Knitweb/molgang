@@ -1,0 +1,35 @@
+<section class="explorer-partial" data-explorer-partial lang="{{ explorer.lang }}">
+  {% if explorer.rows %}
+    {% for row in explorer.rows %}
+      <article class="explorer-topic" data-topic="{{ row.topic }}" lang="{{ row.lang }}" dir="{{ row.dir }}">
+        <header>
+          <strong>{{ row.topic }}</strong>
+          <span class="dim">{{ row.competing }} competing knits</span>
+        </header>
+        <div class="explorer-columns">
+          {% for col in row.columns %}
+            <section class="explorer-column{% if col.woven %} explorer-column--woven{% endif %}"
+                     data-pid="{{ col.pid }}" lang="{{ col.lang }}" dir="{{ col.dir }}">
+              <div class="explorer-rank">#{{ col.rank }}</div>
+              <strong>{{ col.term }}</strong>
+              <span class="dim">by {{ col.by }}</span>
+              <span>net {{ col.net }} · {{ col.votes.confirm }} / {{ col.votes.mismatch }} / {{ col.votes.abstain }} / {{ col.votes.total }}</span>
+              {% if col.woven %}
+                <span class="pos">woven</span>
+              {% elif col.settled %}
+                <span class="neg">{{ col.outcome }}</span>
+              {% else %}
+                <span class="dim">open</span>
+              {% endif %}
+              {% if col.fiber_short %}
+                <code title="{{ col.fiber_cid }}">{{ col.fiber_short }}</code>
+              {% endif %}
+            </section>
+          {% endfor %}
+        </div>
+      </article>
+    {% endfor %}
+  {% else %}
+    <div class="explorer-empty" data-explorer-empty>No knits yet.</div>
+  {% endif %}
+</section>
