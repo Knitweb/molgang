@@ -16,7 +16,7 @@ from django.test import Client, TestCase
 
 from . import engine
 from .events import world_state_event
-from .serializers import account_pill_from_state
+from .serializers import account_pill_from_state, portfolio_from_state
 
 
 class ApiSmokeTest(TestCase):
@@ -111,6 +111,99 @@ class ApiSmokeTest(TestCase):
         self.assertEqual(r.status_code, 200)
         html = r.content.decode()
         self.assertIn("data-account-pill", html)
+        self.assertIn("Walk in", html)
+
+    def test_portfolio_serializer_uses_canonical_state(self):
+        sid = self._post(
+            "/api/join",
+            {"name": "Ada", "avatar": "laser-maxi", "device": "dev-portfolio-1", "table": "periodic"},
+        ).json()["sid"]
+        self._post("/api/propose", {"sid": sid, "term": "H2O"})
+        self._post(
+            "/api/spiral/propose",
+            {"sid": sid, "links": ["H2O -> O2", "O2 -> O3", "O3 -> H2O"]},
+        )
+
+        body = self.client.get(f"/api/state?sid={sid}").json()
+        portfolio = portfolio_from_state(body)
+
+        self.assertEqual(portfolio["player"]["name"], body["you"]["name"])
+        self.assertEqual(portfolio["player"]["wallet"], body["you"]["address"])
+        self.assertEqual(portfolio["totals"]["knits"], body["my_knits"]["knits_made"])
+        self.assertEqual(portfolio["totals"]["woven"], body["my_knits"]["woven"])
+        self.assertEqual(portfolio["woven_knits"][0]["term"], "H2O")
+        self.assertGreaterEqual(portfolio["woven_knits"][0]["votes_total"], 1)
+        self.assertGreaterEqual(portfolio["totals"]["captured_spirals"], 1)
+        self.assertNotIn("NFT", str(portfolio))
+
+    def test_portfolio_serializer_includes_backed_open_spirals(self):
+        snapshot = {
+            "you": {
+                "name": "Ada",
+                "address": "pls1abcdef1234567890",
+                "level": 2,
+                "title": "Knitster",
+                "xp": 100,
+                "knits_made": 0,
+                "woven": 0,
+            },
+            "my_knits": {"knits": [], "knits_made": 0, "woven": 0},
+            "tables": [
+                {
+                    "id": "periodic",
+                    "name": "Periodic Bar",
+                    "fabric": [],
+                    "spirals": [
+                        {
+                            "cid": "sabc",
+                            "by": "Lin",
+                            "length": 3,
+                            "state": "auxiliary",
+                            "backed": True,
+                            "votes": {"total": 2},
+                            "stake": 3,
+                        }
+                    ],
+                }
+            ],
+        }
+
+        portfolio = portfolio_from_state(snapshot)
+
+        self.assertEqual(portfolio["totals"]["backed_spirals"], 1)
+        self.assertEqual(portfolio["backed_spirals"][0]["cid"], "sabc")
+        self.assertEqual(portfolio["backed_spirals"][0]["table"], "Periodic Bar")
+        self.assertEqual(portfolio["backed_spirals"][0]["stake"], 3)
+
+    def test_portfolio_partial_renders_server_side(self):
+        sid = self._post(
+            "/api/join",
+            {"name": "Ada", "avatar": "laser-maxi", "device": "dev-portfolio-2", "table": "periodic"},
+        ).json()["sid"]
+        self._post("/api/propose", {"sid": sid, "term": "H2O"})
+        self._post(
+            "/api/spiral/propose",
+            {"sid": sid, "links": ["H2O -> O2", "O2 -> O3", "O3 -> H2O"]},
+        )
+
+        r = self.client.get(f"/partials/portfolio?sid={sid}", HTTP_HX_REQUEST="true")
+
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertIn("data-portfolio", html)
+        self.assertIn("Ada", html)
+        self.assertIn("Woven knits", html)
+        self.assertIn("H2O", html)
+        self.assertIn("Captured spirals", html)
+        self.assertIn("wallet pls1", html)
+        self.assertNotIn("NFT", html)
+
+    def test_portfolio_partial_handles_missing_session(self):
+        r = self.client.get("/partials/portfolio", HTTP_HX_REQUEST="true")
+
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertIn("data-portfolio", html)
         self.assertIn("Walk in", html)
 
     def test_world_state_event_uses_canonical_api_shape(self):

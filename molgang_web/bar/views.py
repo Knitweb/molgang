@@ -35,7 +35,7 @@ from molgang.bar import suggested_terms
 
 from .engine import get_bar, pulse_host, state_snapshot
 from .events import broadcast_world
-from .serializers import account_pill_from_state
+from .serializers import account_pill_from_state, portfolio_from_state
 
 
 def _error(exc: Exception):
@@ -103,6 +103,16 @@ def account_pill(request):
         request,
         "bar/partials/account_pill.html",
         {"pill": account_pill_from_state(snapshot)},
+    )
+
+
+def portfolio(request):
+    """Render the player's useful-work portfolio from canonical Bar state."""
+    snapshot = state_snapshot(request.GET.get("sid"))
+    return render(
+        request,
+        "bar/partials/portfolio.html",
+        {"portfolio": portfolio_from_state(snapshot)},
     )
 
 

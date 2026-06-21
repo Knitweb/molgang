@@ -1,0 +1,80 @@
+{% if portfolio %}
+<section class="portfolio" data-portfolio data-wallet="{{ portfolio.player.wallet }}">
+  <header class="portfolio__head">
+    <div>
+      <strong>{{ portfolio.player.name }}</strong>
+      <span class="dim">L{{ portfolio.player.level }} {{ portfolio.player.title }}</span>
+    </div>
+    <div class="portfolio__wallet" title="device wallet: {{ portfolio.player.wallet }}">
+      wallet {{ portfolio.player.wallet_short }}
+    </div>
+  </header>
+
+  <div class="portfolio__stats">
+    <span><strong>{{ portfolio.totals.knits }}</strong> knits</span>
+    <span><strong>{{ portfolio.totals.woven }}</strong> woven</span>
+    <span><strong>{{ portfolio.totals.captured_spirals }}</strong> captured spirals</span>
+    <span><strong>{{ portfolio.totals.backed_spirals }}</strong> backed open spirals</span>
+  </div>
+
+  <section class="portfolio__section" data-portfolio-woven>
+    <h3>Woven knits</h3>
+    {% if portfolio.woven_knits %}
+      <ul class="portfolio__list">
+        {% for knit in portfolio.woven_knits %}
+          <li>
+            <strong>{{ knit.term }}</strong>
+            <span class="dim">{{ knit.topic }}</span>
+            <span>{{ knit.votes_total }} pulses</span>
+            {% if knit.fiber_short %}
+              <code title="{{ knit.fiber_cid }}">{{ knit.fiber_short }}</code>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="dim">No woven knits yet. Take a seat, propose a useful term, and let peers vote.</p>
+    {% endif %}
+  </section>
+
+  <section class="portfolio__section" data-portfolio-spirals>
+    <h3>Captured spirals</h3>
+    {% if portfolio.captured_spirals %}
+      <ul class="portfolio__list">
+        {% for spiral in portfolio.captured_spirals %}
+          <li>
+            <strong>{{ spiral.term }}</strong>
+            <span class="dim">{{ spiral.table }} · {{ spiral.length }} links · {{ spiral.confirmations }} confirmations</span>
+            {% if spiral.fiber_short %}
+              <code title="{{ spiral.fiber_cid }}">{{ spiral.fiber_short }}</code>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="dim">No captured spirals yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="portfolio__section" data-portfolio-backed-spirals>
+    <h3>Backed open spirals</h3>
+    {% if portfolio.backed_spirals %}
+      <ul class="portfolio__list">
+        {% for spiral in portfolio.backed_spirals %}
+          <li>
+            <strong>{{ spiral.cid }}</strong>
+            <span class="dim">{{ spiral.table }} · by {{ spiral.by }} · {{ spiral.length }} links</span>
+            <span>{{ spiral.votes_total }} pulses · stake {{ spiral.stake }} PLS</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="dim">No backed open spirals.</p>
+    {% endif %}
+  </section>
+</section>
+{% else %}
+<section class="portfolio portfolio--empty" data-portfolio>
+  Walk in to see your woven knits and spirals.
+</section>
+{% endif %}
