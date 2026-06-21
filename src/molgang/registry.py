@@ -30,6 +30,10 @@ class Registry:
             "CREATE TABLE IF NOT EXISTS balance ("
             "  device_id TEXT PRIMARY KEY, pulses INTEGER NOT NULL, silk INTEGER NOT NULL,"
             "  updated REAL NOT NULL)")
+        self._db.execute(
+            "CREATE TABLE IF NOT EXISTS faucet_grant ("
+            "  device_id TEXT PRIMARY KEY, source TEXT NOT NULL,"
+            "  claimed REAL NOT NULL)")
         self._db.commit()
 
     def register(self, device_id: str, address: str, name: str, *, now: float | None = None) -> dict:
@@ -76,6 +80,32 @@ class Registry:
         if not r:
             return None
         return {"pulses": r[0], "silk": r[1]}
+
+    def claim_faucet(self, device_id: str, source: str | None, *, cap: int,
+                     now: float | None = None) -> dict:
+        """Record one starter faucet grant for ``device_id``.
+
+        A returning device is idempotent and does not consume another source slot. A new
+        device from a saturated source is rejected before the Bar opens a fresh wallet.
+        Set ``cap <= 0`` to disable the per-source cap for local/dev runs.
+        """
+        now = time.time() if now is None else now
+        src = (source or "unknown").strip() or "unknown"
+        row = self._db.execute(
+            "SELECT source,claimed FROM faucet_grant WHERE device_id=?",
+            (device_id,)).fetchone()
+        if row is not None:
+            return {"device_id": device_id, "source": row[0], "claimed": row[1], "new": False}
+        if int(cap) > 0:
+            used = self._db.execute(
+                "SELECT COUNT(*) FROM faucet_grant WHERE source=?", (src,)).fetchone()[0]
+            if used >= int(cap):
+                raise RuntimeError("faucet source cap reached; reuse an existing wallet or try later")
+        self._db.execute(
+            "INSERT INTO faucet_grant (device_id,source,claimed) VALUES (?,?,?)",
+            (device_id, src, now))
+        self._db.commit()
+        return {"device_id": device_id, "source": src, "claimed": now, "new": True}
 
     def count(self) -> int:
         return self._db.execute("SELECT COUNT(*) FROM device").fetchone()[0]

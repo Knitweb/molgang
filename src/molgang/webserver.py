@@ -22,8 +22,9 @@ import argparse
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from ipaddress import ip_address
 
-from .bar import Bar, suggested_terms
+from .bar import Bar, DEFAULT_FAUCET_SOURCE_CAP, suggested_terms
 from .pulse_host import bootstrap_host, default_wallet_path
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web")
@@ -32,6 +33,14 @@ _CTYPE = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
 
 # Frozen /api contract version (Sprint 3 #58, see docs/API.md). Bump only on a breaking change.
 API_VERSION = "1"
+
+
+def _trust_forwarded_for(client_host: str) -> bool:
+    try:
+        addr = ip_address(client_host)
+    except ValueError:
+        return False
+    return addr.is_loopback or addr.is_private
 
 
 def api_version_info() -> dict:
@@ -85,6 +94,13 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
         def _body(self) -> dict:
             n = int(self.headers.get("Content-Length", 0) or 0)
             return json.loads(self.rfile.read(n) or b"{}")
+
+        def _join_source(self) -> str:
+            client = str((self.client_address or ("unknown",))[0] or "unknown")
+            forwarded = (self.headers.get("X-Forwarded-For") or "").split(",", 1)[0].strip()
+            if forwarded and _trust_forwarded_for(client):
+                return forwarded
+            return client
 
         def _static(self, path: str) -> None:
             rel = "index.html" if path in ("/", "") else path.lstrip("/")
@@ -214,7 +230,7 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 b = self._body()
                 if self.path == "/api/join":
                     s = bar.join(b.get("name", "guest"), b.get("avatar"), b.get("table"),
-                                 device=b.get("device"))
+                                 device=b.get("device"), source=self._join_source())
                     return self._json(200, {"sid": s.sid, "avatar": s.avatar,
                                             "address": s.player.node.address})
                 if self.path == "/api/heartbeat":
@@ -340,12 +356,15 @@ def main(argv: list[str]) -> int:
                     help="node wallet identity used to sign relay pushes (default --wallet)")
     ap.add_argument("--relay-interval", type=float, default=20.0,
                     help="seconds between background relay pulls when --relay is set (default 20)")
+    ap.add_argument("--faucet-source-cap", type=int, default=DEFAULT_FAUCET_SOURCE_CAP,
+                    help="fresh device faucet claims allowed per request source "
+                         "(default env MOLGANG_FAUCET_SOURCE_CAP or 50; <=0 disables)")
     a = ap.parse_args([x for x in argv[1:] if x != "serve"])
     from .registry import Registry
     from .monitor import Monitor
     listen = f"{a.host}:{a.port}"
     pulse = bootstrap_host(a.wallet, listen=listen, genesis=a.host_genesis)
-    bar = Bar(a.world, Registry(a.db))
+    bar = Bar(a.world, Registry(a.db), faucet_source_cap=a.faucet_source_cap)
     monitor = None
     if a.monitor:
         monitor = Monitor(bar, web=a.monitor_web, world=a.world, pulse_host=pulse,
