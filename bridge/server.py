@@ -26,6 +26,12 @@ from bridge.ingest import ingest
 from bridge.snapshot import snapshot
 from bridge.state import load_state, save_state
 
+# /upload rewrites player balances/silk and the woven web with NO authentication, so the server
+# must not be reachable from the network by default. Bind loopback unless an operator explicitly
+# opts in with --host 0.0.0.0 (behind their own authenticated proxy). Cap the request body so a
+# spoofed Content-Length can't drive an unbounded read.
+MAX_UPLOAD_BYTES = 16 * 1024 * 1024  # 16 MiB
+
 
 def make_handler(state_path: str):
     class Handler(BaseHTTPRequestHandler):
@@ -49,7 +55,14 @@ def make_handler(state_path: str):
         def do_POST(self) -> None:  # noqa: N802
             if self.path.split("?")[0] != "/upload":
                 return self._send(404, {"error": "not found"})
-            n = int(self.headers.get("Content-Length", 0) or 0)
+            try:
+                n = int(self.headers.get("Content-Length", 0) or 0)
+            except (TypeError, ValueError):
+                return self._send(400, {"error": "bad content-length"})
+            if n < 0:
+                return self._send(400, {"error": "bad content-length"})
+            if n > MAX_UPLOAD_BYTES:
+                return self._send(413, {"error": "request body too large"})
             try:
                 export = json.loads(self.rfile.read(n) or b"{}")
             except json.JSONDecodeError as e:
@@ -80,9 +93,12 @@ def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(description="MOLGANG bridge HTTP server")
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--state", default=".molgang/state.json")
+    ap.add_argument("--host", default="127.0.0.1",
+                    help="bind address (default loopback; /upload is unauthenticated — only set "
+                         "0.0.0.0 behind your own authenticated proxy)")
     a = ap.parse_args(argv[1:])
-    srv = ThreadingHTTPServer(("0.0.0.0", a.port), make_handler(a.state))
-    print(f"MOLGANG bridge on :{a.port}  (POST /upload · GET /snapshot.json · GET /health)")
+    srv = ThreadingHTTPServer((a.host, a.port), make_handler(a.state))
+    print(f"MOLGANG bridge on {a.host}:{a.port}  (POST /upload · GET /snapshot.json · GET /health)")
     srv.serve_forever()
     return 0
 
