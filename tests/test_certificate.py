@@ -12,6 +12,7 @@ import secrets
 import pytest
 
 from molgang.bar import Bar, Session
+from molgang.cli import certificate as certificate_cli
 from molgang.certificate import certificate_for_node, make_pouw_certificate
 from molgang.game import FAUCET_PULSES, VOTE_COST, Player
 
@@ -79,6 +80,30 @@ def test_make_certificate_public_mode_redacts_private_key(tmp_path):
     # work table + provenance + header
     assert "PROOF OF USEFUL WORK CERTIFICATE" in txt
     assert "Terms proposed" in txt
+
+
+@pytest.mark.parametrize("include_private_key", [False, True])
+def test_certificate_pdf_mode_matrix(tmp_path, include_private_key):
+    priv = "dd" * 32
+    out = str(tmp_path / ("bearer.pdf" if include_private_key else "public.pdf"))
+    make_pouw_certificate(
+        address="pls1matrix",
+        public_key="02" + "11" * 16,
+        private_key=priv,
+        include_private_key=include_private_key,
+        pulses_used=7,
+        work_summary={"votes_cast": 2},
+        out_path=out,
+    )
+    txt = _text(out)
+    assert "pls1matrix" in txt
+    assert "Votes cast" in txt
+    if include_private_key:
+        assert priv in txt
+        assert "SENSITIVE" in txt and "PRIVATE KEY" in txt
+    else:
+        assert priv not in txt
+        assert "PUBLIC MODE: private key redacted for safe distribution" in txt
 
 
 def test_pulses_used_is_clamped_non_negative(tmp_path):
@@ -173,6 +198,32 @@ def test_certificate_for_standalone_knitweb_wallet(tmp_path):
     assert restored.address in txt
     # pulses_used = faucet - balance = 8
     assert f"{FAUCET_PULSES - restored.balance('PLS')} PLS" in txt
+
+
+def test_certificate_cli_private_requires_explicit_confirmation(tmp_path):
+    from knitweb.ledger.node import AccountNode
+    from knitweb.store import save_node
+
+    node = AccountNode(genesis_balances={"PLS": FAUCET_PULSES})
+    wallet = tmp_path / "wallet.json"
+    out = tmp_path / "wallet-cert.pdf"
+    save_node(node, str(wallet))
+
+    with pytest.raises(SystemExit) as exc:
+        certificate_cli(["--wallet", str(wallet), "--out", str(out), "--private"])
+
+    assert exc.value.code == 2
+    assert not out.exists()
+
+    assert certificate_cli([
+        "--wallet", str(wallet),
+        "--out", str(out),
+        "--private",
+        "--confirm-private-key-export",
+    ]) == 0
+    txt = _text(str(out))
+    assert node.priv in txt
+    assert "SENSITIVE" in txt and "PRIVATE KEY" in txt
 
 
 def test_api_certificate_endpoint_returns_pdf(tmp_path):
