@@ -63,8 +63,16 @@ def make_handler(state_path: str):
                 return self._send(400, {"error": "bad content-length"})
             if n > MAX_UPLOAD_BYTES:
                 return self._send(413, {"error": "request body too large"})
+            # rfile.read(n) may short-read on a fragmented/slow stream — read exactly n bytes.
+            chunks, remaining = [], n
+            while remaining > 0:
+                buf = self.rfile.read(remaining)
+                if not buf:
+                    break  # client closed early; parse what we got (likely a JSON error → 400)
+                chunks.append(buf)
+                remaining -= len(buf)
             try:
-                export = json.loads(self.rfile.read(n) or b"{}")
+                export = json.loads(b"".join(chunks) or b"{}")
             except json.JSONDecodeError as e:
                 return self._send(400, {"error": f"bad json: {e}"})
 
@@ -94,8 +102,9 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--port", type=int, default=8787)
     ap.add_argument("--state", default=".molgang/state.json")
     ap.add_argument("--host", default="127.0.0.1",
-                    help="bind address (default loopback; /upload is unauthenticated — only set "
-                         "0.0.0.0 behind your own authenticated proxy)")
+                    help="bind address (default loopback; /upload is unauthenticated — only bind a "
+                         "non-loopback address, e.g. 0.0.0.0 or a LAN IP, behind your own "
+                         "authenticated proxy)")
     a = ap.parse_args(argv[1:])
     srv = ThreadingHTTPServer((a.host, a.port), make_handler(a.state))
     print(f"MOLGANG bridge on {a.host}:{a.port}  (POST /upload · GET /snapshot.json · GET /health)")

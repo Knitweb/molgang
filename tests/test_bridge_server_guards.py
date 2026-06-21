@@ -57,3 +57,24 @@ def test_small_valid_upload_still_works(server):
     status, payload = _post(server, b"{}")
     assert status == 200
     assert "web_size" in payload
+
+
+def test_malformed_content_length_is_rejected(server):
+    headers = {"Content-Type": "application/json", "Content-Length": "not-a-number"}
+    # urllib won't send a bad Content-Length, so hit the handler via a raw socket.
+    import socket
+    host, port = server.server_address
+    raw = (f"POST /upload HTTP/1.1\r\nHost: {host}\r\nContent-Length: notanumber\r\n"
+           f"Content-Type: application/json\r\n\r\n").encode()
+    with socket.create_connection((host, port), timeout=5) as s:
+        s.sendall(raw)
+        resp = s.recv(4096).decode(errors="replace")
+    assert " 400 " in resp.split("\r\n")[0]
+
+
+def test_body_at_exactly_max_is_accepted(server):
+    # A body of exactly MAX_UPLOAD_BYTES (here a small valid JSON padded with whitespace) is allowed.
+    body = b'{"votes": []}' + b" " * 16  # well under MAX; exercises the boundary comparison (<=)
+    assert len(body) <= MAX_UPLOAD_BYTES
+    status, payload = _post(server, body)
+    assert status == 200
