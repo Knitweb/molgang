@@ -26,6 +26,7 @@ from molgang.relay_sync import (
     item_from_body,
     pack,
     signed_preimage,
+    signer_from_wallet,
     verify_message,
 )
 from molgang.world import World, WovenItem
@@ -191,6 +192,43 @@ def test_relay_refuses_a_forged_message():
     forged = dict(msg, body=msg["body"].replace("Fe", "Au"))   # tamper after signing
     assert relay._send(forged)["ok"] is False                   # relay re-verifies and refuses
     assert relay._send(msg)["ok"] is True                       # the genuine one is accepted
+
+
+def test_signer_from_wallet_reuses_pulse_node_snapshot(tmp_path):
+    from knitweb.store import save_node
+
+    path = str(tmp_path / "pulse-identity.json")
+    node = AccountNode()
+    save_node(node, path)
+
+    signer = signer_from_wallet(path)
+    assert signer.pub == node.pub
+    assert signer.address == node.address
+
+    item = WovenItem(kind="term", by="host", fiber_cid="f", confirmations=1, term="H2O")
+    msg = pack(item, signer)
+    assert msg["from"] == node.pub
+    assert verify_message(msg, topic=WEB_TOPIC)
+
+
+def test_signer_from_legacy_wallet_file_keeps_stable_fallback(tmp_path):
+    path = tmp_path / "legacy-pulse-identity.json"
+    path.write_text(json.dumps({"address": "0xabc", "publicKey": "legacy", "balance": 0}))
+
+    first = signer_from_wallet(str(path))
+    second = signer_from_wallet(str(path))
+
+    assert first.pub == second.pub
+    assert first.address == second.address
+    assert first.pub != "legacy"
+
+
+def test_invalid_node_snapshot_does_not_fallback_to_path_seed(tmp_path):
+    path = tmp_path / "broken-pulse-identity.json"
+    path.write_text(json.dumps({"kind": "node-snapshot", "priv": "not-hex", "pub": "bad"}))
+
+    with pytest.raises(RuntimeError, match="node snapshot is invalid"):
+        signer_from_wallet(str(path))
 
 
 def test_spiral_converges_with_every_link(tmp_path):
