@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 import time
 from dataclasses import asdict, dataclass, field
 
@@ -129,12 +130,30 @@ class World:
         self._mtime = mt
 
     def _save(self) -> None:
-        os.makedirs(os.path.dirname(self.path) or ".", exist_ok=True)
-        with open(self.path, "w", encoding="utf-8") as fh:
-            json.dump({"items": [asdict(i) for i in self.items],
-                       "open_spirals": list(self.open_spirals.values())},
-                      fh, indent=2, ensure_ascii=False)
-        self._mtime = os.path.getmtime(self.path)
+        target = os.path.abspath(self.path)
+        directory = os.path.dirname(target) or "."
+        os.makedirs(directory, exist_ok=True)
+        payload = {"items": [asdict(i) for i in self.items],
+                   "open_spirals": list(self.open_spirals.values())}
+        fd, tmp = tempfile.mkstemp(
+            prefix=f".{os.path.basename(target)}.",
+            suffix=".tmp",
+            dir=directory,
+            text=True,
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh, indent=2, ensure_ascii=False)
+                fh.flush()
+                os.fsync(fh.fileno())
+            os.replace(tmp, target)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except FileNotFoundError:
+                pass
+            raise
+        self._mtime = os.path.getmtime(target)
 
     # -- open spiral board (non-settlement, shared game coordination) -------
     def list_open_spirals(self, table_id: str | None = None) -> list[dict]:
