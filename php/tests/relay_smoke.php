@@ -15,6 +15,9 @@ $pdo = new PDO('sqlite:' . $dbfile);
 $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 Db::setPdo($pdo);
+$_SERVER['HTTPS'] = 'on';
+$_SERVER['HTTP_HOST'] = 'relay.example';
+$_SERVER['REQUEST_URI'] = '/molgang/api/onboard/challenge';
 // SQLite mirror of node_registry.sql (portable column types).
 $pdo->exec('CREATE TABLE node_registry(pubkey TEXT PRIMARY KEY,address TEXT UNIQUE,device_fp TEXT,endpoint TEXT,registered REAL,last_seen REAL,revoked INT DEFAULT 0)');
 $pdo->exec('CREATE TABLE node_challenge(challenge_id TEXT PRIMARY KEY,used INT)');
@@ -44,6 +47,11 @@ check('address derives as pls1…', str_starts_with($addr, 'pls1'));
 // --- onboarding: the signature gate ---------------------------------------------------------
 $ch = Onboard::challenge();
 check('challenge issued with QR + endpoint', isset($ch['challenge'], $ch['qr'], $ch['endpoint']));
+check('challenge scope derives from this host, not a hard-coded public relay',
+    str_contains($ch['challenge'], 'knitweb-onboard:relay.example:')
+    && !str_contains($ch['challenge'], '5mart.ml'));
+check('onboard endpoint preserves this dapp base path',
+    $ch['endpoint'] === 'https://relay.example/molgang/api/onboard/register');
 
 // (a) missing signature → REJECTED, no write
 $bad = Onboard::register(['pubkey' => $pubHex, 'sig' => '', 'device_fp' => 'aa:bb:cc', 'challenge' => $ch['challenge']]);
@@ -68,6 +76,8 @@ check('replaying a used challenge is rejected', empty($replay['ok']));
 // --- relay: signed store-and-forward --------------------------------------------------------
 $ping = Relay::ping($pubHex, 'https://node.example/knode');
 check('registered node ping → online roster has it', !empty($ping['ok']) && count($ping['online']) === 1);
+$info = Relay::info();
+check('relay info reports this host, not a hard-coded public relay', ($info['node'] ?? '') === 'relay.example');
 
 // unregistered key cannot relay
 $other = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'secp256k1']);

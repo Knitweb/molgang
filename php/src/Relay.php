@@ -1,11 +1,12 @@
 <?php
-// Relay — 5mart.ml as an always-on HTTP relay + presence node for the knitweb (Refs #61).
+// Relay — host-neutral HTTP relay + presence node for the knitweb (Refs #61).
 //
 // WHY HTTP and not raw p2p: this is shared hosting. A process here CAN bind a local socket, but a
 // perimeter firewall drops all inbound TCP from the internet (verified — see php/PORTCHECK.md / #62),
 // so a listening peer is unreachable. The always-on transport that IS reachable is nginx → PHP over
 // HTTPS. So peers reach each other request-driven: a node POSTs a (signed) message here, the relay
-// stores it in MySQL, and the recipient (or any subscriber) GETs it later. 5mart.ml is the rendezvous.
+// stores it in MySQL, and the recipient (or any subscriber) GETs it later. This host is only a
+// rendezvous peer, not the source of wallet authority.
 //
 // Identity-gated, append-only, bounded. Only registered nodes (see Onboard.php / node_registry) may
 // relay, and every stored message keeps the sender's signature so a reader verifies it end-to-end.
@@ -22,6 +23,29 @@ final class Relay
     public const TOPIC_BROADCAST  = '*';     // messages with no specific recipient
 
     private static function now(): float { return microtime(true); }
+
+    private static function config(): array
+    {
+        $file = dirname(__DIR__) . '/config.php';
+        return is_file($file) ? (array) require $file : [];
+    }
+
+    private static function nodeName(): string
+    {
+        $cfg = self::config();
+        $raw = (string) (
+            $cfg['node_name']
+            ?? $cfg['public_base_url']
+            ?? $cfg['public_host']
+            ?? ($_SERVER['HTTP_HOST'] ?? 'molgang-php-relay')
+        );
+        $host = parse_url($raw, PHP_URL_HOST);
+        $name = strtolower($host !== false && $host !== null ? $host : $raw);
+        $name = preg_replace('~:\d+$~', '', $name) ?? '';
+        $name = preg_replace('~[^a-z0-9._-]+~', '-', $name) ?? '';
+        $name = trim($name, '.-');
+        return $name !== '' ? $name : 'molgang-php-relay';
+    }
 
     /** Is this pubkey a node that completed signed onboarding? (relay is registered-only) */
     private static function isRegistered(string $pubHex): bool
@@ -186,8 +210,8 @@ final class Relay
         $online = self::online();
         $queued = (int) (Db::one('SELECT COUNT(*) c FROM relay_message')['c'] ?? 0);
         return [
-            'node'        => '5mart.ml',
-            'role'        => 'knitweb HTTP relay + presence (request-driven, always-on via nginx)',
+            'node'        => self::nodeName(),
+            'role'        => 'knitweb HTTP relay + presence (request-driven, host-neutral PHP)',
             'transport'   => 'https',
             'scheme'      => 'secp256k1-ecdsa-sha256',
             'nodes'       => $nodes,

@@ -11,4 +11,10 @@ return [
     // statelessly. If omitted, one is derived from the DB password+name. Set it to rotate
     // the challenge secret independently of the DB password.
     // 'onboard_secret' => 'a-long-random-string',
+
+    // Optional host-neutral public identity for this relay install. If omitted, the PHP
+    // node derives these from the current request host, so a fork/self-host does not
+    // inherit 5mart.ml as a hidden default.
+    // 'public_base_url' => 'https://example.org/molgang',
+    // 'node_name' => 'example.org',
 ];
