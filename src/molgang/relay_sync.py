@@ -30,6 +30,7 @@ wove — exactly how :mod:`molgang.merge` unions co-woven fibers.
 from __future__ import annotations
 
 import json
+import os
 import ssl
 import urllib.error
 import urllib.parse
@@ -331,8 +332,22 @@ def signer_from_wallet(wallet_path: str | None) -> AccountNode:
     """Reuse the pulse-host wallet identity when present, else a stable seeded node.
 
     The pulse-host wallet (``~/.molgang/pulse-identity.json``) is the install's long-lived node;
-    deriving the signer from its path keeps a machine's relay identity stable across restarts
-    without minting a new key each boot.
+    using its real private key keeps relay authorship tied to the same node identity advertised
+    by ``molgang serve``. Older local fallback identity files did not store a private key, so
+    those keep the historical path-seeded relay identity instead of failing startup.
     """
+    if wallet_path and os.path.exists(wallet_path):
+        try:
+            from knitweb.store import load_node
+
+            return load_node(wallet_path)
+        except Exception as exc:  # noqa: BLE001 - distinguish legacy JSON from broken node files.
+            try:
+                with open(wallet_path, encoding="utf-8") as fh:
+                    record = json.load(fh)
+            except Exception as read_exc:  # noqa: BLE001 - unreadable wallet should stop startup.
+                raise RuntimeError(f"relay wallet is unreadable: {wallet_path}") from read_exc
+            if isinstance(record, dict) and record.get("kind") == "node-snapshot":
+                raise RuntimeError(f"relay wallet node snapshot is invalid: {wallet_path}") from exc
     seed = f"molgang:relay:host:{wallet_path or 'default'}"
     return AccountNode.from_seed(seed)
