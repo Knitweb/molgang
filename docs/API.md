@@ -56,7 +56,7 @@
 | `/api/spiral/propose` | `{sid, links[] \| text}` | `{cid, length, state}` — propose a multi-knit spiral. |
 | `/api/spiral/vote` | `{sid, cid, verdict}` | `{cid, settled, captured, votes}` — co-weave/validate a spiral. |
 | `/api/relay/pull` | — | On-demand drain of the shared web from the relay (`400` if relay disabled). |
-| `/api/certificate` | `{sid, mode?}` | A **PoUW Certificate PDF** (binary). `mode` in `{private,bearer,…}` exposes the wallet private key — default is redacted (see Sprint 6 security gate). |
+| `/api/certificate` | `{sid}` | A public **PoUW Certificate PDF** (binary). The HTTP/API path is always redacted; bearer/private-key export is local CLI/operator-only. |
 
 `verdict` ∈ `{"confirm", "mismatch"}` (default `confirm`). Honest peers `confirm` correct chemistry.
 
