@@ -54,9 +54,10 @@ Needs only PHP core + **pdo_mysql**. Recommended toggles: `opcache` on,
 `allow_url_include`/`allow_url_fopen` **off**.
 
 ## Desktop ↔ browser awareness
-The desktop client beats the dapp so the two see each other:
+The desktop client beats a configured dapp/relay so the two see each other. There is no
+default public relay: pass your own URL explicitly with `--dapp` or `KNODE_DAPP`.
 ```bash
-KNODE_DAPP=https://5mart.ml/molgang MOLGANG_DEVICE=<device-id> python3 php/desktop_bridge.py --watch
+MOLGANG_DEVICE=<device-id> python3 php/desktop_bridge.py --dapp https://example.org/molgang --watch
 ```
 The browser then shows **🖥️ desktop active**; the desktop prints whether the **browser** is
 active/used-before. Both resolve to the same device→wallet identity.
