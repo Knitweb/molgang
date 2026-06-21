@@ -67,7 +67,10 @@ def test_proposer_cannot_vote_on_own_bond():
 
 
 def test_roblox_wallet_id_maps_to_stable_account():
+    import hashlib
+
     a = Player.from_roblox("roblox:42")
     b = Player.from_roblox("roblox:42")
     assert a.address == b.address                 # same Roblox id → same knitweb identity
     assert Player.from_roblox("roblox:43").address != a.address
+    assert a.node.priv != hashlib.sha256(b"molgang:roblox:roblox:42").hexdigest()

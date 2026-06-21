@@ -17,6 +17,8 @@ literally weaves the player's first Knits and Fibers. Validation uses the real
 
 from __future__ import annotations
 
+import os
+import secrets
 from dataclasses import dataclass, field
 
 from knitweb.ledger.node import AccountNode
@@ -57,6 +59,55 @@ FAUCET_PHASE2_START_MICROPULSES = 10_000 * MICROPULSES_PER_PULSE  # day 100 → 
 FAUCET_PHASE2_DECAY_NUM = 99      # −1%/day ⇒ ×99/100 each day (integer rational)
 FAUCET_PHASE2_DECAY_DEN = 100
 FAUCET_MIN_MICROPULSES = 1        # never 0 — the faucet always exists (1 µPLS floor)
+DEFAULT_WALLET_SECRET_FILE = os.path.expanduser(
+    os.environ.get("MOLGANG_WALLET_SECRET_FILE", "~/.molgang/wallet-secret")
+)
+DEFAULT_WALLET_KDF_ITERATIONS = 200000
+
+
+def _wallet_kdf_iterations() -> int:
+    try:
+        return max(1, int(os.environ.get(
+            "MOLGANG_WALLET_KDF_ITERATIONS", str(DEFAULT_WALLET_KDF_ITERATIONS))))
+    except ValueError:
+        return DEFAULT_WALLET_KDF_ITERATIONS
+
+
+def _wallet_secret() -> bytes:
+    env_secret = os.environ.get("MOLGANG_WALLET_SECRET")
+    if env_secret:
+        return env_secret.encode("utf-8")
+    path = os.path.expanduser(os.environ.get("MOLGANG_WALLET_SECRET_FILE", DEFAULT_WALLET_SECRET_FILE))
+    try:
+        with open(path, "rb") as fh:
+            data = fh.read().strip()
+            if data:
+                return data
+    except FileNotFoundError:
+        pass
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    secret = secrets.token_hex(32).encode("ascii")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    try:
+        fd = os.open(path, flags, 0o600)
+    except FileExistsError:
+        with open(path, "rb") as fh:
+            data = fh.read().strip()
+            if data:
+                return data
+        raise
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(secret + b"\n")
+    return secret
+
+
+def _wallet_private_key(namespace: str, stable_id: str) -> str:
+    """Derive a value-bearing wallet key from a domain secret and stable id."""
+    import hashlib
+
+    material = f"molgang:{namespace}:{stable_id}".encode("utf-8")
+    salt = b"molgang-wallet-v2:" + _wallet_secret()
+    return hashlib.pbkdf2_hmac("sha256", material, salt, _wallet_kdf_iterations()).hex()
 
 
 def faucet_micropulses(day: int) -> int:
@@ -121,11 +172,9 @@ class Player:
         pass the player's *persisted* balance to continue it, or the faucet default for a
         first-seen player.
         """
-        import hashlib
-
         from knitweb.core import crypto
 
-        priv = hashlib.sha256(f"molgang:roblox:{roblox_id}".encode()).hexdigest()
+        priv = _wallet_private_key("roblox", str(roblox_id))
         pub = crypto.public_from_private(priv)
         node = AccountNode(priv=priv, pub=pub, genesis_balances={"PLS": pulses})
         return cls(name=name or f"roblox:{roblox_id}", node=node,
@@ -138,14 +187,13 @@ class Player:
     ) -> "Player":
         """A **stable** knitweb wallet for a unique device id (e.g. a phone's persistent id).
 
-        The same device always maps to the same PLS wallet, so a player can leave and rejoin
-        the bar from their phone and find their account. Derived deterministically from the id.
+        The same device maps to the same PLS wallet inside one Molgang domain secret, so a
+        player can leave and rejoin the bar from their phone and find their account. The
+        private key is derived by a KDF over the id plus that secret, never from the id alone.
         """
-        import hashlib
-
         from knitweb.core import crypto
 
-        priv = hashlib.sha256(f"molgang:device:{device_id}".encode()).hexdigest()
+        priv = _wallet_private_key("device", str(device_id))
         pub = crypto.public_from_private(priv)
         node = AccountNode(priv=priv, pub=pub, genesis_balances={"PLS": pulses})
         return cls(name=name or "player", node=node, silk=silk)

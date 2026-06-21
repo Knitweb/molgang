@@ -1,9 +1,9 @@
-"""Device registry — maps a device id to its (deterministic) PLS wallet, in a sqlite DB.
+"""Device registry — maps a device id to its stable PLS wallet metadata, in a sqlite DB.
 
 A phone can't expose its IMEI to a browser (privacy), so the web client stores a stable
 per-device id (a UUID in localStorage) and sends it on join. We register that id here against
 its knitweb wallet address + chosen name, so the *same device* always returns to the *same
-wallet* — the browser-legal equivalent of "this device = this wallet".
+wallet* inside the node's domain secret. This registry never stores private keys.
 """
 
 from __future__ import annotations

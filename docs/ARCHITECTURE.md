@@ -62,6 +62,26 @@ molgang certificate --wallet wallet.json --private --confirm-private-key-export
 That PDF exposes full wallet control and must be treated as a private key backup, not something
 to share across the web.
 
+## Secrets & Wallet Key Handling
+
+Device and Roblox wallets are stable inside one Molgang domain, but they are not derived from a
+bare hash of a browser UUID or Roblox id. `Player.from_device(...)` and `Player.from_roblox(...)`
+use a v2 PBKDF2-HMAC derivation over:
+
+- the stable id (`device` or `roblox` namespace);
+- a server/domain secret from `MOLGANG_WALLET_SECRET`; or
+- a generated local secret file at `MOLGANG_WALLET_SECRET_FILE` (default
+  `~/.molgang/wallet-secret`, created mode `0600`).
+
+Operators running more than one Molgang node for the same class/domain should provision the same
+`MOLGANG_WALLET_SECRET` through their secret manager. Different domains intentionally derive
+different wallet keys for the same device id, so a leaked id alone does not control funds.
+
+The registry database stores device id, wallet address, display name, balance snapshots, and faucet
+claim metadata only. It does not store private keys. The shared world file stores woven terms,
+links, fibers, and provenance only. Browser/API certificate generation always receives an empty
+private-key field and cannot be switched to bearer mode by request body parameters.
+
 ## Real peer-to-peer
 
 `p2p_demo.py` runs each player as a real `AsyncioP2PNode` on a real TCP port; votes cross the
@@ -86,7 +106,7 @@ bridge/
 **⬆️ Upload (Roblox → Knitweb).** `VoteExport.lua` buffers settled rounds; on an upload tick
 `Sync.lua` POSTs them (shape of `bridge/sample_roblox_votes.json`) to an endpoint running
 `sync.py`, which: (1) maps each unique **Roblox wallet id** → a *stable* knitweb account
-(`Player.from_roblox`, deterministic key, **balance continued** from the persisted state),
+(`Player.from_roblox`, secret-domain stable key, **balance continued** from the persisted state),
 (2) replays every vote as a real Knit, (3) tallies with the real quorum and **breit/weaves**
 confirmed bonds into Fibers, updating `state.json`.
 
