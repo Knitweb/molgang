@@ -71,6 +71,18 @@ class PortfolioSerializer(serializers.Serializer):
     backed_spirals = PortfolioOpenSpiralSerializer(many=True)
 
 
+class TxToastSerializer(serializers.Serializer):
+    kind = serializers.CharField()
+    tone = serializers.ChoiceField(choices=["info", "success", "warning", "error"])
+    title = serializers.CharField()
+    message = serializers.CharField(allow_blank=True)
+    subject = serializers.CharField(allow_blank=True)
+    fiber_cid = serializers.CharField(allow_blank=True)
+    fiber_short = serializers.CharField(allow_blank=True)
+    pulses = serializers.IntegerField(min_value=0)
+    woven = serializers.BooleanField()
+
+
 def account_pill_from_state(snapshot: dict) -> dict | None:
     """Return validated AccountPill data from the canonical ``/api/state`` shape."""
     you = snapshot.get("you")
@@ -92,6 +104,135 @@ def account_pill_from_state(snapshot: dict) -> dict | None:
         "table": you.get("table"),
     }
     serializer = AccountPillSerializer(data=data)
+    serializer.is_valid(raise_exception=True)
+    return dict(serializer.data)
+
+
+def _find_knit(snapshot: dict, pid: str) -> dict | None:
+    if not pid:
+        return None
+    mine = (snapshot.get("my_knits") or {}).get("knits") or []
+    for row in mine:
+        if row.get("pid") == pid:
+            return row
+    for group in snapshot.get("explorer") or []:
+        for row in group.get("columns") or []:
+            if row.get("pid") == pid:
+                return row
+    for table in snapshot.get("tables") or []:
+        for row in table.get("open") or []:
+            if row.get("pid") == pid:
+                return row
+    return None
+
+
+def _spiral_path(links: list) -> str:
+    parts: list[str] = []
+    for raw in links:
+        left, sep, right = str(raw).partition("→")
+        if not sep:
+            continue
+        if not parts:
+            parts.append(left.strip())
+        parts.append(right.strip())
+    return " → ".join(p for p in parts if p)
+
+
+def _find_spiral(snapshot: dict, cid: str) -> dict | None:
+    if not cid:
+        return None
+    for table in snapshot.get("tables") or []:
+        table_name = str(table.get("name") or table.get("id") or "")
+        for row in table.get("spirals") or []:
+            if row.get("cid") == cid:
+                votes = row.get("votes") or {}
+                return {
+                    "cid": cid,
+                    "term": _spiral_path(row.get("links") or []),
+                    "table": table_name,
+                    "state": str(row.get("state") or "open"),
+                    "length": int(row.get("length") or 0),
+                    "pulses": int(votes.get("total") or 0),
+                    "woven": False,
+                    "fiber_cid": "",
+                }
+        for item in table.get("fabric") or []:
+            if item.get("spiral") and item.get("cid") == cid:
+                return {
+                    "cid": cid,
+                    "term": str(item.get("term") or ""),
+                    "table": table_name,
+                    "state": "captured",
+                    "length": int(item.get("length") or str(item.get("term") or "").count("→")),
+                    "pulses": int(item.get("confirmations") or 0),
+                    "woven": True,
+                    "fiber_cid": str(item.get("fiber_cid") or ""),
+                }
+    return None
+
+
+def tx_toast_from_state(snapshot: dict, kind: str, *, pid: str = "", cid: str = "") -> dict | None:
+    """Return an HTMX toast model derived from canonical ``/api/state`` data."""
+    kind = (kind or "").strip().lower()
+    data: dict | None = None
+
+    if kind in {"knit", "propose", "proposal"}:
+        row = _find_knit(snapshot, pid)
+        if row:
+            votes = row.get("votes") or {}
+            fiber = str(row.get("fiber_cid") or "")
+            woven = bool(row.get("woven"))
+            data = {
+                "kind": "knit",
+                "tone": "success" if woven else "info",
+                "title": "Knit woven" if woven else "Knit proposed",
+                "message": "Peers accepted this knit into the fabric." if woven
+                else "Your knit is open for peer pulses.",
+                "subject": str(row.get("term") or ""),
+                "fiber_cid": fiber,
+                "fiber_short": f"{fiber[:16]}..." if fiber else "",
+                "pulses": int(votes.get("total") or 0),
+                "woven": woven,
+            }
+    elif kind in {"vote", "pulse"}:
+        row = _find_knit(snapshot, pid)
+        if row:
+            votes = row.get("votes") or {}
+            fiber = str(row.get("fiber_cid") or "")
+            woven = bool(row.get("woven"))
+            data = {
+                "kind": "vote",
+                "tone": "success" if woven else "info",
+                "title": "Pulse recorded" if not woven else "Pulse reached quorum",
+                "message": "Your pulse was counted." if not woven
+                else "Quorum wove this knit into the fabric.",
+                "subject": str(row.get("term") or ""),
+                "fiber_cid": fiber,
+                "fiber_short": f"{fiber[:16]}..." if fiber else "",
+                "pulses": int(votes.get("total") or 0),
+                "woven": woven,
+            }
+    elif kind in {"spiral", "capture"}:
+        row = _find_spiral(snapshot, cid)
+        if row:
+            fiber = str(row.get("fiber_cid") or "")
+            woven = bool(row.get("woven"))
+            data = {
+                "kind": "spiral",
+                "tone": "success" if woven else "info",
+                "title": "Spiral captured" if woven else "Spiral pulse recorded",
+                "message": "The captured spiral is now woven into the fabric." if woven
+                else "Your pulse is backing this open spiral.",
+                "subject": str(row.get("term") or row.get("cid") or ""),
+                "fiber_cid": fiber,
+                "fiber_short": f"{fiber[:16]}..." if fiber else "",
+                "pulses": int(row.get("pulses") or 0),
+                "woven": woven,
+            }
+
+    if data is None:
+        return None
+    serializer = TxToastSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     return dict(serializer.data)
 

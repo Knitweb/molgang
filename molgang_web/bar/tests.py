@@ -16,7 +16,7 @@ from django.test import Client, TestCase
 
 from . import engine
 from .events import world_state_event
-from .serializers import account_pill_from_state, portfolio_from_state
+from .serializers import account_pill_from_state, portfolio_from_state, tx_toast_from_state
 
 
 class ApiSmokeTest(TestCase):
@@ -206,6 +206,60 @@ class ApiSmokeTest(TestCase):
         self.assertIn("data-portfolio", html)
         self.assertIn("Walk in", html)
 
+    def test_tx_toast_serializer_uses_canonical_state(self):
+        sid = self._post(
+            "/api/join",
+            {"name": "Ada", "avatar": "laser-maxi", "device": "dev-toast-1", "table": "periodic"},
+        ).json()["sid"]
+        pid = self._post("/api/propose", {"sid": sid, "term": "H2O"}).json()["pid"]
+        spiral = self._post(
+            "/api/spiral/propose",
+            {"sid": sid, "links": ["H2O -> O2", "O2 -> O3", "O3 -> H2O"]},
+        ).json()
+
+        body = self.client.get(f"/api/state?sid={sid}").json()
+        knit = tx_toast_from_state(body, "knit", pid=pid)
+        vote = tx_toast_from_state(body, "vote", pid=pid)
+        capture = tx_toast_from_state(body, "capture", cid=spiral["cid"])
+
+        self.assertEqual(knit["kind"], "knit")
+        self.assertEqual(knit["subject"], "H2O")
+        self.assertTrue(knit["woven"])
+        self.assertEqual(vote["kind"], "vote")
+        self.assertIn("quorum", vote["message"].lower())
+        self.assertEqual(capture["kind"], "spiral")
+        self.assertTrue(capture["woven"])
+        self.assertIn("H2O", capture["subject"])
+        self.assertNotIn("NFT", str(capture))
+
+    def test_tx_toast_partial_renders_server_side(self):
+        sid = self._post(
+            "/api/join",
+            {"name": "Ada", "avatar": "laser-maxi", "device": "dev-toast-2", "table": "periodic"},
+        ).json()["sid"]
+        pid = self._post("/api/propose", {"sid": sid, "term": "H2O"}).json()["pid"]
+
+        r = self.client.get(
+            f"/partials/tx-toast?sid={sid}&kind=knit&pid={pid}",
+            HTTP_HX_REQUEST="true",
+        )
+
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertIn("data-tx-toast", html)
+        self.assertIn("H2O", html)
+        self.assertIn("pulses", html)
+        self.assertIn("tx-toast--success", html)
+        self.assertNotIn("NFT", html)
+
+    def test_tx_toast_partial_handles_missing_tx(self):
+        r = self.client.get("/partials/tx-toast?kind=knit&pid=missing", HTTP_HX_REQUEST="true")
+
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertIn("data-tx-toast", html)
+        self.assertIn("tx-toast--empty", html)
+
     def test_world_state_event_uses_canonical_api_shape(self):
         sid = self._post("/api/join", {"name": "Ada", "device": "dev-ws-shape"}).json()["sid"]
         event = world_state_event(sid, {"kind": "test"})
@@ -272,3 +326,9 @@ class ApiSmokeTest(TestCase):
         self.assertEqual(sp["length"], 3)
         self.assertIn("cid", sp)
         self.assertIn("state", sp)
+        body = self.client.get(f"/api/state?sid={sid}").json()
+        captured = [
+            item for table in body["tables"] for item in table["fabric"]
+            if item.get("spiral") and item.get("cid") == sp["cid"]
+        ]
+        self.assertEqual(len(captured), 1)
