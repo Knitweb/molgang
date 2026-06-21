@@ -55,6 +55,11 @@ molgang certificate --wallet wallet.json   # 🏅 public PoUW Certificate PDF
 # molgang certificate --wallet wallet.json --private --confirm-private-key-export
 ```
 
+Public nodes should keep the built-in API limiter enabled. The defaults allow `240` reads/min,
+`60` ordinary writes/min, `20` costly writes/min, and `10` certificate renders/5 min per source
+and actor. Tune with `MOLGANG_RATE_*` env vars or `molgang serve --rate-read ... --rate-write ...`;
+set a limit to `0` only for a trusted local run.
+
 **Prefer no install?** Clone the knitweb engine next to this repo — the bootstrap auto-finds
 it, so there's no `PYTHONPATH` to juggle:
 
