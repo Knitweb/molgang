@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import time
 
+import pytest
+
 from molgang.bar import Bar
 from molgang import tension as T
 from molgang.world import World
@@ -28,6 +30,27 @@ def test_two_instances_share_one_file(tmp_path):
     g = b.graph()                                  # b syncs from the file a just wrote
     assert any(r["label"] == "NaCl" for r in g["recent"])
     assert b.size() == a.size() and b.state_root() == a.state_root()
+
+
+def test_world_save_is_atomic_if_serialization_fails(tmp_path, monkeypatch):
+    import molgang.world as world_mod
+
+    path = tmp_path / "shared.json"
+    w = World(str(path))
+    w.weave_knit({"kind": "term", "term": "NaCl"}, "p1", "fx", 3)
+    before = path.read_text(encoding="utf-8")
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("serialization failed")
+
+    monkeypatch.setattr(world_mod.json, "dump", boom)
+    with pytest.raises(RuntimeError, match="serialization failed"):
+        w.weave_knit({"kind": "term", "term": "H2O"}, "p2", "fy", 3)
+
+    assert path.read_text(encoding="utf-8") == before
+    assert list(tmp_path.glob(".shared.json.*.tmp")) == []
+    reloaded = World(str(path))
+    assert [item.term for item in reloaded.items] == ["NaCl"]
 
 
 def test_weave_knit_sets_anchor_fields():
