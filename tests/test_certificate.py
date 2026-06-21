@@ -13,7 +13,7 @@ import pytest
 
 from molgang.bar import Bar, Session
 from molgang.certificate import certificate_for_node, make_pouw_certificate
-from molgang.game import FAUCET_PULSES, Player
+from molgang.game import FAUCET_PULSES, VOTE_COST, Player
 
 pypdf = pytest.importorskip("pypdf")  # text-layer assertions need a PDF reader
 
@@ -108,20 +108,22 @@ def test_certificate_for_a_real_bar_player(tmp_path):
             bar.vote(me.sid, bp.pid, "mismatch")    # stakes a real pulse
 
     d = bar.certificate_data(me.sid)
-    assert d["pulses_used"] == FAUCET_PULSES - me.player.pulses
+    assert d["pulses_used"] == d["work_summary"]["votes_cast"] * VOTE_COST
     assert d["pulses_used"] > 0                      # the player really spent pulses
     assert d["work_summary"]["votes_cast"] >= 1
     assert d["provenance"]["ual"].startswith("did:dkg:knitweb/")
+    assert "private_key" not in d
 
     out = str(tmp_path / "player.pdf")
     make_pouw_certificate(
-        address=d["address"], public_key=d["public_key"], private_key=d["private_key"],
-        include_private_key=True, pulses_used=d["pulses_used"], work_summary=d["work_summary"],
+        address=d["address"], public_key=d["public_key"], private_key="",
+        include_private_key=False, pulses_used=d["pulses_used"], work_summary=d["work_summary"],
         provenance=d["provenance"], holder=d["holder"], out_path=out)
     _is_pdf(out)
     txt = _text(out)
     assert me.player.node.pub in txt
-    assert me.player.node.priv in txt                # private key really exposed (by design)
+    assert me.player.node.priv not in txt
+    assert "PUBLIC MODE: private key redacted for safe distribution" in txt
     assert me.player.node.address in txt
     assert f"{d['pulses_used']} PLS" in txt          # the pulses-used number is rendered
 
@@ -140,11 +142,12 @@ def test_certificate_renders_woven_knits_and_spiral_work(tmp_path):
 
     out = str(tmp_path / "weaver.pdf")
     make_pouw_certificate(
-        address=d["address"], public_key=d["public_key"], private_key=d["private_key"],
-        include_private_key=True, pulses_used=d["pulses_used"], work_summary=d["work_summary"],
+        address=d["address"], public_key=d["public_key"], private_key="",
+        include_private_key=False, pulses_used=d["pulses_used"], work_summary=d["work_summary"],
         provenance=d["provenance"], holder=d["holder"], out_path=out)
     txt = _text(out)
     assert "Knits woven" in txt and "Spirals captured" in txt
+    assert me.player.node.priv not in txt
 
 
 def test_certificate_for_standalone_knitweb_wallet(tmp_path):
@@ -221,16 +224,18 @@ def test_api_certificate_endpoint_returns_pdf(tmp_path):
     assert "PUBLIC MODE: private key redacted for safe distribution" in txt
     assert me.player.node.priv not in txt
 
-    # explicit bearer mode prints private key
-    body = ('{"sid": "%s", "mode": "bearer"}' % me.sid).encode()
-    raw = (b"POST /api/certificate HTTP/1.1\r\n"
-           b"Content-Type: application/json\r\n"
-           b"Content-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body)
-    rfile = io.BytesIO(raw)
-    wfile = io.BytesIO()
-    _H(rfile, wfile)
-    out = wfile.getvalue()
-    assert b"200" in out.split(b"\r\n", 1)[0]
-    idx = out.index(b"%PDF-")
-    txt = _pdf_text(out[idx:])
-    assert me.player.node.priv in txt
+    # Public HTTP is always redacted, even if a client tries old bearer/private modes.
+    for mode in ("bearer", "private", "private_key", "expose"):
+        body = ('{"sid": "%s", "mode": "%s"}' % (me.sid, mode)).encode()
+        raw = (b"POST /api/certificate HTTP/1.1\r\n"
+               b"Content-Type: application/json\r\n"
+               b"Content-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body)
+        rfile = io.BytesIO(raw)
+        wfile = io.BytesIO()
+        _H(rfile, wfile)
+        out = wfile.getvalue()
+        assert b"200" in out.split(b"\r\n", 1)[0]
+        idx = out.index(b"%PDF-")
+        txt = _pdf_text(out[idx:])
+        assert "PUBLIC MODE: private key redacted for safe distribution" in txt
+        assert me.player.node.priv not in txt

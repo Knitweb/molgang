@@ -763,15 +763,13 @@ function showToast(msg) {
   _toastTimer = setTimeout(() => el.classList.add("hidden"), 3200);
 }
 
-// Download a PoUW Certificate PDF for the current wallet. The PDF intentionally
-// contains the PRIVATE key, so warn before fetching (planned paid feature).
+// Download a public PoUW Certificate PDF for the current wallet. Bearer/private
+// certificate export is local-CLI only; the browser endpoint is always redacted.
 async function requestCertificate() {
   if (!sid) return;
   const ok = confirm(
     "Download your Proof of Useful Work certificate?\n\n" +
-    "⚠ WARNING: this PDF exposes your wallet's PRIVATE key in clear text — " +
-    "anyone with the file controls your wallet. It is a bearer key; keep it secret. " +
-    "(This private-key export is a future paid feature.)");
+    "This public certificate redacts private wallet material and can be shared as proof of useful work.");
   if (!ok) return;
   showToast("🏅 Generating your PoUW certificate…");
   try {
@@ -790,7 +788,7 @@ async function requestCertificate() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    showToast("🏅 Certificate downloaded (keep the private key secret!)");
+    showToast("🏅 Public certificate downloaded.");
   } catch (e) {
     showToast("Could not generate certificate.");
   }

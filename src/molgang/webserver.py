@@ -10,8 +10,8 @@ endpoints are used by humans (the browser) and machines (bots/agents) — dual p
     POST /api/table/rename {sid,table,name}    rename a table you currently sit at
     POST /api/propose  {sid,term}             brainstorm + knit a term (spends silk)
     POST /api/vote     {sid,pid,verdict}      vote with a pulse ('confirm'|'mismatch'|'abstain')
-    POST /api/certificate {sid, [mode]}        download a PoUW Certificate PDF
-                                              mode=public (default, redacted) | bearer|private (include priv key)
+    POST /api/certificate {sid}                download a public PoUW Certificate PDF
+                                              (always redacted; bearer export is CLI/local only)
 
     molgang serve --port 8765
 """
@@ -255,13 +255,11 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
 
                     from .certificate import make_pouw_certificate
                     d = bar.certificate_data(b["sid"])
-                    mode = (b.get("mode") or "").lower()
-                    include_private = mode in {"private", "private_key", "bearer", "expose"}
                     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as fh:
                         out = fh.name
                     make_pouw_certificate(
                         address=d["address"], public_key=d["public_key"],
-                        private_key=d["private_key"], include_private_key=include_private,
+                        private_key="", include_private_key=False,
                         pulses_used=d["pulses_used"],
                         work_summary=d["work_summary"], provenance=d["provenance"],
                         holder=d["holder"], out_path=out)
