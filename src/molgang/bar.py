@@ -581,14 +581,22 @@ class Bar:
     def certificate_data(self, sid: str) -> dict:
         """Everything a PoUW certificate needs for the player behind ``sid``.
 
-        ``pulses_used`` is the proof-of-useful-work metric: the free faucet grant minus the
-        pulses the player still holds (clamped >=0) — i.e. what they *spent* staking votes and
-        weaving spirals. ``work_summary`` counts their useful work (terms proposed, knits woven,
-        spirals captured, votes cast). ``provenance`` is the shared web's OriginTrail anchor.
+        ``pulses_used`` is the proof-of-useful-work metric: PLS staked into recorded useful
+        work votes and spiral backs. It is derived from the bar's own vote records instead of
+        a faucet-balance delta so production faucet decay and rewards do not skew the
+        certificate. ``work_summary`` counts useful work (terms proposed, knits woven, spirals
+        captured, votes cast). ``provenance`` is the shared web's OriginTrail anchor. Private
+        key material is never included in this public data path.
         """
         sess = self._require(sid)
         player = sess.player
-        pulses_used = max(0, game.FAUCET_PULSES - player.pulses)
+        knit_pulses_used = sum(
+            game.VOTE_COST for p in self.proposals.values() if sid in p.voters
+        )
+        spiral_pulses_used = sum(
+            sv.round.stake_per_vote for sv in self.spirals.values() if sid in sv.voters
+        )
+        pulses_used = knit_pulses_used + spiral_pulses_used
         my_props = [p for p in self.proposals.values() if p.by == sid]
         my_spirals = [sv for sv in self.spirals.values() if sv.by == sid]
         votes_cast = (sum(1 for p in self.proposals.values() if sid in p.voters)
@@ -606,7 +614,6 @@ class Bar:
             "holder": sess.name,
             "address": player.node.address,
             "public_key": player.node.pub,
-            "private_key": player.node.priv,
             "pulses_used": pulses_used,
             "work_summary": work_summary,
             "provenance": self.web_view().get("anchor"),

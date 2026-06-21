@@ -50,7 +50,7 @@ molgang explore   # 🕸 knowledge-graph explorer →  http://localhost:8990
 molgang           # a narrated session in the terminal
 molgang play      # interactive terminal
 molgang doctor    # check your setup
-molgang certificate --wallet wallet.json   # 🏅 a PoUW Certificate PDF (exposes the priv key!)
+molgang certificate --wallet wallet.json   # 🏅 public PoUW Certificate PDF
 ```
 
 **Prefer no install?** Clone the knitweb engine next to this repo — the bootstrap auto-finds
@@ -87,8 +87,9 @@ too. No NFTs — value is pulses, reputation, and woven knowledge. See
 **🏅 PoUW Certificate.** The header's **🏅 Request PoUW Certificate** button (and
 `POST /api/certificate {sid}`) downloads an official PDF that documents your wallet and your
 **Proof of Useful Work**: how many **pulses** you used, the **knits/spirals woven and votes cast**,
-and the shared web's OriginTrail UAL. ⚠ By design the certificate **exposes the wallet's private
-key** in clear text (a future paid feature) — treat the PDF as a bearer key and keep it secret.
+and the shared web's OriginTrail UAL. The browser/API path is always **public mode**: private
+wallet material is redacted. Bearer/private-key certificates are local operator exports only via
+`molgang certificate --private`.
 
 ### Django front-end (`molgang_web/`)
 
