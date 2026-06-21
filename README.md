@@ -51,6 +51,8 @@ molgang           # a narrated session in the terminal
 molgang play      # interactive terminal
 molgang doctor    # check your setup
 molgang certificate --wallet wallet.json   # 🏅 public PoUW Certificate PDF
+# bearer export, local-only and explicit:
+# molgang certificate --wallet wallet.json --private --confirm-private-key-export
 ```
 
 **Prefer no install?** Clone the knitweb engine next to this repo — the bootstrap auto-finds
@@ -89,7 +91,7 @@ too. No NFTs — value is pulses, reputation, and woven knowledge. See
 **Proof of Useful Work**: how many **pulses** you used, the **knits/spirals woven and votes cast**,
 and the shared web's OriginTrail UAL. The browser/API path is always **public mode**: private
 wallet material is redacted. Bearer/private-key certificates are local operator exports only via
-`molgang certificate --private`.
+`molgang certificate --private --confirm-private-key-export`.
 
 ### Django front-end (`molgang_web/`)
 
