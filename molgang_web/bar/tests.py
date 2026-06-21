@@ -16,7 +16,13 @@ from django.test import Client, TestCase
 
 from . import engine
 from .events import world_state_event
-from .serializers import account_pill_from_state, portfolio_from_state, tx_toast_from_state
+from .serializers import (
+    account_pill_from_state,
+    base_direction,
+    explorer_from_state,
+    portfolio_from_state,
+    tx_toast_from_state,
+)
 
 
 class ApiSmokeTest(TestCase):
@@ -259,6 +265,65 @@ class ApiSmokeTest(TestCase):
         html = r.content.decode()
         self.assertIn("data-tx-toast", html)
         self.assertIn("tx-toast--empty", html)
+
+    def test_explorer_serializer_sets_label_direction(self):
+        snapshot = {
+            "explorer": [
+                {
+                    "topic": "ماء",
+                    "competing": 1,
+                    "columns": [
+                        {
+                            "pid": "p1",
+                            "term": "ماء",
+                            "by": "Ada",
+                            "net": 2,
+                            "woven": True,
+                            "settled": True,
+                            "outcome": "confirm",
+                            "fiber_cid": "bafy1234567890",
+                            "votes": {"confirm": 2, "mismatch": 0, "abstain": 0, "total": 2},
+                        }
+                    ],
+                }
+            ]
+        }
+
+        explorer = explorer_from_state(snapshot, lang="ar")
+
+        self.assertEqual(base_direction("H2O"), "ltr")
+        self.assertEqual(base_direction("ماء"), "rtl")
+        self.assertEqual(explorer["lang"], "ar")
+        self.assertEqual(explorer["rows"][0]["dir"], "rtl")
+        self.assertEqual(explorer["rows"][0]["columns"][0]["dir"], "rtl")
+        self.assertEqual(explorer["rows"][0]["columns"][0]["lang"], "ar")
+
+    def test_explorer_partial_renders_server_side(self):
+        sid = self._post(
+            "/api/join",
+            {"name": "Ada", "avatar": "laser-maxi", "device": "dev-explorer-1", "table": "periodic"},
+        ).json()["sid"]
+        self._post("/api/propose", {"sid": sid, "term": "H2O"})
+
+        r = self.client.get(f"/partials/explorer?sid={sid}&lang=en", HTTP_HX_REQUEST="true")
+
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertIn("data-explorer-partial", html)
+        self.assertIn('lang="en"', html)
+        self.assertIn('dir="ltr"', html)
+        self.assertIn("H2O", html)
+        self.assertIn("competing knits", html)
+        self.assertNotIn("NFT", html)
+
+    def test_explorer_partial_handles_empty_state(self):
+        r = self.client.get("/partials/explorer?lang=ar", HTTP_HX_REQUEST="true")
+
+        self.assertEqual(r.status_code, 200)
+        html = r.content.decode()
+        self.assertIn("data-explorer-partial", html)
+        self.assertIn('lang="ar"', html)
+        self.assertIn("data-explorer-empty", html)
 
     def test_world_state_event_uses_canonical_api_shape(self):
         sid = self._post("/api/join", {"name": "Ada", "device": "dev-ws-shape"}).json()["sid"]

@@ -83,6 +83,36 @@ class TxToastSerializer(serializers.Serializer):
     woven = serializers.BooleanField()
 
 
+class ExplorerColumnSerializer(serializers.Serializer):
+    rank = serializers.IntegerField(min_value=1)
+    pid = serializers.CharField(allow_blank=True)
+    term = serializers.CharField()
+    lang = serializers.CharField()
+    dir = serializers.ChoiceField(choices=["ltr", "rtl"])
+    by = serializers.CharField(allow_blank=True)
+    net = serializers.IntegerField()
+    woven = serializers.BooleanField()
+    settled = serializers.BooleanField()
+    outcome = serializers.CharField(allow_blank=True, allow_null=True, required=False)
+    fiber_cid = serializers.CharField(allow_blank=True)
+    fiber_short = serializers.CharField(allow_blank=True)
+    votes = serializers.DictField(child=serializers.IntegerField(min_value=0))
+
+
+class ExplorerTopicSerializer(serializers.Serializer):
+    topic = serializers.CharField()
+    lang = serializers.CharField()
+    dir = serializers.ChoiceField(choices=["ltr", "rtl"])
+    competing = serializers.IntegerField(min_value=0)
+    columns = ExplorerColumnSerializer(many=True)
+
+
+class ExplorerSerializer(serializers.Serializer):
+    lang = serializers.CharField()
+    empty = serializers.BooleanField()
+    rows = ExplorerTopicSerializer(many=True)
+
+
 def account_pill_from_state(snapshot: dict) -> dict | None:
     """Return validated AccountPill data from the canonical ``/api/state`` shape."""
     you = snapshot.get("you")
@@ -104,6 +134,68 @@ def account_pill_from_state(snapshot: dict) -> dict | None:
         "table": you.get("table"),
     }
     serializer = AccountPillSerializer(data=data)
+    serializer.is_valid(raise_exception=True)
+    return dict(serializer.data)
+
+
+def _clean_lang(lang: str | None) -> str:
+    code = (lang or "en").split(",", 1)[0].strip().lower()
+    return (code or "en")[:16]
+
+
+def base_direction(label: str) -> str:
+    """Return the Unicode base direction for a label without external dependencies."""
+    for char in str(label or ""):
+        cp = ord(char)
+        if 0x0590 <= cp <= 0x08FF or 0xFB1D <= cp <= 0xFDFF or 0xFE70 <= cp <= 0xFEFF:
+            return "rtl"
+    return "ltr"
+
+
+def explorer_from_state(snapshot: dict, *, lang: str | None = None) -> dict:
+    """Return validated Explorer data from the canonical ``/api/state`` shape."""
+    code = _clean_lang(lang)
+    rows = []
+    for group in snapshot.get("explorer") or []:
+        columns = []
+        for rank, col in enumerate(group.get("columns") or [], start=1):
+            term = str(col.get("term") or "")
+            fiber = str(col.get("fiber_cid") or "")
+            votes = col.get("votes") or {}
+            columns.append(
+                {
+                    "rank": rank,
+                    "pid": str(col.get("pid") or ""),
+                    "term": term,
+                    "lang": code,
+                    "dir": base_direction(term),
+                    "by": str(col.get("by") or ""),
+                    "net": int(col.get("net") or 0),
+                    "woven": bool(col.get("woven")),
+                    "settled": bool(col.get("settled")),
+                    "outcome": col.get("outcome"),
+                    "fiber_cid": fiber,
+                    "fiber_short": f"{fiber[:16]}..." if fiber else "",
+                    "votes": {
+                        "confirm": int(votes.get("confirm") or 0),
+                        "mismatch": int(votes.get("mismatch") or 0),
+                        "abstain": int(votes.get("abstain") or 0),
+                        "total": int(votes.get("total") or 0),
+                    },
+                }
+            )
+        topic = str(group.get("topic") or "")
+        rows.append(
+            {
+                "topic": topic,
+                "lang": code,
+                "dir": base_direction(topic),
+                "competing": int(group.get("competing") or len(columns)),
+                "columns": columns,
+            }
+        )
+    data = {"lang": code, "empty": not rows, "rows": rows}
+    serializer = ExplorerSerializer(data=data)
     serializer.is_valid(raise_exception=True)
     return dict(serializer.data)
 

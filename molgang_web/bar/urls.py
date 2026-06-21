@@ -30,6 +30,7 @@ urlpatterns = [
     path("partials/account-pill", views.account_pill),
     path("partials/portfolio", views.portfolio),
     path("partials/tx-toast", views.tx_toast),
+    path("partials/explorer", views.explorer_partial),
     # --- dapp UI (the shared web/ folder, at the site root) ---
     path("", views.index),
     # any non-api asset path (app.js, style.css, avatars/foo.svg)
