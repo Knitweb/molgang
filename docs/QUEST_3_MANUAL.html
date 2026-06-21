@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handleiding Meta Quest 3 + Knitweb / MOLGANG</title>
+<style>
+:root {
+  --bg: #f8f9fa;
+  --text: #1f2937;
+  --accent: #2563eb;
+  --accent-dark: #1d4ed8;
+  --muted: #6b7280;
+  --border: #d1d5db;
+  --card: #ffffff;
+}
+* { box-sizing: border-box; }
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.65;
+  margin: 0;
+  padding: 0;
+}
+header {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--accent-dark);
+}
+.lang-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+.lang-wrap label { color: var(--muted); }
+select#lang {
+  padding: 6px 28px 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+main {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+section.lang { display: none; }
+section.lang.active { display: block; }
+h2 {
+  color: var(--accent-dark);
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 8px;
+  margin-top: 42px;
+}
+h3 { color: var(--accent); margin-top: 28px; }
+h4 { margin-top: 22px; }
+p { margin: 12px 0; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 18px 0;
+  background: var(--card);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+th { background: #eff6ff; font-weight: 600; }
+tr:nth-child(even) td { background: #fafafa; }
+code {
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+}
+pre {
+  background: #1f2937;
+  color: #f3f4f6;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+blockquote {
+  border-left: 4px solid var(--accent);
+  margin: 18px 0;
+  padding: 12px 18px;
+  background: #eff6ff;
+  border-radius: 0 8px 8px 0;
+}
+.callout {
+  background: #fff7ed;
+  border-left: 4px solid #f59e0b;
+  padding: 14px 18px;
+  border-radius: 0 8px 8px 0;
+  margin: 18px 0;
+}
+ul, ol { padding-left: 22px; }
+li { margin: 6px 0; }
+.note {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-top: 8px;
+}
+footer {
+  text-align: center;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+.rtl { direction: rtl; text-align: right; }
+@media (max-width: 600px) {
+  header h1 { font-size: 1rem; }
+  main { padding: 20px 14px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="page-title">Meta Quest 3 + Knitweb / MOLGANG</h1>
+  <div class="lang-wrap">
+    <label for="lang" data-nl="Taal" data-en="Language" data-ru="Язык" data-zh="语言" data-ar="اللغة">Taal</label>
+    <select id="lang" aria-label="Language">
+      <option value="nl">NL · Nederlands</option>
+      <option value="en">EN · English</option>
+      <option value="ru">RU · Русский</option>
+      <option value="zh">中文 · 简体中文</option>
+      <option value="ar">AR · العربية</option>
+    </select>
+  </div>
+</header>
+
+<main>
+
+<!-- NEDERLANDS -->
+<section id="nl" class="lang active" lang="nl">
+
+<div class="callout">
+  <strong>Let op:</strong> Knitweb en MOLGANG hebben op dit moment <strong>geen eigen VR-app of WebXR-modus</strong>. Deze handleiding gebruikt de <strong>Meta Quest Browser</strong> om de bestaande web-interfaces van Knitweb te bedienen in je headset. Alle acties (toevoegen, stemmen, verkennen, corrigeren) gebeuren via dezelfde P2P-webinterface die ook op desktop/telefoon werkt.
+</div>
+
+<h2>1. Wat je nodig hebt</h2>
+<table>
+<tr><th>Benodigdheid</th><th>Toelichting</th></tr>
+<tr><td><strong>Meta Quest 3</strong></td><td>Of een andere Quest-headset met de Meta Quest Browser.</td></tr>
+<tr><td><strong>Internet</strong></td><td>Voor de publieke nodes op <code>5mart.ml</code>.</td></tr>
+<tr><td><strong>Optioneel: eigen node</strong></td><td>Voor een privé-klaslokaal: <code>molgang serve</code> op een laptop/server in hetzelfde netwerk.</td></tr>
+<tr><td><strong>Pen/vinger of controllers</strong></td><td>De webinterfaces zijn ontworpen voor muis/touch; in VR gebruik je de controller- of handcursor.</td></tr>
+</table>
+
+<h2>2. Basisbegrippen (Knitweb-taal)</h2>
+<table>
+<tr><th>Term</th><th>Betekenis</th></tr>
+<tr><td><strong>Web</strong></td><td>Het gezamenlijke P2P-kennisweb.</td></tr>
+<tr><td><strong>Knit</strong></td><td>Een twee-partij relatie/transfer (bijv. een chemische binding of een stem).</td></tr>
+<tr><td><strong>Fiber</strong></td><td>Een onveranderlijke vastlegging van een accountstatus of geaccepteerd stukje kennis.</td></tr>
+<tr><td><strong>Pulse / PLS</strong></td><td>De activiteitseenheid waarmee je stemt; gratis via de faucet.</td></tr>
+<tr><td><strong>Silk</strong></td><td>Brandstof om een voorstel te doen.</td></tr>
+<tr><td><strong>Spider</strong></td><td>Een P2P-werker die het web onderhoudt.</td></tr>
+<tr><td><strong>MOLGANG</strong></td><td>Het leer-/speelweb gebouwd op Knitweb (chemie).</td></tr>
+</table>
+<blockquote>Volgens het project zelf noem je het een <strong>web</strong>, nooit een "netwerk" of "chain".</blockquote>
+
+<h2>3. De Quest 3 openen en de browser starten</h2>
+<ol>
+<li>Zet je Quest 3 aan en zorg dat je verbonden bent met Wi-Fi.</li>
+<li>Open de <strong>Meta Quest Browser</strong> (het blauwe bol-icoon).</li>
+<li>Tik in de adresbalk en typ: <code>https://5mart.ml/molgang</code></li>
+<li>Druk op <strong>Enter</strong>.</li>
+</ol>
+<p>Je ziet nu de <strong>MOLGANG-bar</strong>: een tafel waar je kunt zitten, termen kunt voorstellen en kunt stemmen.</p>
+<p><strong>3D-verkenner:</strong> ga voor de 3D-weergave van het web naar <code>https://5mart.ml/knitweb</code>.</p>
+
+<h2>4. Aanmelden: wallet, silk en pulses ontvangen</h2>
+<p>Bij de eerste keer openen vraagt MOLGANG je om een naam en avatar.</p>
+<ol>
+<li>Kies een <strong>weergavenaam</strong>.</li>
+<li>Kies een <strong>avatar</strong>.</li>
+<li>Tik op <strong>Walk in / Join</strong>.</li>
+</ol>
+<p>Het spel maakt automatisch een <strong>PLS-wallet</strong> aan voor dit apparaat. Je krijgt gratis <strong>Silk</strong> (om voorstellen te doen) en <strong>PLS pulses</strong> (om te stemmen).</p>
+<blockquote>Deze wallet blijft <strong>stabiel</strong> gekoppeld aan je apparaat. Als je later met dezelfde telefoon/Quest terugkomt, krijg je dezelfde account.</blockquote>
+
+<h2>5. Toevoegen aan het Knitweb P2P</h2>
+<h3>5.1 Neem plaats aan een tafel</h3>
+<ol>
+<li>Tik op een <strong>vrije tafel</strong> of kies <strong>Sit at table</strong>.</li>
+<li>Je ziet de andere spelers (peers) aan je tafel, inclusief NPC-bots zodat er altijd een quorum mogelijk is.</li>
+</ol>
+
+<h3>5.2 Stel een chemische term of link voor</h3>
+<ol>
+<li>Tik in het invoerveld.</li>
+<li>Type een term of link. Voorbeelden:
+  <ul>
+    <li><code>H2O</code></li>
+    <li><code>H2O = water</code></li>
+    <li><code>H2 → O = H2O</code> (twee links)</li>
+  </ul>
+</li>
+<li>Tik op <strong>Knit</strong> (kost 1 silk).</li>
+</ol>
+<p>Je voorstel wordt naar de tafel gestuurd. Andere spelers zien het nu in hun scherm.</p>
+
+<h3>5.3 Een spiral (meerdere links) voorstellen</h3>
+<p>Een <strong>spiral</strong> is een keten van 2 tot 7 links die je in één keer aan het web toevoegt:</p>
+<ol>
+<li>Kies <strong>Spiral</strong>.</li>
+<li>Voer elke link op een eigen regel in, bijvoorbeeld:
+<pre>H2 → O
+O2 → H2O</pre>
+</li>
+<li>Tik op <strong>Propose spiral</strong>.</li>
+</ol>
+<p>Hoe langer de spiral, hoe meer silk het kost. Hoe meer peers hem goedkeuren, hoe hoger je rank.</p>
+
+<h2>6. Stemmen (voting) in VR</h2>
+<p>Wanneer iemand anders een voorstel doet, verschijnt het bij jouw tafel.</p>
+<ol>
+<li>Lees de voorgestelde term of link.</li>
+<li>Beoordeel of deze chemisch correct is.</li>
+<li>Tik op één van de knoppen:</li>
+</ol>
+<table>
+<tr><th>Stem</th><th>Betekenis</th></tr>
+<tr><td><strong>✓ Confirm</strong></td><td>De term/link is correct. Je legt 1 PLS in als stem.</td></tr>
+<tr><td><strong>✗ Mismatch</strong></td><td>De term/link is fout. Je legt 1 PLS in als tegenstem.</td></tr>
+<tr><td><strong>– Abstain</strong></td><td>Je weet het niet zeker.</td></tr>
+</table>
+
+<h3>Hoe wordt een voorstel geaccepteerd?</h3>
+<ul>
+<li>Zodra <strong>alle zittende spelers gestemd</strong> hebben, telt het spel de stemmen.</li>
+<li>Er is een <strong>Byzantine-fault-tolerant quorum</strong> nodig (meerderheid van ⅔ + 1).</li>
+<li>Bij acceptatie wordt de term <strong>gewoven</strong> in het gedeelde web als een Fiber; de voorsteller krijgt silk terug en verdient pulses; bevestigende stemmers krijgen hun inzet terug plus een beloning.</li>
+<li>Bij afwijzing komt de term <strong>niet</strong> in het web en worden de inzetten terugbetaald.</li>
+</ul>
+
+<h2>7. Het Knitweb verkennen in VR</h2>
+<h3>7.1 De 3D-weergave openen</h3>
+<ol>
+<li>Open in de Quest Browser: <code>https://5mart.ml/knitweb</code></li>
+<li>Je ziet een 3D-netwerk van nodes (begrippen) en links (relaties).</li>
+<li>Standaard laadt de <strong>Live chem-web</strong> (ongeveer 448 nodes, 948 edges).</li>
+</ol>
+
+<h3>7.2 Bediening in VR</h3>
+<table>
+<tr><th>Actie</th><th>Hoe in Quest 3</th></tr>
+<tr><td><strong>Draaien / roteren</strong></td><td>Sleep met de controller door de lege achtergrond.</td></tr>
+<tr><td><strong>Inzoomen</strong></td><td>Scroll met de controller-thumbstick of pinch-beweging.</td></tr>
+<tr><td><strong>Node verplaatsen</strong></td><td>Pak een bolletje vast en sleep het.</td></tr>
+<tr><td><strong>Node centreren</strong></td><td>Tik op een node; de camera vliegt ernaartoe.</td></tr>
+<tr><td><strong>Details zien</strong></td><td>Houd de cursor boven een node of link; info verschijnt in het rechterpaneel.</td></tr>
+<tr><td><strong>Taal wisselen</strong></td><td>Kies <strong>EN / RU / 中文 / AR</strong> in het menu.</td></tr>
+<tr><td><strong>Zoeken</strong></td><td>Type een term (bijv. <code>H2O</code>) in het zoekveld.</td></tr>
+</table>
+
+<h3>7.3 Wat je ziet</h3>
+<ul>
+<li><strong>Nodes</strong> = chemische begrippen (elementen, moleculen).</li>
+<li><strong>Links</strong> = relaties zoals <code>part-of</code>, <code>is-a</code>, <code>reacts-with</code>.</li>
+<li><strong>Kleuren</strong> = status van een link:
+  <ul>
+    <li><strong>Cyaan</strong> = strak / goed bevestigd</li>
+    <li><strong>Roze</strong> = neutraal</li>
+    <li><strong>Grijs</strong> = slap / weinig steun</li>
+    <li><strong>Oranje</strong> = betwist of "gesnapt"</li>
+  </ul>
+</li>
+</ul>
+
+<h3>7.4 De lokale 2D-explorer (optioneel)</h3>
+<p>Als je een eigen <code>molgang</code> node draait:</p>
+<pre>molgang explore</pre>
+<p>Open dan op je Quest: <code>http://&lt;ip-van-je-pc&gt;:8990</code></p>
+<p>Deze geeft statistieken, hubs, kortste paden, buren en conceptinformatie.</p>
+
+<h2>8. Fouten corrigeren</h2>
+<p>In Knitweb/MOLGANG corrigeer je fouten <strong>door te stemmen</strong>, niet door te wissen.</p>
+<h3>8.1 Voorkomen: stemmen tijdens de ronde</h3>
+<ul>
+<li>Stem <strong>✗ Mismatch</strong> op elk verkeerd voorstel.</li>
+<li>Als genoeg peers het eens zijn, wordt het voorstel <strong>afgewezen</strong> en komt het nooit in het web.</li>
+</ul>
+
+<h3>8.2 Al geweven: concurrerende knits en tension</h3>
+<p>Als een fout toch in het web is gekomen:</p>
+<ol>
+<li>Open de Explorer (<code>5mart.ml/knitweb</code>).</li>
+<li>Zoek de betwiste term.</li>
+<li>Kijk naar de <strong>tension-kleur</strong> (oranje = betwist).</li>
+<li>Doe een <strong>tegenvoorstel</strong>: stel de correcte term/link voor in MOLGANG en laat peers bevestigen.</li>
+<li>De explorer rangschikt knits op basis van <code>confirm − mismatch</code>. De beter onderbouwde versie wint aan zichtbaarheid.</li>
+<li>Links met te weinig steun (<code>T &lt; 300</code>) worden uiteindelijk door <code>prune_slack</code> uit de actieve graaf verwijderd.</li>
+</ol>
+<blockquote>Er is <strong>geen bewerk-knop</strong> voor een Fiber; dit is bewust ontworpen zodat alle kennis traceerbaar blijft via het stemverleden.</blockquote>
+
+<h2>9. PoUW-certificaat opvragen</h2>
+<p>Als bewijs van je werk kun je een <strong>Proof-of-Useful-Work-certificaat</strong> downloaden:</p>
+<ol>
+<li>Tik in de MOLGANG-bar op <strong>🏅 Request PoUW Certificate</strong>.</li>
+<li>Het certificaat wordt als PDF gedownload.</li>
+</ol>
+<p>Deze bevat je wallet-adres, publieke sleutel, werkoverzicht, aantal geweven knits/spirals, uitgebrachte stemmen en de OriginTrail UAL.</p>
+<blockquote>Via de browser/API wordt altijd de <strong>publieke modus</strong> gebruikt. Privé-sleutels worden nooit gedeeld.</blockquote>
+
+<h2>10. Zelf een lokale node draaien</h2>
+<p>Wil je een privé-omgeving in de klas?</p>
+<pre>git clone https://github.com/knitweb/molgang.git
+cd molgang
+./install.sh
+source .venv/bin/activate
+molgang serve --host 0.0.0.0 --port 8765</pre>
+<p>Op de Quest 3: open de Meta Quest Browser en ga naar <code>http://&lt;ip-van-de-laptop&gt;:8765</code>.</p>
+<p>Voor de 3D-explorer:</p>
+<pre>molgang explore --host 0.0.0.0 --port 8990</pre>
+
+<h2>11. Samenvatting van URLs</h2>
+<table>
+<tr><th>Doel</th><th>URL</th></tr>
+<tr><td>MOLGANG spelen</td><td><code>https://5mart.ml/molgang</code></td></tr>
+<tr><td>3D-web verkennen</td><td><code>https://5mart.ml/knitweb</code></td></tr>
+<tr><td>Lokale bar</td><td><code>http://&lt;ip&gt;:8765</code></td></tr>
+<tr><td>Lokale explorer</td><td><code>http://&lt;ip&gt;:8990</code></td></tr>
+<tr><td>Broncode</td><td><code>https://github.com/knitweb/pulse</code> en <code>https://github.com/knitweb/molgang</code></td></tr>
+</table>
+
+<h2>12. Tips voor VR-gebruik</h2>
+<ul>
+<li>Zet de Quest in staand of zittend gebruik zodat je comfortabel naar het virtuele browserscherm kijkt.</li>
+<li>Gebruik de controller-cursor; tikken op kleine knoppen gaat het fijnst met de controllerstraal.</li>
+<li>Verhoog de schermgrootte van het browservenster in de Quest Browser voor betere leesbaarheid.</li>
+<li>Sla belangrijke URLs op als bladwijzer in de Quest Browser.</li>
+<li>Let op batterij en warmte: de 3D-weergave vraagt veel van de Quest.</li>
+</ul>
+
+</section>
+
+<!-- ENGLISH -->
+<section id="en" class="lang" lang="en">
+
+<div class="callout">
+  <strong>Note:</strong> Knitweb and MOLGANG currently <strong>do not have a native VR app or WebXR mode</strong>. This guide uses the <strong>Meta Quest Browser</strong> to operate the existing Knitweb web interfaces from your headset. All actions (adding, voting, exploring, correcting) run through the same P2P web interface used on desktop and phone.
+</div>
+
+<h2>1. What you need</h2>
+<table>
+<tr><th>Item</th><th>Description</th></tr>
+<tr><td><strong>Meta Quest 3</strong></td><td>Or another Quest headset with the Meta Quest Browser.</td></tr>
+<tr><td><strong>Internet</strong></td><td>For the public nodes at <code>5mart.ml</code>.</td></tr>
+<tr><td><strong>Optional: own node</strong></td><td>For a private classroom: run <code>molgang serve</code> on a laptop/server on the same network.</td></tr>
+<tr><td><strong>Pen/finger or controllers</strong></td><td>The web interfaces are designed for mouse/touch; in VR use the controller or hand cursor.</td></tr>
+</table>
+
+<h2>2. Basic terms (Knitweb vocabulary)</h2>
+<table>
+<tr><th>Term</th><th>Meaning</th></tr>
+<tr><td><strong>Web</strong></td><td>The shared P2P knowledge web.</td></tr>
+<tr><td><strong>Knit</strong></td><td>A two-party relation/transfer (e.g. a chemical bond or a vote).</td></tr>
+<tr><td><strong>Fiber</strong></td><td>An immutable commitment of account state or accepted knowledge.</td></tr>
+<tr><td><strong>Pulse / PLS</strong></td><td>The activity unit used to vote; free from the faucet.</td></tr>
+<tr><td><strong>Silk</strong></td><td>Fuel used to make a proposal.</td></tr>
+<tr><td><strong>Spider</strong></td><td>A P2P worker that maintains the web.</td></tr>
+<tr><td><strong>MOLGANG</strong></td><td>The learning/game web built on Knitweb (chemistry).</td></tr>
+</table>
+<blockquote>The project calls this a <strong>web</strong>, never a "network" or "chain".</blockquote>
+
+<h2>3. Open Quest 3 and start the browser</h2>
+<ol>
+<li>Turn on your Quest 3 and connect to Wi-Fi.</li>
+<li>Open the <strong>Meta Quest Browser</strong> (blue globe icon).</li>
+<li>Tap the address bar and type: <code>https://5mart.ml/molgang</code></li>
+<li>Press <strong>Enter</strong>.</li>
+</ol>
+<p>You now see the <strong>MOLGANG bar</strong>: a table where you can sit, propose terms, and vote.</p>
+<p><strong>3D explorer:</strong> for the 3D web view go to <code>https://5mart.ml/knitweb</code>.</p>
+
+<h2>4. Sign in: wallet, silk, and pulses</h2>
+<p>On first launch MOLGANG asks for a name and avatar.</p>
+<ol>
+<li>Choose a <strong>display name</strong>.</li>
+<li>Choose an <strong>avatar</strong>.</li>
+<li>Tap <strong>Walk in / Join</strong>.</li>
+</ol>
+<p>The game automatically creates a <strong>PLS wallet</strong> for this device. You receive free <strong>Silk</strong> (to propose) and <strong>PLS pulses</strong> (to vote).</p>
+<blockquote>This wallet stays <strong>stably</strong> tied to your device. Returning later from the same phone/Quest gives you the same account.</blockquote>
+
+<h2>5. Adding to the Knitweb P2P</h2>
+<h3>5.1 Take a seat at a table</h3>
+<ol>
+<li>Tap a <strong>free table</strong> or choose <strong>Sit at table</strong>.</li>
+<li>You see the other players (peers) at your table, including NPC bots so a quorum is always possible.</li>
+</ol>
+
+<h3>5.2 Propose a chemistry term or link</h3>
+<ol>
+<li>Tap the input field.</li>
+<li>Type a term or link. Examples:
+  <ul>
+    <li><code>H2O</code></li>
+    <li><code>H2O = water</code></li>
+    <li><code>H2 → O = H2O</code> (two links)</li>
+  </ul>
+</li>
+<li>Tap <strong>Knit</strong> (costs 1 silk).</li>
+</ol>
+<p>Your proposal is sent to the table. Other players now see it on their screen.</p>
+
+<h3>5.3 Propose a spiral (multiple links)</h3>
+<p>A <strong>spiral</strong> is a chain of 2 to 7 links added to the web at once:</p>
+<ol>
+<li>Choose <strong>Spiral</strong>.</li>
+<li>Enter each link on its own line, for example:
+<pre>H2 → O
+O2 → H2O</pre>
+</li>
+<li>Tap <strong>Propose spiral</strong>.</li>
+</ol>
+<p>Longer spirals cost more silk. More peer confirmations give a higher rank.</p>
+
+<h2>6. Voting in VR</h2>
+<p>When someone else makes a proposal, it appears at your table.</p>
+<ol>
+<li>Read the proposed term or link.</li>
+<li>Judge whether it is chemically correct.</li>
+<li>Tap one of the buttons:</li>
+</ol>
+<table>
+<tr><th>Vote</th><th>Meaning</th></tr>
+<tr><td><strong>✓ Confirm</strong></td><td>The term/link is correct. You stake 1 PLS.</td></tr>
+<tr><td><strong>✗ Mismatch</strong></td><td>The term/link is wrong. You stake 1 PLS against it.</td></tr>
+<tr><td><strong>– Abstain</strong></td><td>You are not sure.</td></tr>
+</table>
+
+<h3>How is a proposal accepted?</h3>
+<ul>
+<li>Once <strong>every seated player has voted</strong>, the game tallies the votes.</li>
+<li>A <strong>Byzantine-fault-tolerant quorum</strong> is required (⅔ + 1 majority).</li>
+<li>On acceptance the term is <strong>woven</strong> into the shared web as a Fiber; the proposer gets silk back and earns pulses; confirming voters get their stake back plus a reward.</li>
+<li>On rejection the term does <strong>not</strong> enter the web and stakes are refunded.</li>
+</ul>
+
+<h2>7. Exploring the Knitweb in VR</h2>
+<h3>7.1 Open the 3D view</h3>
+<ol>
+<li>Open in Quest Browser: <code>https://5mart.ml/knitweb</code></li>
+<li>You see a 3D network of nodes (concepts) and links (relations).</li>
+<li>By default the <strong>Live chem-web</strong> loads (about 448 nodes, 948 edges).</li>
+</ol>
+
+<h3>7.2 Controls in VR</h3>
+<table>
+<tr><th>Action</th><th>On Quest 3</th></tr>
+<tr><td><strong>Rotate view</strong></td><td>Drag across the empty background with the controller.</td></tr>
+<tr><td><strong>Zoom</strong></td><td>Scroll with the controller thumbstick or pinch.</td></tr>
+<tr><td><strong>Move node</strong></td><td>Grab a sphere and drag it.</td></tr>
+<tr><td><strong>Center node</strong></td><td>Tap a node; the camera flies to it.</td></tr>
+<tr><td><strong>See details</strong></td><td>Hover the cursor over a node or link; info appears in the right panel.</td></tr>
+<tr><td><strong>Switch language</strong></td><td>Choose <strong>EN / RU / 中文 / AR</strong> from the menu.</td></tr>
+<tr><td><strong>Search</strong></td><td>Type a term (e.g. <code>H2O</code>) in the search box.</td></tr>
+</table>
+
+<h3>7.3 What you see</h3>
+<ul>
+<li><strong>Nodes</strong> = chemistry concepts (elements, molecules).</li>
+<li><strong>Links</strong> = relations such as <code>part-of</code>, <code>is-a</code>, <code>reacts-with</code>.</li>
+<li><strong>Colors</strong> = link status:
+  <ul>
+    <li><strong>Cyan</strong> = taut / well confirmed</li>
+    <li><strong>Pink</strong> = neutral</li>
+    <li><strong>Grey</strong> = slack / little support</li>
+    <li><strong>Orange</strong> = contested or "snapped"</li>
+  </ul>
+</li>
+</ul>
+
+<h3>7.4 Local 2D explorer (optional)</h3>
+<p>If you run your own <code>molgang</code> node:</p>
+<pre>molgang explore</pre>
+<p>Then on your Quest open: <code>http://&lt;your-pc-ip&gt;:8990</code></p>
+
+<h2>8. Correcting mistakes</h2>
+<p>In Knitweb/MOLGANG you correct mistakes <strong>by voting</strong>, not by deleting.</p>
+<h3>8.1 Prevent: vote during the round</h3>
+<ul>
+<li>Vote <strong>✗ Mismatch</strong> on every wrong proposal.</li>
+<li>If enough peers agree, the proposal is <strong>rejected</strong> and never enters the web.</li>
+</ul>
+
+<h3>8.2 Already woven: competing knits and tension</h3>
+<p>If a mistake still made it into the web:</p>
+<ol>
+<li>Open the Explorer (<code>5mart.ml/knitweb</code>).</li>
+<li>Find the contested term.</li>
+<li>Look at the <strong>tension color</strong> (orange = contested).</li>
+<li>Make a <strong>counter-proposal</strong>: propose the correct term/link in MOLGANG and let peers confirm.</li>
+<li>The explorer ranks knits by <code>confirm − mismatch</code>. The better-supported version gains visibility.</li>
+<li>Links with too little support (<code>T &lt; 300</code>) are eventually removed from the active graph by <code>prune_slack</code>.</li>
+</ol>
+<blockquote>There is <strong>no edit button</strong> for a Fiber; this is intentional so all knowledge remains traceable through its voting history.</blockquote>
+
+<h2>9. Requesting a PoUW certificate</h2>
+<p>As proof of your work you can download a <strong>Proof-of-Useful-Work certificate</strong>:</p>
+<ol>
+<li>In the MOLGANG bar tap <strong>🏅 Request PoUW Certificate</strong>.</li>
+<li>The certificate downloads as a PDF.</li>
+</ol>
+<p>It contains your wallet address, public key, work summary, woven knits/spirals, votes cast, and the OriginTrail UAL.</p>
+<blockquote>The browser/API path always uses <strong>public mode</strong>. Private keys are never shared.</blockquote>
+
+<h2>10. Running your own local node</h2>
+<p>Want a private classroom environment?</p>
+<pre>git clone https://github.com/knitweb/molgang.git
+cd molgang
+./install.sh
+source .venv/bin/activate
+molgang serve --host 0.0.0.0 --port 8765</pre>
+<p>On Quest 3: open Meta Quest Browser and go to <code>http://&lt;laptop-ip&gt;:8765</code>.</p>
+<p>For the 3D explorer:</p>
+<pre>molgang explore --host 0.0.0.0 --port 8990</pre>
+
+<h2>11. URL summary</h2>
+<table>
+<tr><th>Purpose</th><th>URL</th></tr>
+<tr><td>Play MOLGANG</td><td><code>https://5mart.ml/molgang</code></td></tr>
+<tr><td>Explore 3D web</td><td><code>https://5mart.ml/knitweb</code></td></tr>
+<tr><td>Local bar</td><td><code>http://&lt;ip&gt;:8765</code></td></tr>
+<tr><td>Local explorer</td><td><code>http://&lt;ip&gt;:8990</code></td></tr>
+<tr><td>Source code</td><td><code>https://github.com/knitweb/pulse</code> and <code>https://github.com/knitweb/molgang</code></td></tr>
+</table>
+
+<h2>12. VR usage tips</h2>
+<ul>
+<li>Use standing or seated mode so you can comfortably view the virtual browser screen.</li>
+<li>Use the controller cursor; tapping small buttons is easiest with the controller ray.</li>
+<li>Increase the browser window size in Quest Browser for better readability.</li>
+<li>Bookmark important URLs in the Quest Browser.</li>
+<li>Watch battery and heat: the 3D view is demanding on the Quest.</li>
+</ul>
+
+</section>
+
+<!-- RUSSIAN -->
+<section id="ru" class="lang" lang="ru">
+<div class="callout">
+  <strong>Русская версия в разработке.</strong><br>
+  Полное руководство пока доступно на <a href="#" onclick="setLang('nl')">нидерландском</a> и <a href="#" onclick="setLang('en')">английском</a>.<br>
+  Основные URL: <code>https://5mart.ml/molgang</code> (игра/голосование) и <code>https://5mart.ml/knitweb</code> (3D-обозреватель).
+</div>
+</section>
+
+<!-- CHINESE -->
+<section id="zh" class="lang" lang="zh">
+<div class="callout">
+  <strong>中文版本正在开发中。</strong><br>
+ 完整指南目前提供 <a href="#" onclick="setLang('nl')">荷兰语</a> 和 <a href="#" onclick="setLang('en')">英语</a> 版本。<br>
+ 主要网址：<code>https://5mart.ml/molgang</code>（游戏/投票）和 <code>https://5mart.ml/knitweb</code>（3D 浏览器）。
+</div>
+</section>
+
+<!-- ARABIC -->
+<section id="ar" class="lang" lang="ar">
+<div class="callout rtl">
+  <strong>الترجمة العربية قيد التطوير.</strong><br>
+  الدليل الكامل متوفر حاليًا بالـ <a href="#" onclick="setLang('nl')">الهولندية</a> و <a href="#" onclick="setLang('en')">الإنجليزية</a>.<br>
+  الروابط الرئيسية: <code>https://5mart.ml/molgang</code> (اللعبة/التصويت) و <code>https://5mart.ml/knitweb</code> (مستعرض ثلاثي الأبعاد).
+</div>
+</section>
+
+</main>
+
+<footer>
+  Generated June 2026 from the public Knitweb / MOLGANG documentation and live sites.
+</footer>
+
+<script>
+function setLang(lang) {
+  document.querySelectorAll('section.lang').forEach(function(s) {
+    s.classList.remove('active');
+  });
+  document.getElementById(lang).classList.add('active');
+  document.documentElement.lang = lang;
+  if (lang === 'ar') {
+    document.body.classList.add('rtl');
+  } else {
+    document.body.classList.remove('rtl');
+  }
+  var label = document.querySelector('.lang-wrap label');
+  if (label && label.dataset[lang]) {
+    label.textContent = label.dataset[lang];
+  }
+  localStorage.setItem('knitweb-manual-lang', lang);
+}
+
+document.getElementById('lang').addEventListener('change', function(e) {
+  setLang(e.target.value);
+});
+
+// Restore saved language or browser preference
+var saved = localStorage.getItem('knitweb-manual-lang');
+var preferred = saved || navigator.language.slice(0, 2);
+var supported = ['nl','en','ru','zh','ar'];
+var initial = supported.indexOf(preferred) >= 0 ? preferred : 'nl';
+document.getElementById('lang').value = initial;
+setLang(initial);
+</script>
+
+</body>
+</html>
