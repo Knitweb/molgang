@@ -12,6 +12,7 @@ from http.server import ThreadingHTTPServer
 
 import pytest
 
+import bridge.server as bridge_server
 from bridge.server import make_handler, MAX_UPLOAD_BYTES
 
 
@@ -72,9 +73,9 @@ def test_malformed_content_length_is_rejected(server):
     assert " 400 " in resp.split("\r\n")[0]
 
 
-def test_body_at_exactly_max_is_accepted(server):
-    # A body of exactly MAX_UPLOAD_BYTES (here a small valid JSON padded with whitespace) is allowed.
-    body = b'{"votes": []}' + b" " * 16  # well under MAX; exercises the boundary comparison (<=)
-    assert len(body) <= MAX_UPLOAD_BYTES
+def test_body_at_exactly_max_is_accepted(server, monkeypatch):
+    # Exercise the exact inclusive boundary without forcing every test run to upload 16 MiB.
+    body = b'{"votes": []}' + b" " * 16
+    monkeypatch.setattr(bridge_server, "MAX_UPLOAD_BYTES", len(body))
     status, payload = _post(server, body)
     assert status == 200
