@@ -223,15 +223,34 @@ class Bar:
         table.name = table.base_name
 
     def _bots_act(self) -> None:
-        """Seated NPCs vote 'confirm' on open knits they haven't weighed in on yet."""
+        """Seated NPCs vote an HONEST verdict on open knits they haven't weighed in on yet.
+
+        A *link* knit has chemistry ground truth: bots vote ``honest_spiral_verdict`` over its
+        link(s) — exactly as :meth:`_bots_spiral_act` does for spirals — so a knit whose ends
+        aren't recognizable chemistry (e.g. ``H2O = HXYZ``) is rejected instead of rubber-stamped.
+        A free brainstorm *term* has no chemistry ground truth, so it stays peer-consensus
+        (confirm). Previously bots hard-confirmed EVERYTHING, so a solo player at a bot-seeded
+        table auto-wove arbitrary nonsense knits into the shared web — voiding the core
+        "peers validate with pulses" guarantee. A chemistry ``bond`` round (no current Bar path
+        creates one, but be robust) is judged by ``honest_verdict``.
+        """
         for prop in list(self.proposals.values()):
             if prop.settled:
                 continue
+            links = prop.links or (
+                [prop.parsed] if isinstance(prop.parsed, dict) and prop.parsed.get("kind") == "link" else []
+            )
+            if prop.round.bond is not None:
+                verdict = game.honest_verdict(prop.round.bond).value
+            elif links:
+                verdict = game.honest_spiral_verdict(links).value
+            else:
+                verdict = "confirm"  # brainstorm term — peer consensus, no ground truth
             for s in list(self.sessions.values()):
                 if (s.bot and s.table_id == prop.table_id and s.sid != prop.by
                         and s.sid not in prop.voters and s.player.pulses >= game.VOTE_COST):
                     try:
-                        self.vote(s.sid, prop.pid, "confirm")
+                        self.vote(s.sid, prop.pid, verdict)
                     except (RuntimeError, KeyError):
                         pass
 
