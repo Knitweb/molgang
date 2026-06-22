@@ -47,6 +47,11 @@ WEB_TOPIC = "knitweb.web"
 # Pre-image tag — must byte-match the live relay's Relay::signedPreimage (PR #77).
 _PREIMAGE_TAG = "knitweb-relay:v1"
 _HTTP_TIMEOUT = 20
+# A relayed item's `confirmations` (edge weight/tension) and `validators` are SELF-REPORTED by the
+# untrusted sender — anyone with a keypair can sign a message claiming confirmations=9999 and have
+# the local World weave/bump that edge at a dominating weight. Clamp both on ingest so a forged
+# weight can't take over the shared web; an honest fiber is at most this many co-weaves anyway.
+RELAY_MAX_CONFIRMATIONS = 64
 
 
 def _tls_context() -> ssl.SSLContext:
@@ -104,6 +109,22 @@ def verify_message(msg: dict, *, topic: str | None = None) -> bool:
     if topic is not None and mtopic != topic:
         return False
     return crypto.verify(frm, signed_preimage(str(to), mtopic, body), sig)
+
+
+def clamp_relayed_weights(item: WovenItem) -> WovenItem:
+    """Bound a relayed item's self-reported weight so a forged value can't dominate the web.
+
+    ``confirmations``/``validators`` come from the untrusted sender; clamp ``validators`` to the
+    ceiling and ``confirmations`` to ``min(ceiling, validators-if-claimed)``, floored at 1. Mutates
+    and returns the item.
+    """
+    v = item.validators if isinstance(item.validators, int) and item.validators > 0 else 0
+    v = min(v, RELAY_MAX_CONFIRMATIONS)
+    item.validators = v
+    c = item.confirmations if isinstance(item.confirmations, int) else 1
+    cap = min(RELAY_MAX_CONFIRMATIONS, v) if v > 0 else RELAY_MAX_CONFIRMATIONS
+    item.confirmations = max(1, min(c, cap))
+    return item
 
 
 def item_from_body(body: str) -> WovenItem | None:
@@ -228,6 +249,7 @@ class RelaySync:
             if item is None:
                 skipped += 1
                 continue
+            clamp_relayed_weights(item)  # don't trust the sender's self-reported edge weight
             keys = item_keys(item)
             if keys and all(k in self._seen for k in keys):
                 # already woven here — bump confirmations/tension for the co-woven fiber(s)
