@@ -82,7 +82,8 @@ class World:
         if self.on_weave is not None:
             try:
                 self.on_weave(item)
-            except Exception:  # noqa: BLE001 — a relay hiccup must never break local weaving
+            except Exception:
+                # Relay callbacks are best effort; local weaving must continue.
                 pass
 
     # -- term de-dup + applying an item to the fabric -----------------------

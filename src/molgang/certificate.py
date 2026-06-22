@@ -55,10 +55,10 @@ def _latin(text: str) -> str:
 
 
 class _Cert(FPDF):
-    def header(self) -> None:  # noqa: D401 - fpdf hook
+    def header(self) -> None:
         pass
 
-    def footer(self) -> None:  # noqa: D401 - fpdf hook
+    def footer(self) -> None:
         self.set_y(-15)
         self.set_font("Helvetica", "I", 7)
         self.set_text_color(*_MUTED)

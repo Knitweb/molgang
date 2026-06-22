@@ -43,7 +43,7 @@ def make_handler(state_path: str):
             self.end_headers()
             self.wfile.write(body)
 
-        def do_GET(self) -> None:  # noqa: N802
+        def do_GET(self) -> None:
             path = self.path.split("?")[0]
             if path in ("/snapshot.json", "/snapshot"):
                 self._send(200, snapshot(load_state(state_path)))
@@ -52,7 +52,7 @@ def make_handler(state_path: str):
             else:
                 self._send(404, {"error": "not found"})
 
-        def do_POST(self) -> None:  # noqa: N802
+        def do_POST(self) -> None:
             if self.path.split("?")[0] != "/upload":
                 return self._send(404, {"error": "not found"})
             try:

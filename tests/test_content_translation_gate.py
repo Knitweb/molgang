@@ -38,7 +38,7 @@ def test_gate_catches_a_missing_translation():
     assert check_translations.find_gaps(fake) == []
 
     # Now prove a genuinely missing language is caught via a temp file written in the test dir.
-    import json, tempfile, os
+    import json, tempfile
     payload = {
         "languages": [{"lang": l, "name": l, "dir": "rtl" if l == "ar" else "ltr"}
                       for l in ("en", "nl", "ru", "zh", "ar")],

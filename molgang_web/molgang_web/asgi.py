@@ -11,7 +11,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "molgang_web.settings")
 
 django_asgi_app = get_asgi_application()
 
-from bar.routing import websocket_urlpatterns  # noqa: E402
+from bar.routing import websocket_urlpatterns
 
 application = ProtocolTypeRouter(
     {

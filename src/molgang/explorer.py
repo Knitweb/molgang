@@ -110,7 +110,7 @@ def make_handler(g, source: str):
             self.end_headers()
             self.wfile.write(b)
 
-        def do_GET(self) -> None:  # noqa: N802
+        def do_GET(self) -> None:
             p = urlparse(self.path)
             path, q = p.path, parse_qs(p.query)
             if path in ("/", ""):

@@ -142,7 +142,7 @@ def _serve_process(base_dir: Path, host: str, port: int) -> subprocess.Popen[str
         extra.append(pulse_src)
     env["PYTHONPATH"] = _augment_pythonpath(*extra)
 
-    proc = subprocess.Popen(
+    return subprocess.Popen(
         cmd,
         cwd=str(root),
         stdout=subprocess.PIPE,
@@ -150,7 +150,6 @@ def _serve_process(base_dir: Path, host: str, port: int) -> subprocess.Popen[str
         text=True,
         env=env,
     )
-    return proc
 
 
 def _stop_process(proc: subprocess.Popen[str]) -> None:
