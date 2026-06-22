@@ -39,7 +39,7 @@ multiply (never divide first) so no precision is lost; deterministic on every CP
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 # -- fixed-point scale + tuning constants (all integer; config-tunable) -------
 S = 1000                 # fixed-point scale: derived values live in 0..S "milli-units"

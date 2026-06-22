@@ -64,7 +64,8 @@ def _tls_context() -> ssl.SSLContext:
         import certifi
 
         return ssl.create_default_context(cafile=certifi.where())
-    except Exception:  # noqa: BLE001 — certifi optional; fall back to the system store
+    except Exception:
+        # certifi is optional; fall back to the platform trust store.
         return ssl.create_default_context()
 
 
@@ -195,7 +196,7 @@ class RelaySync:
             url, data=data, method="POST" if data is not None else "GET",
             headers={"Content-Type": "application/json"} if data is not None else {})
         ctx = _tls_context() if url.lower().startswith("https") else None
-        with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT, context=ctx) as r:  # noqa: S310
+        with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT, context=ctx) as r:
             return json.loads(r.read() or b"{}")
 
     # -- local de-dup index ------------------------------------------------
@@ -363,11 +364,12 @@ def signer_from_wallet(wallet_path: str | None) -> AccountNode:
             from knitweb.store import load_node
 
             return load_node(wallet_path)
-        except Exception as exc:  # noqa: BLE001 - distinguish legacy JSON from broken node files.
+        except Exception as exc:
+            # Distinguish legacy JSON wallets from broken node snapshots.
             try:
                 with open(wallet_path, encoding="utf-8") as fh:
                     record = json.load(fh)
-            except Exception as read_exc:  # noqa: BLE001 - unreadable wallet should stop startup.
+            except Exception as read_exc:
                 raise RuntimeError(f"relay wallet is unreadable: {wallet_path}") from read_exc
             if isinstance(record, dict) and record.get("kind") == "node-snapshot":
                 raise RuntimeError(f"relay wallet node snapshot is invalid: {wallet_path}") from exc

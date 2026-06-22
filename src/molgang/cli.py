@@ -61,12 +61,12 @@ def demo() -> int:
     print(f"{BAR}\n  Alice · {alice.pulses} PLS · level {me['level']} {me['title']} · {me['xp']} XP")
     print(f"  collection: {', '.join(m['formula'] for m in me['molecules']) or '—'}")
 
-    print(f"\n  🏆 leaderboard")
+    print("\n  🏆 leaderboard")
     for r in progression.leaderboard(woven):
         print(f"    #{r['rank']} {r['player']:<8} {r['molecules']} molecules · {r['xp']} XP · {r['title']}")
 
     a = anchor_chemistry(woven)
-    print(f"\n  🔗 anchored to OriginTrail (web3 provenance):")
+    print("\n  🔗 anchored to OriginTrail (web3 provenance):")
     print(f"    UAL {a.ual}")
     print(f"    {a.bonds} bonds · receipt {a.receipt_cid[:16]}… · verified={a.verified}")
     print(f"{BAR}\n  ▶ try `molgang play`, or run examples/p2p_demo.py for a real P2P round.\n")

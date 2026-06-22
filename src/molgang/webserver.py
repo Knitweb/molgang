@@ -222,7 +222,7 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
             self.end_headers()
             self.wfile.write(body)
 
-        def do_OPTIONS(self) -> None:  # noqa: N802 — CORS preflight
+        def do_OPTIONS(self) -> None:
             self.send_response(204)
             self.send_header("Content-Length", "0")
             self._cors()
@@ -282,7 +282,7 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
             self.end_headers()
             self.wfile.write(body)
 
-        def do_GET(self) -> None:  # noqa: N802
+        def do_GET(self) -> None:
             path = self.path.split("?")[0]
             if path.startswith("/api/") and not self._rate_limit("GET", path):
                 return
@@ -393,7 +393,7 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return self._json(200, c)
             return self._json(404, {"error": "not found"})
 
-        def do_POST(self) -> None:  # noqa: N802
+        def do_POST(self) -> None:
             try:
                 b = self._body()
                 path = self.path.split("?")[0]
@@ -482,7 +482,8 @@ def _start_relay(bar: Bar, base: str, wallet: str | None, interval: float):
     bar.world.on_weave = relay.push          # PUSH every confirmed knit/spiral as it is woven
     try:
         relay.pull()                         # converge on the existing shared web at startup
-    except Exception as e:  # noqa: BLE001 — never let a relay outage block the bar opening
+    except Exception as e:
+        # A relay outage must not block the local bar from opening.
         print(f"  ⚠ relay initial pull failed (continuing local): {e}")
 
     def _loop() -> None:
@@ -491,7 +492,8 @@ def _start_relay(bar: Bar, base: str, wallet: str | None, interval: float):
             time.sleep(max(1.0, interval))
             try:
                 relay.pull()
-            except Exception:  # noqa: BLE001 — transient relay errors must not kill the timer
+            except Exception:
+                # Transient relay errors must not kill the background timer.
                 pass
 
     threading.Thread(target=_loop, daemon=True, name="relay-pull").start()
