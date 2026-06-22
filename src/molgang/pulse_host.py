@@ -4,9 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
-import sys
-import shlex
 import hashlib
 import secrets
 
@@ -46,14 +43,6 @@ def _local_fallback(path: str, *, genesis: int) -> dict:
 
 def _derive_public_key(seed: str) -> str:
     return hashlib.sha256(seed.encode("utf-8")).hexdigest()
-
-
-def _pulse_cli() -> list[str]:
-    """Return the Pulse CLI command Molgang should call."""
-    override = os.environ.get("PULSE_CLI")
-    if override:
-        return shlex.split(override)
-    return [sys.executable, "-m", "knitweb.app.cli"]
 
 
 def _load_cli_module():
@@ -98,11 +87,6 @@ def _run_pulse(args: list[str]) -> dict:
                 path,
                 listen=listen,
             )
-
-    if os.environ.get("PULSE_CLI"):
-        cmd = _pulse_cli() + args + ["--json"]
-        proc = subprocess.run(cmd, check=True, text=True, capture_output=True)
-        return json.loads(proc.stdout)
 
     path = _arg_value(args, "--out", "--wallet", "--identity", default=default_wallet_path())
     if args[:2] == ["identity", "create"]:
