@@ -158,8 +158,29 @@
   <section id="monitor" class="view hidden">
     <h2>📡 Monitor <span class="dim small">— node & p2p status · the local woven knitweb</span></h2>
 
-    <h3>Nodes &amp; p2p</h3>
+    <h3>Nodes &amp; p2p
+      <span class="dim small" style="float:right">
+        simulate:
+        <select id="sim-n" style="background:#1a2030;color:#bfe9f5;border:1px solid #2a3f5f;border-radius:4px;padding:2px 4px">
+          <option value="0">— off</option>
+          <option value="3">3 nodes</option>
+          <option value="4">4 nodes</option>
+          <option value="6" selected>6 nodes</option>
+          <option value="8">8 nodes</option>
+          <option value="10">10 nodes</option>
+        </select>
+        <button id="btn-sim" style="margin-left:4px">▶ Run</button>
+      </span>
+    </h3>
     <div id="mon-nodes" class="mon-nodes"></div>
+    <div id="mon-sim-net" style="display:none">
+      <div id="mon-sim-stats" class="summary"></div>
+      <div id="mon-p2p-net" style="height:340px;border:1px solid #2a3f5f;border-radius:6px;margin-top:8px"></div>
+      <div class="mon-legend" style="margin-top:4px">
+        <span><i class="sw" style="background:#22e3ff"></i>relay</span>
+        <span><i class="sw" style="background:#ffd24a"></i>webrtc</span>
+      </div>
+    </div>
     <div id="mon-web" class="summary"></div>
     <div id="mon-anchor" class="anchor-bar"></div>
 
@@ -173,11 +194,11 @@
         </div>
         <div class="mon-card">
           <h4>Fiber tension</h4>
-          <div id="mon-tension" class="dim small">loading…</div>
+          <div id="mon-tension" class="dim small">—</div>
         </div>
         <div class="mon-card">
           <h4>Top hubs <span class="dim small">— click to centre</span></h4>
-          <div id="mon-hubs" class="dim small">loading…</div>
+          <div id="mon-hubs" class="dim small">—</div>
         </div>
       </div>
       <div class="mon-graph">
