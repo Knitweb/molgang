@@ -19,6 +19,7 @@ The graph is built once at first use and cached, so the Monitor tab stays cheap 
 
 from __future__ import annotations
 
+import hashlib
 import os
 import socket
 
@@ -120,3 +121,60 @@ class Monitor:
             "status": self.node_status(),
             "kg": {**self.kg_stats(), **self.kg_hubs(8), "tension": self.kg_tension()},
         }
+
+
+# ---------------------------------------------------------------------------
+# Simulation helper — deterministic fake p2p network, no running nodes needed
+# ---------------------------------------------------------------------------
+
+_SIM_CITIES = [
+    ("amsterdam", 8900), ("rotterdam", 8901), ("frankfurt", 8902),
+    ("london", 8903), ("paris", 8904), ("berlin", 8905),
+    ("dublin", 8906), ("stockholm", 8907), ("warsaw", 8908), ("madrid", 8909),
+]
+# Deterministic peer connections for n nodes (ring + diagonal)
+_SIM_BALANCE = [50_000_000, 31_400_000, 22_700_000, 18_100_000,
+                14_300_000, 11_800_000, 9_600_000, 7_700_000, 6_200_000, 5_000_000]
+
+
+def _sim_address(label: str) -> str:
+    """Deterministic fake PLS address derived from node label."""
+    h = hashlib.sha256(f"knitweb-sim:{label}".encode()).hexdigest()
+    return "0x" + h[:40]
+
+
+def _simulate_p2p(n: int = 6) -> dict:
+    """Return a deterministic fake p2p network with *n* nodes (max 10).
+
+    Used by ``/api/monitor/simulate`` so the Monitor tab can show a realistic
+    multi-node knitweb even when no real daemons are running.  All values are
+    deterministic (no randomness) so the display is stable across reloads.
+    """
+    n = max(2, min(n, len(_SIM_CITIES)))
+    nodes = []
+    for i, (label, port) in enumerate(_SIM_CITIES[:n]):
+        nodes.append({
+            "id": i,
+            "label": label,
+            "address": _sim_address(label),
+            "port": port,
+            "live": True,
+            "balance_pls": _SIM_BALANCE[i],
+            "peers": min(n - 1, 4),
+            "fibers": 12 + i * 3,
+        })
+    # Edges: ring topology + one skip-2 diagonal for realism
+    edges = []
+    for i in range(n):
+        edges.append({"from": i, "to": (i + 1) % n, "label": "relay"})
+    if n >= 4:
+        for i in range(0, n, 3):
+            edges.append({"from": i, "to": (i + 2) % n, "label": "webrtc"})
+    return {
+        "sim": True,
+        "node_count": n,
+        "nodes": nodes,
+        "edges": edges,
+        "total_balance_pls": sum(nd["balance_pls"] for nd in nodes),
+        "total_fibers": sum(nd["fibers"] for nd in nodes),
+    }

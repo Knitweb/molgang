@@ -923,15 +923,88 @@ async function renderGraph() {
 // ---- 📡 Monitor: node/p2p status + the local woven knitweb (:8990) ----
 const MON_LANGS = [["en", "🇬🇧 EN"], ["ru", "🇷🇺 RU"], ["zh", "🇨🇳 ZH"], ["ar", "🇸🇦 AR"]];
 const MON_TENSION = { taut: "#22e3ff", neutral: "#ff5cf0", slack: "#6b7689", contested: "#ff7a18" };
-let monNet = null, monCenter = null;
+let monNet = null, monCenter = null, monSimNet = null;
 
 async function renderMonitor() {
+  // Wire the simulation button once.
+  if ($("btn-sim") && !$("btn-sim")._wired) {
+    $("btn-sim")._wired = true;
+    $("btn-sim").onclick = runSim;
+  }
   const m = await api("/api/monitor");
-  if (!m || m.error) { $("mon-nodes").innerHTML = `<span class="dim">monitor unavailable</span>`; return; }
+  if (!m || m.error) {
+    $("mon-nodes").innerHTML = `<span class="dim">monitor unavailable — use simulation above to preview the p2p network</span>`;
+    // Auto-run simulation with default nodes so the tab is never empty.
+    if (parseInt($("sim-n").value) > 0) runSim();
+    return;
+  }
   renderMonStatus(m.status);
   renderMonKg(m.kg);
   // centre the compact graph on the top hub once (then leave it; it polls on its own cadence).
   if (!monCenter && m.kg.hubs && m.kg.hubs.length) monFocus(m.kg.hubs[0].term);
+}
+
+// ---- P2P simulation ----
+async function runSim() {
+  const n = parseInt($("sim-n").value) || 6;
+  if (n < 1) { $("mon-sim-net").style.display = "none"; monSimNet = null; return; }
+  const d = await api("/api/monitor/simulate?n=" + n);
+  if (!d || d.error) {
+    $("mon-sim-net").style.display = "none";
+    monSimNet = null;
+    return;
+  }
+  const nodesEl = $("mon-nodes");
+  nodesEl.replaceChildren(...d.nodes.map((nd) => {
+    const div = document.createElement("div");
+    div.className = "mon-node";
+    const dot = document.createElement("span"); dot.className = "mdot up";
+    const lbl = document.createElement("b"); lbl.textContent = nd.label;
+    const prt = document.createElement("span"); prt.className = "dim small"; prt.textContent = `:${nd.port}`;
+    const live = document.createElement("span"); live.className = "pos small"; live.textContent = "● live (sim)";
+    const info = document.createElement("span"); info.className = "dim small";
+    info.textContent = `· ${nd.peers} peers · ${nd.fibers} fibers · ${fmt(nd.balance_pls)} PLS`;
+    const addr = document.createElement("span"); addr.className = "mono small dim"; addr.title = nd.address;
+    addr.textContent = ` ${nd.address.slice(0, 12)}…`;
+    div.append(dot, lbl, " ", prt, " ", live, " ", info, " ", addr);
+    return div;
+  }));
+  const statsEl = $("mon-sim-stats");
+  statsEl.replaceChildren(...[
+    ["🌐", d.node_count, "nodes (simulated)"],
+    ["🔗", d.edges.length, "p2p links"],
+    ["⚡", fmt(d.total_balance_pls), "PLS total"],
+    ["🧵", d.total_fibers, "fibers"],
+  ].map(([icon, val, label]) => {
+    const sp = document.createElement("span"); sp.className = "bal";
+    sp.textContent = `${icon} ${val} ${label}`;
+    return sp;
+  }));
+  $("mon-sim-net").style.display = "";
+  if (typeof vis !== "undefined") {
+    const nodes = new vis.DataSet(d.nodes.map((nd) => ({
+      id: nd.id, label: nd.label,
+      title: `${nd.address}\n${fmt(nd.balance_pls)} PLS · ${nd.fibers} fibers`,
+      color: { background: "#0d2240", border: "#22e3ff" },
+      font: { color: "#bfe9f5", size: 13 }, shape: "dot", size: 16,
+    })));
+    const edges = new vis.DataSet(d.edges.map((e, i) => ({
+      id: i, from: e.from, to: e.to, label: e.label, arrows: "to",
+      color: { color: e.label === "webrtc" ? "#ffd24a" : "#22e3ff", opacity: 0.75 },
+      dashes: e.label !== "webrtc",
+      font: { color: "#7e8aa8", size: 10, strokeWidth: 0 },
+    })));
+    if (!monSimNet) {
+      monSimNet = new vis.Network($("mon-p2p-net"), { nodes, edges }, {
+        physics: { stabilization: { iterations: 100 }, barnesHut: { springLength: 110, avoidOverlap: 0.5 } },
+        interaction: { hover: true, tooltipDelay: 80 },
+        nodes: { shape: "dot", size: 16, borderWidth: 2 },
+        edges: { smooth: { type: "continuous" } },
+      });
+    } else {
+      monSimNet.setData({ nodes, edges });
+    }
+  }
 }
 
 function renderMonStatus(st) {
