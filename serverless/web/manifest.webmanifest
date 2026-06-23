@@ -1,0 +1,29 @@
+{
+  "name": "MOLGANG — chemistry on the Knitweb",
+  "short_name": "MOLGANG",
+  "description": "A peer-to-peer chemistry learning game. Every tab is a full Knitweb peer running the real protocol engine in-browser (WASM) — no server. Knit bonds, weave molecule Fibers, vote with PLS pulses, earn PoUW certificates. No NFTs.",
+  "id": "/molgang/",
+  "scope": "./",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "categories": ["education", "games"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='36' fill='%230b0d12'/%3E%3Ctext x='96' y='140' font-size='120' text-anchor='middle'%3E%F0%9F%A7%AA%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='96' fill='%230b0d12'/%3E%3Ctext x='256' y='372' font-size='320' text-anchor='middle'%3E%F0%9F%A7%AA%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

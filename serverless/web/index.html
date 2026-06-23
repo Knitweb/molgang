@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0d12" />
+  <title>MOLGANG — the bar (serverless peer)</title>
+
+  <!--
+    MOLGANG serverless PWA shell.
+
+    This is the SERVER-FREE entrypoint: there is no /api/* backend. The real
+    Knitweb peer (the UNCHANGED molgang + knitweb Python bytes) boots inside a
+    module-type Web Worker via Pyodide/WASM (see peer.js). This document only
+    renders the UI and forwards user intents to that in-tab peer over
+    postMessage — it never computes a faucet grant, a CID, a canonical-CBOR
+    frame, or a signature. Those are sacred (integer-only, byte-identical)
+    paths and they live ONLY in the WASM engine.
+
+    The DOM ids below are kept identical to the legacy thin-client shell so the
+    existing render code can drive them unchanged once it is wired to the
+    in-worker Bar instead of `fetch('/api/*')`.
+  -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%A7%AA%3C/text%3E%3C/svg%3E" />
+  <style>
+    /* Minimal boot styling only. The full app stylesheet (style.css from the
+       legacy bundle) is still served and cached by the service worker; the
+       rules here exist purely so the splash looks right before any other CSS
+       or the engine has loaded. */
+    :root { color-scheme: dark; }
+    html, body {
+      margin: 0; padding: 0;
+      background: #0b0d12; color: #e7ecf5;
+      font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .dim { opacity: .65; }
+    .small { font-size: 12px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .hidden { display: none !important; }
+
+    /* Boot splash — shown while Pyodide downloads + the engine warms up. The
+       service worker caches the wasm so the SECOND load is near-instant; this
+       neutralizes Variant A's only real weakness (cold start). */
+    #boot {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 18px; text-align: center; padding: 24px;
+      background: radial-gradient(120% 120% at 50% 0%, #131826 0%, #0b0d12 60%);
+    }
+    #boot.done { display: none; }
+    #boot .logo { font-size: 56px; line-height: 1; }
+    #boot h1 { margin: 0; font-size: 22px; letter-spacing: .3px; }
+    #boot .sub { max-width: 32ch; }
+    #boot .barwrap {
+      width: min(420px, 80vw); height: 8px; border-radius: 99px;
+      background: #1b2233; overflow: hidden;
+    }
+    #boot .bar {
+      height: 100%; width: 8%;
+      background: linear-gradient(90deg, #22e3ff, #8b5cff);
+      transition: width .35s ease;
+    }
+    #boot .phase { min-height: 1.4em; }
+    #boot .err { color: #ff7a6b; max-width: 46ch; white-space: pre-wrap; text-align: left; }
+
+    /* App container starts hidden; the render layer reveals it once the engine
+       reports ready. Kept structurally identical to the legacy shell. */
+    header {
+      display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 10px 16px; border-bottom: 1px solid #1b2233;
+    }
+    .brand b { letter-spacing: .5px; }
+    .peer-status { font-size: 12px; }
+    .peer-status .ok { color: #59e6a0; }
+    .peer-status .warn { color: #ffd24a; }
+    .peer-status .off { color: #ff7a6b; }
+    .qr-actions button {
+      background: #1b2233; color: #e7ecf5; border: 1px solid #2a3550;
+      border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit;
+    }
+    .qr-actions button:hover { border-color: #3a4566; }
+    #qr-modal {
+      position: fixed; inset: 0; z-index: 9000; display: flex;
+      align-items: center; justify-content: center; padding: 18px;
+      background: rgba(4, 6, 12, .78);
+    }
+    #qr-modal .card {
+      background: #11151f; border: 1px solid #2a3550; border-radius: 14px;
+      padding: 20px; max-width: 420px; width: 100%; text-align: center;
+    }
+    #qr-modal canvas, #qr-modal video {
+      width: 256px; height: 256px; max-width: 70vw; max-height: 70vw;
+      background: #fff; border-radius: 10px; image-rendering: pixelated;
+    }
+    #qr-modal .x {
+      float: right; background: none; border: none; color: #e7ecf5;
+      font-size: 20px; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- ============================ BOOT SPLASH ============================ -->
+  <div id="boot" role="status" aria-live="polite">
+    <div class="logo">🧪</div>
+    <h1>MOLGANG</h1>
+    <p class="sub dim small">
+      Booting your in-browser Knitweb peer. The real protocol engine runs
+      <b>inside this tab</b> — no server. First load fetches the WASM runtime;
+      after that it starts offline.
+    </p>
+    <div class="barwrap"><div class="bar" id="boot-bar"></div></div>
+    <div class="phase dim small" id="boot-phase">starting…</div>
+    <div class="err small" id="boot-err"></div>
+  </div>
+
+  <!-- ============================== HEADER ============================== -->
+  <header id="app-header" class="hidden">
+    <div class="brand">🧪 <b>MOLGANG</b> <span class="dim">· the bar · <span class="dim small">serverless peer</span></span></div>
+    <div id="peer-status" class="peer-status dim small">
+      peer <span id="peer-state" class="warn">warming…</span>
+      · <span id="peer-conns">0</span> webrtc · <span id="peer-relay" class="dim">relay off</span>
+    </div>
+    <div class="qr-actions">
+      <button id="qr-show" title="Show your wallet-signed onboarding QR for another device to scan">📷 My peer QR</button>
+      <button id="qr-scan" title="Scan another peer's wallet-signed QR to open a direct WebRTC link">🔗 Scan peer</button>
+    </div>
+    <div id="pulse-host" class="pulse-host dim small"></div>
+    <button id="tutorial-replay" class="help-btn ghost hidden" title="Replay tutorial">🎓 Tutorial</button>
+    <div id="me" class="me hidden">
+      <span id="me-av" class="av"></span>
+      <span id="me-name"></span>
+      <span class="bal mono small" id="me-wallet" title="your device wallet"></span>
+      <span class="bal">⚡ <b id="me-pulses">0</b> PLS</span>
+      <span class="bal">🧵 <b id="me-silk">0</b> silk</span>
+      <span class="bal">🪢 <b id="me-knits">0</b> knits</span>
+      <span class="bal">🏅 <b id="me-level">L1</b> <i id="me-title" class="dim"></i></span>
+      <button id="me-cert" class="cert-btn" title="Request a Proof of Useful Work certificate">🏅 Request PoUW Certificate</button>
+    </div>
+    <nav id="tabs" class="tabs hidden">
+      <button data-view="bar" class="active">🍸 Bar</button>
+      <button data-view="ledger">📒 My knits</button>
+      <button data-view="explorer">🔭 Explorer</button>
+      <button data-view="web">🌐 Web</button>
+      <button data-view="progress">🏅 Progress</button>
+      <button data-view="records">🕸 Spirals</button>
+      <button data-view="monitor">📡 Monitor</button>
+    </nav>
+  </header>
+
+  <!-- transient capture toast -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- walk-in overlay -->
+  <div id="enter" class="overlay hidden">
+    <div class="card">
+      <h1>🍸 Welcome to the MOLGANG bar</h1>
+      <p>Grab free <b>silk</b> + <b>pulses</b> from the on-device faucet, take a seat, and
+         <b>knit chemistry terms</b> with the others at your table. Peers <b>vote with a pulse</b>;
+         a quorum weaves your term. No tokens to buy, nothing to sell — just knowledge.
+         <span class="dim">(web3, no NFTs)</span></p>
+      <label>Your name <input id="name" maxlength="24" placeholder="e.g. Mara" /></label>
+      <div id="avatars" class="avatars"></div>
+      <button id="go">Walk in →</button>
+      <p class="dim small">📱 This device has its <b>own PLS wallet</b>, derived from a seed kept on
+         <i>this device only</i> — leave and rejoin and you're back in the same account. The wallet
+         signs your onboarding QR so peers can verify you before any link opens.</p>
+    </div>
+  </div>
+
+  <main id="floor" class="floor hidden"></main>
+
+  <!-- table view -->
+  <section id="table" class="table-view hidden">
+    <button id="leave-table" class="ghost">← back to the floor</button>
+    <div class="table-title">
+      <h2 id="table-name"></h2>
+      <button id="rename-table" class="ghost hidden">✏️ rename</button>
+    </div>
+    <div class="seats" id="seats"></div>
+    <div class="knit-box">
+      <input id="term" placeholder="brainstorm a term to knit — e.g. H2O, CO2, NaCl…" />
+      <button id="knit">🧵 knit (1 silk)</button>
+      <div class="suggest" id="suggest"></div>
+    </div>
+    <h3>Open knits — vote with a pulse</h3>
+    <div id="open" class="open"></div>
+    <div class="spiral-head">
+      <h3>🕸 Spirals <span id="table-spiral-record" class="dim small"></span></h3>
+      <button id="start-spiral" class="spiral-start">🕸 Start a spiral</button>
+    </div>
+    <p class="dim small spiral-blurb">A spider weaves spirals, not chains: thread 2–7 links
+      (<code>A → B</code>) together. Peers back it by staking pulses; a quorum
+      <b>captures</b> it sticky.</p>
+    <div id="spirals" class="spirals"></div>
+    <h3>Woven into this table's fabric</h3>
+    <div id="fabric" class="fabric"></div>
+  </section>
+
+  <!-- my knits ledger -->
+  <section id="ledger" class="view hidden">
+    <h2>📒 My knits</h2>
+    <div id="ledger-summary" class="summary"></div>
+    <table class="grid">
+      <thead><tr><th>knit (term)</th><th>topic</th><th>status</th><th>✓ / ✗ / – / total</th><th>woven Fiber</th></tr></thead>
+      <tbody id="ledger-rows"></tbody>
+    </table>
+  </section>
+
+  <section id="explorer" class="view hidden">
+    <h2>🔭 Explorer <span class="dim small">— competing knits per topic, best column first</span></h2>
+    <div id="explorer-rows"></div>
+  </section>
+
+  <section id="web" class="view hidden">
+    <h2>🌐 The Knitweb <span class="dim small">— the shared web every player extends</span></h2>
+    <div id="web-stats" class="summary"></div>
+    <div id="web-anchor" class="anchor-bar"></div>
+    <h3>Recently woven</h3>
+    <div id="web-recent" class="fabric"></div>
+    <h3>Links — terms knit together</h3>
+    <div id="web-links"></div>
+    <h3>🧠 Graph explorer <span class="dim small">— NetworkX over the woven web</span></h3>
+    <div id="gx-stats" class="summary"></div>
+    <div id="gx-hubs"></div>
+    <div class="knit-box">
+      <input id="gx-term" list="gx-names" autocomplete="off" placeholder="explore a term's links — e.g. V2O5 (case-insensitive)" />
+      <button id="gx-go">explore</button>
+      <input id="gx-a" list="gx-names" autocomplete="off" placeholder="from" style="max-width:150px" />
+      <input id="gx-b" list="gx-names" autocomplete="off" placeholder="to" style="max-width:150px" />
+      <button id="gx-path">shortest path</button>
+    </div>
+    <datalist id="gx-names"></datalist>
+    <div id="gx-result" class="dim"></div>
+  </section>
+
+  <section id="progress" class="view hidden">
+    <h2>🏅 Progress <span class="dim small">— your quests, badges &amp; seasonal standing</span></h2>
+    <h3>🧗 Reputation ladder</h3>
+    <div id="ladder" class="ladder"></div>
+    <h3>🎯 Quests</h3>
+    <div id="quests-list" class="progress-list"></div>
+    <h3>🏅 Achievements</h3>
+    <div id="achievements-list" class="badges"></div>
+    <div class="leaderboard-head">
+      <h3>🏆 Leaderboard</h3>
+      <div class="season-toggle">
+        <button id="lb-all" class="active">All-time</button>
+        <button id="lb-season" class="ghost">This season</button>
+      </div>
+    </div>
+    <div id="season-board" class="records-board"></div>
+  </section>
+
+  <section id="records" class="view hidden">
+    <h2>🕸 Spiral Records <span class="dim small">— the longest spirals captured across the bar</span></h2>
+    <div id="records-board" class="records-board"></div>
+  </section>
+
+  <section id="monitor" class="view hidden">
+    <h2>📡 Monitor <span class="dim small">— node & p2p status · the local woven knitweb</span></h2>
+    <h3>Nodes &amp; p2p</h3>
+    <div id="mon-nodes" class="mon-nodes"></div>
+    <div id="mon-web" class="summary"></div>
+    <div id="mon-anchor" class="anchor-bar"></div>
+    <h3>🕸 Local woven knitweb <span class="dim small" id="mon-src"></span></h3>
+    <div id="mon-kg-stats" class="summary"></div>
+    <div class="mon-grid">
+      <div class="mon-side">
+        <div class="mon-card"><h4>Languages</h4><div id="mon-langs" class="mon-langs"></div></div>
+        <div class="mon-card"><h4>Fiber tension</h4><div id="mon-tension" class="dim small">loading…</div></div>
+        <div class="mon-card"><h4>Top hubs</h4><div id="mon-hubs" class="dim small">loading…</div></div>
+      </div>
+      <div class="mon-graph"><div id="mon-net"></div></div>
+    </div>
+  </section>
+
+  <!-- start-a-spiral modal -->
+  <div id="spiral-modal" class="overlay hidden">
+    <div class="card">
+      <button id="spiral-close" class="ghost spiral-x" title="close">✕</button>
+      <h1>🕸 Start a spiral</h1>
+      <p class="dim small">One link per line — each line must be a link
+        <code>A → B</code> or <code>A = B</code> (2–7 links).</p>
+      <textarea id="spiral-links" rows="6" spellcheck="false"
+        placeholder="H2O -> O2&#10;O2 -> O3&#10;O3 -> O2"></textarea>
+      <div id="spiral-cost" class="dim small spiral-cost"></div>
+      <div id="spiral-error" class="spiral-error"></div>
+      <button id="spiral-submit">🕸 Weave the spiral</button>
+    </div>
+  </div>
+
+  <!-- ====================== QR ONBOARDING MODAL ====================== -->
+  <!--
+    Wallet-signed QR onboarding. The "My peer QR" payload is produced by the
+    ENGINE (signed with the device wallet) and only DRAWN here. A scanned QR is
+    handed verbatim to the engine which runs crypto.verify BEFORE any WebRTC
+    DataChannel is opened — signature-gated authentication, never a backdoor.
+  -->
+  <div id="qr-modal" class="hidden">
+    <div class="card">
+      <button class="x" id="qr-close" title="close">✕</button>
+      <h2 id="qr-title">📷 Your peer QR</h2>
+      <p class="dim small" id="qr-hint">Have another device scan this to open a direct, wallet-verified link.</p>
+      <canvas id="qr-canvas" width="256" height="256"></canvas>
+      <video id="qr-video" class="hidden" playsinline></video>
+      <p class="dim small mono" id="qr-fingerprint"></p>
+      <div id="qr-scan-status" class="small"></div>
+    </div>
+  </div>
+
+  <footer class="dim small">
+    bar woven: <b id="bar-woven">0</b> terms · bonds are Knits · molecules are Fibers ·
+    peers validate with pulses · <b>no NFTs</b> · running fully in-tab (no server)
+  </footer>
+
+  <!--
+    The peer bootstrap is an ES module so it can import the QR/WebRTC helpers and
+    spawn the engine as a module-type Web Worker (classic importScripts is not
+    supported for Pyodide-in-worker). The legacy `app.js` render layer is loaded
+    by peer.js AFTER the engine reports ready, wired to the postMessage RPC
+    shim instead of `fetch('/api/*')`.
+  -->
+  <script type="module" src="peer.js"></script>
+</body>
+</html>
