@@ -241,24 +241,41 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return forwarded
             return client
 
-        def _rate_identity(self, body: dict | None = None) -> str | None:
+        def _rate_identity(self, body: dict | None = None) -> tuple[str | None, str | None]:
+            """Return (sid_or_device, bare_device_id).
+
+            The first element is any session/actor identifier found in the request
+            body or query string.  The second is a bare ``device`` fingerprint when
+            present — it is tracked as an independent per-device bucket so one device
+            cannot bypass per-IP limits by switching IPs.
+            """
+            sid: str | None = None
+            device: str | None = None
             if body:
-                actor = body.get("sid") or body.get("device")
-                if actor:
-                    return str(actor)
-            if "?" in self.path:
+                raw_sid = body.get("sid")
+                raw_dev = body.get("device")
+                if raw_sid:
+                    sid = str(raw_sid)
+                if raw_dev:
+                    device = str(raw_dev)
+            if sid is None and "?" in self.path:
                 from urllib.parse import parse_qs, urlparse
-                sid = (parse_qs(urlparse(self.path).query).get("sid") or [None])[0]
-                if sid:
-                    return str(sid)
-            return None
+                raw = (parse_qs(urlparse(self.path).query).get("sid") or [None])[0]
+                if raw:
+                    sid = str(raw)
+            return sid, device
 
         def _rate_limit(self, method: str, path: str, body: dict | None = None) -> bool:
             source = self._join_source()
-            actor = self._rate_identity(body)
+            sid, device_id = self._rate_identity(body)
+            actor = sid or device_id
             keys = [f"{method}:{path}:source:{source}"]
             if actor:
                 keys.append(f"{method}:{path}:actor:{source}:{actor}")
+            if device_id:
+                # Independent per-device bucket — ignores IP so one device cannot
+                # consume quota under multiple source IPs.
+                keys.append(f"{method}:{path}:device:{device_id}")
             decision = limiter.check(limits.rule_for(method, path), keys)
             if decision.allowed:
                 return True
