@@ -564,6 +564,39 @@ def subgraph(g: nx.DiGraph, term: str, depth: int = 2, *, langs=None,
             "truncated": len(seen) >= max_nodes}
 
 
+def shard(g: nx.DiGraph, n_shards: int = 8) -> list[nx.DiGraph]:
+    """Partition ``g`` into ``n_shards`` sub-graphs by ``hash(node) % n_shards``.
+
+    Each shard holds the nodes whose integer bucket index matches the shard
+    number, plus all edges induced by those nodes.  Uses Python's built-in
+    ``hash()`` — an integer operation, no float arithmetic.  Enables a peer to
+    hold 1/n_shards of the graph.
+    """
+    if n_shards < 1:
+        raise ValueError("n_shards must be ≥ 1")
+    buckets: list[list] = [[] for _ in range(n_shards)]
+    for node in g.nodes():
+        buckets[hash(node) % n_shards].append(node)
+    shards = []
+    for bucket in buckets:
+        shards.append(g.subgraph(bucket).copy())
+    return shards
+
+
+def merge_shards(shards: list[nx.DiGraph]) -> nx.DiGraph:
+    """Inverse of :func:`shard`: combine all shards back into one graph.
+
+    Nodes and edge attributes from all shards are merged.  The merge is
+    lossless when the shards were produced by :func:`shard` from the same graph
+    (no cross-shard edges were retained in individual shards).
+    """
+    out: nx.DiGraph = nx.DiGraph()
+    for shard_g in shards:
+        out.add_nodes_from(shard_g.nodes(data=True))
+        out.add_edges_from(shard_g.edges(data=True))
+    return out
+
+
 def sample_web() -> dict:
     """A tiny built-in chemistry web (gateway.App store shape) so the server boots without data."""
     def lab(key, en, ru, zh, ar):

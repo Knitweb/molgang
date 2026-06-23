@@ -116,15 +116,18 @@ def clamp_relayed_weights(item: WovenItem) -> WovenItem:
     """Bound a relayed item's self-reported weight so a forged value can't dominate the web.
 
     ``confirmations``/``validators`` come from the untrusted sender; clamp ``validators`` to the
-    ceiling and ``confirmations`` to ``min(ceiling, validators-if-claimed)``, floored at 1. Mutates
-    and returns the item.
+    ceiling and ``confirmations`` to ``min(ceiling, validators-if-claimed)``, floored at 1.
+    Also validates the ``lang`` field — falls back to ``"en"`` if unknown. Mutates and returns.
     """
+    from .world import VALID_LANGS
     v = item.validators if isinstance(item.validators, int) and item.validators > 0 else 0
     v = min(v, RELAY_MAX_CONFIRMATIONS)
     item.validators = v
     c = item.confirmations if isinstance(item.confirmations, int) else 1
     cap = min(RELAY_MAX_CONFIRMATIONS, v) if v > 0 else RELAY_MAX_CONFIRMATIONS
     item.confirmations = max(1, min(c, cap))
+    if not isinstance(item.lang, str) or item.lang not in VALID_LANGS:
+        item.lang = "en"
     return item
 
 

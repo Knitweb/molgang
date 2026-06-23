@@ -28,7 +28,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from ipaddress import ip_address
 from typing import Callable
 
-from .bar import Bar, DEFAULT_FAUCET_SOURCE_CAP, suggested_terms
+from .bar import Bar, DEFAULT_FAUCET_SOURCE_CAP, _faucet_day, suggested_terms
+from .chemistry import ChemistryLens
 from .monitor import _simulate_p2p
 from .pulse_host import bootstrap_host, default_wallet_path
 
@@ -359,6 +360,14 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return self._json(200, {"enabled": True, "base": relay.base,
                                         "topic": relay.topic, "node": relay.signer.pub,
                                         "address": relay.signer.address, "cursor": relay.cursor})
+            if path == "/api/lens/chemistry":
+                from urllib.parse import parse_qs, urlparse
+                q = (parse_qs(urlparse(self.path).query).get("q") or [""])[0]
+                return self._json(200, {"query": q, "results": ChemistryLens().react(q)})
+            if path == "/api/export/jsonld":
+                return self._json(200, bar.world.to_jsonld())
+            if path == "/metrics":
+                return self._metrics()
             return self._static(path)
 
         # -- 📡 Monitor: node/p2p status + the local woven knitweb (#59 #60) ----
@@ -466,6 +475,50 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return self._json(404, {"error": "not found"})
             except (KeyError, RuntimeError, ValueError) as e:
                 return self._json(400, {"error": str(e)})
+
+        def _metrics(self) -> None:
+            """Prometheus-compatible text/plain metrics endpoint."""
+            lines = []
+
+            def gauge(name, value, labels=None):
+                lbl = (
+                    "{" + ",".join(f'{k}="{v}"' for k, v in labels.items()) + "}"
+                    if labels else ""
+                )
+                lines.append(f"# TYPE {name} gauge")
+                lines.append(f"{name}{lbl} {int(value)}")
+
+            # fibers by table
+            from collections import Counter
+            table_counts: Counter = Counter()
+            for w in bar.woven:
+                table_counts[str(w.get("table", "unknown"))] += 1
+            for tbl, cnt in table_counts.items():
+                gauge("molgang_fibers_total", cnt, {"table": tbl})
+            if not table_counts:
+                gauge("molgang_fibers_total", 0, {"table": "none"})
+
+            # player / session counts
+            sessions = list(bar.sessions.values())
+            gauge("molgang_players_total", len(sessions))
+
+            # pulses circulating (non-bot sessions)
+            pulses = sum(s.player.pulses for s in sessions if not s.bot)
+            gauge("molgang_pulses_circulating", pulses)
+
+            # faucet day
+            gauge("molgang_faucet_day", _faucet_day())
+
+            # relay queue depth
+            depth = relay.cursor if relay is not None else 0
+            gauge("molgang_relay_queue_depth", depth)
+
+            body = "\n".join(lines) + "\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+            self.send_header("Content-Length", str(len(body.encode())))
+            self.end_headers()
+            self.wfile.write(body.encode("utf-8"))
 
         def log_message(self, *args) -> None:
             pass
