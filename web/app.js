@@ -954,18 +954,32 @@ async function runSim() {
     monSimNet = null;
     return;
   }
-  $("mon-nodes").innerHTML = d.nodes.map((nd) =>
-    `<div class="mon-node"><span class="mdot up"></span><b>${esc(nd.label)}</b>
-     <span class="dim small">:${nd.port}</span>
-     <span class="pos small">● live (sim)</span>
-     <span class="dim small">· ${nd.peers} peers · ${nd.fibers} fibers · ${fmt(nd.balance_pls)} PLS</span>
-     <span class="mono small dim" title="${esc(nd.address)}"> ${esc(nd.address.slice(0,12))}…</span></div>`
-  ).join("");
-  $("mon-sim-stats").innerHTML =
-    `<span class="bal">🌐 <b>${d.node_count}</b> nodes (simulated)</span>
-     <span class="bal">🔗 <b>${d.edges.length}</b> p2p links</span>
-     <span class="bal">⚡ <b>${fmt(d.total_balance_pls)}</b> PLS total</span>
-     <span class="bal">🧵 <b>${d.total_fibers}</b> fibers</span>`;
+  const nodesEl = $("mon-nodes");
+  nodesEl.replaceChildren(...d.nodes.map((nd) => {
+    const div = document.createElement("div");
+    div.className = "mon-node";
+    const dot = document.createElement("span"); dot.className = "mdot up";
+    const lbl = document.createElement("b"); lbl.textContent = nd.label;
+    const prt = document.createElement("span"); prt.className = "dim small"; prt.textContent = `:${nd.port}`;
+    const live = document.createElement("span"); live.className = "pos small"; live.textContent = "● live (sim)";
+    const info = document.createElement("span"); info.className = "dim small";
+    info.textContent = `· ${nd.peers} peers · ${nd.fibers} fibers · ${fmt(nd.balance_pls)} PLS`;
+    const addr = document.createElement("span"); addr.className = "mono small dim"; addr.title = nd.address;
+    addr.textContent = ` ${nd.address.slice(0, 12)}…`;
+    div.append(dot, lbl, " ", prt, " ", live, " ", info, " ", addr);
+    return div;
+  }));
+  const statsEl = $("mon-sim-stats");
+  statsEl.replaceChildren(...[
+    ["🌐", d.node_count, "nodes (simulated)"],
+    ["🔗", d.edges.length, "p2p links"],
+    ["⚡", fmt(d.total_balance_pls), "PLS total"],
+    ["🧵", d.total_fibers, "fibers"],
+  ].map(([icon, val, label]) => {
+    const sp = document.createElement("span"); sp.className = "bal";
+    sp.textContent = `${icon} ${val} ${label}`;
+    return sp;
+  }));
   $("mon-sim-net").style.display = "";
   if (typeof vis !== "undefined") {
     const nodes = new vis.DataSet(d.nodes.map((nd) => ({
