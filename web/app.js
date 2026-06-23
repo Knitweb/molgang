@@ -949,13 +949,17 @@ async function runSim() {
   const n = parseInt($("sim-n").value) || 6;
   if (n < 1) { $("mon-sim-net").style.display = "none"; monSimNet = null; return; }
   const d = await api("/api/monitor/simulate?n=" + n);
-  if (!d || d.error) return;
+  if (!d || d.error) {
+    $("mon-sim-net").style.display = "none";
+    monSimNet = null;
+    return;
+  }
   $("mon-nodes").innerHTML = d.nodes.map((nd) =>
-    `<div class="mon-node"><span class="mdot up"></span><b>${nd.label}</b>
+    `<div class="mon-node"><span class="mdot up"></span><b>${esc(nd.label)}</b>
      <span class="dim small">:${nd.port}</span>
      <span class="pos small">● live (sim)</span>
      <span class="dim small">· ${nd.peers} peers · ${nd.fibers} fibers · ${fmt(nd.balance_pls)} PLS</span>
-     <span class="mono small dim" title="${nd.address}"> ${nd.address.slice(0,12)}…</span></div>`
+     <span class="mono small dim" title="${esc(nd.address)}"> ${esc(nd.address.slice(0,12))}…</span></div>`
   ).join("");
   $("mon-sim-stats").innerHTML =
     `<span class="bal">🌐 <b>${d.node_count}</b> nodes (simulated)</span>

@@ -367,7 +367,10 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
             q = parse_qs(urlparse(self.path).query)
             # Simulation endpoint works even when monitor is None.
             if path == "/api/monitor/simulate":
-                n = int((q.get("n") or ["6"])[0])
+                try:
+                    n = int((q.get("n") or ["6"])[0])
+                except ValueError:
+                    n = 6
                 return self._json(200, _simulate_p2p(n))
             if monitor is None:
                 return self._json(503, {"error": "monitor unavailable"})
