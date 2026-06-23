@@ -29,6 +29,7 @@ from ipaddress import ip_address
 from typing import Callable
 
 from .bar import Bar, DEFAULT_FAUCET_SOURCE_CAP, suggested_terms
+from .monitor import _simulate_p2p
 from .pulse_host import bootstrap_host, default_wallet_path
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web")
@@ -363,9 +364,13 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
         # -- 📡 Monitor: node/p2p status + the local woven knitweb (#59 #60) ----
         def _monitor(self, path: str) -> None:
             from urllib.parse import parse_qs, urlparse
+            q = parse_qs(urlparse(self.path).query)
+            # Simulation endpoint works even when monitor is None.
+            if path == "/api/monitor/simulate":
+                n = int((q.get("n") or ["6"])[0])
+                return self._json(200, _simulate_p2p(n))
             if monitor is None:
                 return self._json(503, {"error": "monitor unavailable"})
-            q = parse_qs(urlparse(self.path).query)
             if path == "/api/monitor":                      # one compact poll for the tab
                 return self._json(200, monitor.overview())
             if path == "/api/monitor/status":               # node/p2p liveness + provenance
