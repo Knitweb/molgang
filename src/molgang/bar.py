@@ -587,7 +587,7 @@ class Bar:
         """
         sess = self._require(sid)
         player = sess.player
-        pulses_used = max(0, game.FAUCET_PULSES - player.pulses)
+        pulses_used = max(0, game.current_faucet_pulses(_faucet_day()) - player.pulses)
         my_props = [p for p in self.proposals.values() if p.by == sid]
         my_spirals = [sv for sv in self.spirals.values() if sv.by == sid]
         votes_cast = (sum(1 for p in self.proposals.values() if sid in p.voters)

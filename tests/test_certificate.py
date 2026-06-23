@@ -11,9 +11,9 @@ import secrets
 
 import pytest
 
-from molgang.bar import Bar, Session
+from molgang.bar import Bar, Session, _faucet_day
 from molgang.certificate import certificate_for_node, make_pouw_certificate
-from molgang.game import FAUCET_PULSES, Player
+from molgang.game import FAUCET_PULSES, Player, current_faucet_pulses
 
 pypdf = pytest.importorskip("pypdf")  # text-layer assertions need a PDF reader
 
@@ -107,8 +107,9 @@ def test_certificate_for_a_real_bar_player(tmp_path):
         if pr and not pr.settled and me.sid not in pr.voters:
             bar.vote(me.sid, bp.pid, "mismatch")    # stakes a real pulse
 
+    starting_grant = current_faucet_pulses(_faucet_day())
     d = bar.certificate_data(me.sid)
-    assert d["pulses_used"] == FAUCET_PULSES - me.player.pulses
+    assert d["pulses_used"] == starting_grant - me.player.pulses
     assert d["pulses_used"] > 0                      # the player really spent pulses
     assert d["work_summary"]["votes_cast"] >= 1
     assert d["provenance"]["ual"].startswith("did:dkg:knitweb/")
