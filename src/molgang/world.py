@@ -54,6 +54,7 @@ class WovenItem:
     pls_staked: int = 0
     anchor_rel: int = 0
     anchor_ts: int = 0
+    lang: str = "en"
 
     @property
     def label(self) -> str:
@@ -269,6 +270,53 @@ class World:
         from . import graphx
         self._sync()
         return graphx.explore(self.items, term=term, frm=frm, to=to)
+
+
+    def to_jsonld(self) -> dict:
+        """Export the woven fabric as JSON-LD (schema.org + knitweb vocab)."""
+        self._sync()
+        graph = []
+        for item in self.items:
+            node: dict = {
+                "@id": f"knitweb:fiber/{item.fiber_cid}",
+                "@type": "knitweb:Fiber",
+                "knitweb:kind": item.kind,
+                "knitweb:by": item.by,
+                "knitweb:confirmations": item.confirmations,
+            }
+            if item.kind == "term":
+                node["knitweb:term"] = item.term
+            elif item.kind == "link":
+                node["knitweb:subject"] = item.subject
+                node["knitweb:relation"] = item.relation
+                node["knitweb:object"] = item.object
+            elif item.kind == "spiral":
+                node["knitweb:links"] = item.links
+            graph.append(node)
+        return {
+            "@context": {
+                "schema": "https://schema.org/",
+                "knitweb": "https://knitweb.art/vocab#",
+            },
+            "@graph": graph,
+        }
+
+
+VALID_LANGS: frozenset[str] = frozenset({"en", "nl", "ru", "zh", "ar"})
+_RTL_LANGS: frozenset[str] = frozenset({"ar"})
+
+
+def validate_lang(lang: str | None) -> str:
+    """Return ``lang`` if valid, raise ``ValueError`` otherwise.
+
+    ``None`` or empty string returns ``"en"`` as default.
+    RTL languages (``ar``) are accepted; the caller must handle direction.
+    """
+    if not lang:
+        return "en"
+    if lang not in VALID_LANGS:
+        raise ValueError(f"unsupported lang {lang!r}; valid: {sorted(VALID_LANGS)}")
+    return lang
 
 
 def default_world_path() -> str:

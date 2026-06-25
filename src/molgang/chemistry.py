@@ -277,3 +277,77 @@ def reaction_tier(rid: str) -> str | None:
     """Curriculum tier of a canonical reaction id, or ``None`` if unknown."""
     entry = REACTIONS.get(rid)
     return entry["tier"] if entry else None
+
+
+class ChemistryLens:
+    """Knitweb L5 lens plugin: query the molecular knowledge base.
+
+    ``react(query)`` returns a list of matching nodes (molecules, elements, or
+    reactions) enriched with bilingual labels, neighbor formulas, and tier.
+    Returns ``[]`` for unknown terms — never raises on bad input.
+    """
+
+    def react(self, query: str) -> list[dict]:
+        q = (query or "").strip()
+        if not q:
+            return []
+        results: list[dict] = []
+        # Exact molecule match
+        if q in MOLECULES:
+            name_en, name_nl = MOLECULES[q]
+            atoms = {}
+            try:
+                atoms = parse_formula(q)
+            except ValueError:
+                pass
+            results.append({
+                "node": q,
+                "formula": q,
+                "name_en": name_en,
+                "name_nl": name_nl,
+                "tier": _TIER_OF.get(q),
+                "atoms": atoms,
+                "neighbors": self._molecule_neighbors(q),
+                "type": "molecule",
+            })
+        # Exact element match
+        if q in ELEMENTS:
+            name_en, name_nl, z = ELEMENTS[q]
+            results.append({
+                "node": q,
+                "formula": q,
+                "name_en": name_en,
+                "name_nl": name_nl,
+                "tier": _TIER_OF.get(q),
+                "atoms": {q: 1},
+                "neighbors": [],
+                "type": "element",
+                "atomic_number": z,
+            })
+        # Reactions containing this formula
+        for rid, rdata in REACTIONS.items():
+            rxn = parse_equation(rdata["equation"])
+            species = [f for _, f in rxn.reactants] + [f for _, f in rxn.products]
+            if q in species:
+                results.append({
+                    "node": rid,
+                    "formula": rdata["equation"],
+                    "name_en": rdata["name"],
+                    "name_nl": rdata["name"],
+                    "tier": rdata.get("tier"),
+                    "neighbors": species,
+                    "type": "reaction",
+                    "reaction_type": rdata.get("type"),
+                })
+        return results
+
+    def _molecule_neighbors(self, formula: str) -> list[str]:
+        """Molecules that share at least one element with ``formula``."""
+        try:
+            atoms = set(parse_formula(formula).keys())
+        except ValueError:
+            return []
+        return [
+            mol for mol in MOLECULES
+            if mol != formula and bool(set(parse_formula(mol).keys()) & atoms)
+        ]

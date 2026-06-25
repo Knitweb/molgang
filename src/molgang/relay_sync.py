@@ -29,6 +29,7 @@ wove — exactly how :mod:`molgang.merge` unions co-woven fibers.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import ssl
@@ -116,15 +117,18 @@ def clamp_relayed_weights(item: WovenItem) -> WovenItem:
     """Bound a relayed item's self-reported weight so a forged value can't dominate the web.
 
     ``confirmations``/``validators`` come from the untrusted sender; clamp ``validators`` to the
-    ceiling and ``confirmations`` to ``min(ceiling, validators-if-claimed)``, floored at 1. Mutates
-    and returns the item.
+    ceiling and ``confirmations`` to ``min(ceiling, validators-if-claimed)``, floored at 1.
+    Also validates the ``lang`` field — falls back to ``"en"`` if unknown. Mutates and returns.
     """
+    from .world import VALID_LANGS
     v = item.validators if isinstance(item.validators, int) and item.validators > 0 else 0
     v = min(v, RELAY_MAX_CONFIRMATIONS)
     item.validators = v
     c = item.confirmations if isinstance(item.confirmations, int) else 1
     cap = min(RELAY_MAX_CONFIRMATIONS, v) if v > 0 else RELAY_MAX_CONFIRMATIONS
     item.confirmations = max(1, min(c, cap))
+    if not isinstance(item.lang, str) or item.lang not in VALID_LANGS:
+        item.lang = "en"
     return item
 
 
@@ -343,6 +347,73 @@ class RelaySync:
             if e.dst == dst and e.rel == rel:
                 return e.weight
         return 0
+
+    # -- snapshot / restore ---------------------------------------------------
+
+    def _world_hash(self) -> str:
+        """Deterministic SHA-256 of the serialised world items (integer cursor ignored)."""
+        items_json = json.dumps(
+            [asdict(it) for it in self.world.items],
+            sort_keys=True, separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(items_json).hexdigest()
+
+    def snapshot(self, path: str) -> None:
+        """Write ``{cursor: int, world_hash: str, items: list}`` as JSON to ``path``.
+
+        ``cursor`` is stored as an integer (floor) so snapshot files stay float-free
+        on the identity path.  The ``world_hash`` is a SHA-256 over the serialised
+        world items; :meth:`verify_snapshot` uses it to detect tampering.
+        """
+        data = {
+            "cursor": int(self.cursor),
+            "world_hash": self._world_hash(),
+            "items": [asdict(it) for it in self.world.items],
+        }
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, sort_keys=True, indent=2)
+        os.replace(tmp, path)
+
+    def restore(self, path: str) -> None:
+        """Load a snapshot, verify ``world_hash``, and reset cursor + world items.
+
+        Raises :class:`ValueError` if the hash does not match (tampered or corrupt).
+        Cursor is restored as ``int`` (no float on the deterministic path).
+        """
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+
+        stored_hash = data.get("world_hash", "")
+        raw_items = data.get("items", [])
+        items_json = json.dumps(raw_items, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        computed = hashlib.sha256(items_json).hexdigest()
+        if computed != stored_hash:
+            raise ValueError(
+                f"snapshot world_hash mismatch: stored={stored_hash!r}, computed={computed!r}"
+            )
+
+        loaded: list[WovenItem] = []
+        for rec in raw_items:
+            try:
+                loaded.append(WovenItem(**rec))
+            except TypeError:
+                pass
+        self.world.items[:] = loaded
+        self.cursor = int(data.get("cursor", 0))
+        self._reindex()
+
+    def verify_snapshot(self, path: str) -> bool:
+        """Return True iff the snapshot file's world_hash matches its items payload."""
+        try:
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+        except (OSError, json.JSONDecodeError):
+            return False
+        stored = data.get("world_hash", "")
+        raw_items = data.get("items", [])
+        items_json = json.dumps(raw_items, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(items_json).hexdigest() == stored
 
 
 # -- identity helpers --------------------------------------------------------

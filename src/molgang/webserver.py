@@ -28,7 +28,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from ipaddress import ip_address
 from typing import Callable
 
-from .bar import Bar, DEFAULT_FAUCET_SOURCE_CAP, suggested_terms
+from .bar import Bar, DEFAULT_FAUCET_SOURCE_CAP, _faucet_day, suggested_terms
+from .chemistry import ChemistryLens
 from .monitor import _simulate_p2p
 from .pulse_host import bootstrap_host, default_wallet_path
 
@@ -240,24 +241,41 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return forwarded
             return client
 
-        def _rate_identity(self, body: dict | None = None) -> str | None:
+        def _rate_identity(self, body: dict | None = None) -> tuple[str | None, str | None]:
+            """Return (sid_or_device, bare_device_id).
+
+            The first element is any session/actor identifier found in the request
+            body or query string.  The second is a bare ``device`` fingerprint when
+            present — it is tracked as an independent per-device bucket so one device
+            cannot bypass per-IP limits by switching IPs.
+            """
+            sid: str | None = None
+            device: str | None = None
             if body:
-                actor = body.get("sid") or body.get("device")
-                if actor:
-                    return str(actor)
-            if "?" in self.path:
+                raw_sid = body.get("sid")
+                raw_dev = body.get("device")
+                if raw_sid:
+                    sid = str(raw_sid)
+                if raw_dev:
+                    device = str(raw_dev)
+            if sid is None and "?" in self.path:
                 from urllib.parse import parse_qs, urlparse
-                sid = (parse_qs(urlparse(self.path).query).get("sid") or [None])[0]
-                if sid:
-                    return str(sid)
-            return None
+                raw = (parse_qs(urlparse(self.path).query).get("sid") or [None])[0]
+                if raw:
+                    sid = str(raw)
+            return sid, device
 
         def _rate_limit(self, method: str, path: str, body: dict | None = None) -> bool:
             source = self._join_source()
-            actor = self._rate_identity(body)
+            sid, device_id = self._rate_identity(body)
+            actor = sid or device_id
             keys = [f"{method}:{path}:source:{source}"]
             if actor:
                 keys.append(f"{method}:{path}:actor:{source}:{actor}")
+            if device_id:
+                # Independent per-device bucket — ignores IP so one device cannot
+                # consume quota under multiple source IPs.
+                keys.append(f"{method}:{path}:device:{device_id}")
             decision = limiter.check(limits.rule_for(method, path), keys)
             if decision.allowed:
                 return True
@@ -359,6 +377,14 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return self._json(200, {"enabled": True, "base": relay.base,
                                         "topic": relay.topic, "node": relay.signer.pub,
                                         "address": relay.signer.address, "cursor": relay.cursor})
+            if path == "/api/lens/chemistry":
+                from urllib.parse import parse_qs, urlparse
+                q = (parse_qs(urlparse(self.path).query).get("q") or [""])[0]
+                return self._json(200, {"query": q, "results": ChemistryLens().react(q)})
+            if path == "/api/export/jsonld":
+                return self._json(200, bar.world.to_jsonld())
+            if path == "/metrics":
+                return self._metrics()
             return self._static(path)
 
         # -- 📡 Monitor: node/p2p status + the local woven knitweb (#59 #60) ----
@@ -466,6 +492,50 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return self._json(404, {"error": "not found"})
             except (KeyError, RuntimeError, ValueError) as e:
                 return self._json(400, {"error": str(e)})
+
+        def _metrics(self) -> None:
+            """Prometheus-compatible text/plain metrics endpoint."""
+            lines = []
+
+            def gauge(name, value, labels=None):
+                lbl = (
+                    "{" + ",".join(f'{k}="{v}"' for k, v in labels.items()) + "}"
+                    if labels else ""
+                )
+                lines.append(f"# TYPE {name} gauge")
+                lines.append(f"{name}{lbl} {int(value)}")
+
+            # fibers by table
+            from collections import Counter
+            table_counts: Counter = Counter()
+            for w in bar.woven:
+                table_counts[str(w.get("table", "unknown"))] += 1
+            for tbl, cnt in table_counts.items():
+                gauge("molgang_fibers_total", cnt, {"table": tbl})
+            if not table_counts:
+                gauge("molgang_fibers_total", 0, {"table": "none"})
+
+            # player / session counts
+            sessions = list(bar.sessions.values())
+            gauge("molgang_players_total", len(sessions))
+
+            # pulses circulating (non-bot sessions)
+            pulses = sum(s.player.pulses for s in sessions if not s.bot)
+            gauge("molgang_pulses_circulating", pulses)
+
+            # faucet day
+            gauge("molgang_faucet_day", _faucet_day())
+
+            # relay queue depth
+            depth = relay.cursor if relay is not None else 0
+            gauge("molgang_relay_queue_depth", depth)
+
+            body = "\n".join(lines) + "\n"
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+            self.send_header("Content-Length", str(len(body.encode())))
+            self.end_headers()
+            self.wfile.write(body.encode("utf-8"))
 
         def log_message(self, *args) -> None:
             pass
