@@ -19,6 +19,8 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ../pulse -e . "pytest>=8"
+      - name: Check knitweb engine compatibility
+        run: PYTHONPATH=src:../pulse/src python -m molgang.cli doctor
       - name: Tests
         run: PYTHONPATH=.:src:../pulse/src python -m pytest -q
       - name: Django wrapper tests

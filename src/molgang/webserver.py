@@ -177,14 +177,9 @@ def _trust_forwarded_for(client_host: str) -> bool:
 
 def api_version_info() -> dict:
     """Identity of this engine + the /api contract version, so clients can detect drift."""
-    from . import __version__ as molgang_version
-    try:
-        import knitweb
-        knitweb_version = getattr(knitweb, "__version__", "unknown")
-    except Exception:
-        knitweb_version = "unavailable"
-    return {"api_version": API_VERSION, "engine": "python",
-            "molgang": molgang_version, "knitweb": knitweb_version}
+    from .engine_compat import engine_metadata
+
+    return {"api_version": API_VERSION, **engine_metadata(engine="python")}
 
 
 def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*",
