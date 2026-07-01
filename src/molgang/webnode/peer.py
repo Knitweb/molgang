@@ -56,6 +56,7 @@ from knitweb.p2p.wire import (
 
 from molgang import game
 from molgang.bar import Bar
+from molgang.engine_compat import engine_metadata
 from molgang import relay_sync
 
 from . import contract
@@ -357,7 +358,7 @@ class WebPeer:
         """Contract + engine versions (the in-worker analogue of GET /api/version)."""
         return {
             "contract": contract.CONTRACT_VERSION,
-            "engine": "pyodide",
+            **engine_metadata(engine="pyodide"),
             "max_frame_bytes": MAX_FRAME_BYTES,
             "micropulses_per_pulse": game.MICROPULSES_PER_PULSE,
         }

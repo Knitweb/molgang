@@ -41,6 +41,7 @@ from dataclasses import asdict
 from knitweb.core import crypto
 from knitweb.ledger.node import AccountNode
 
+from .engine_compat import EngineCompatibilityError, assert_peer_engine_compatible, engine_metadata
 from .world import WovenItem, World
 
 # The canonical relay topic molgang's shared web rides on.
@@ -88,7 +89,9 @@ def pack(item: WovenItem, signer: AccountNode, *, topic: str = WEB_TOPIC, to: st
     ``body`` is the item's JSON (canonical: sorted keys, compact) so the bytes a reader weaves
     are exactly the bytes the signer signed.
     """
-    body = json.dumps(asdict(item), separators=(",", ":"), sort_keys=True, ensure_ascii=False)
+    record = asdict(item)
+    record["_engine"] = engine_metadata(engine="relay")
+    body = json.dumps(record, separators=(",", ":"), sort_keys=True, ensure_ascii=False)
     sig = crypto.sign(signer.priv, signed_preimage(to, topic, body))
     return {"from": signer.pub, "to": to, "topic": topic, "body": body, "sig": sig}
 
@@ -145,6 +148,18 @@ def item_from_body(body: str) -> WovenItem | None:
         return WovenItem(**{k: v for k, v in d.items() if k in fields})
     except TypeError:
         return None
+
+
+def peer_engine_from_body(body: str) -> dict | None:
+    """Return advertised engine metadata from a relay body, if present."""
+    try:
+        data = json.loads(body)
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    meta = data.get("_engine")
+    return meta if isinstance(meta, dict) else None
 
 
 # -- dedup keys (the SAME casefold/edge keys World + merge already use) -------
@@ -248,6 +263,11 @@ class RelaySync:
                 skipped += 1
                 continue
             if not verify_message(msg, topic=self.topic):
+                rejected += 1
+                continue
+            try:
+                assert_peer_engine_compatible(peer_engine_from_body(str(msg.get("body", ""))))
+            except EngineCompatibilityError:
                 rejected += 1
                 continue
             item = item_from_body(str(msg.get("body", "")))

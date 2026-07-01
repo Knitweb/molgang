@@ -103,12 +103,20 @@ def doctor() -> int:
     import importlib.util
     import os
 
+    from .engine_compat import check_knitweb_compatibility
+
     print("  🧪 MOLGANG doctor")
     print(f"  python    {sys.version.split()[0]}")
     spec = importlib.util.find_spec("knitweb")
     if spec is not None:
         import knitweb
+        verdict = check_knitweb_compatibility()
         print(f"  knitweb   ✓ found  ({os.path.dirname(knitweb.__file__)})")
+        print(f"  version   {verdict.resolved} against {verdict.requirement} [{verdict.status}]")
+        print(f"  compat    {verdict.message}")
+        if not verdict.compatible:
+            print("  fix       install the pinned pulse/knitweb engine or update molgang's range")
+            return 1
         print("  status    ✓ ready — run `molgang` to play, or `molgang serve` for the browser bar")
         return 0
     print("  knitweb   ✗ NOT found")

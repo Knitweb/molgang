@@ -15,7 +15,7 @@ keywords = ["chemistry", "scheikunde", "education", "game", "p2p", "knitweb", "d
 # MOLGANG runs on the knitweb package (github.com/knitweb/pulse). It is not yet on PyPI;
 # for local dev install it editable:  pip install -e /path/to/pulse   (or set PYTHONPATH).
 dependencies = [
-    "knitweb>=0.6",
+    "knitweb>=0.6,<0.7",
     "networkx>=3",   # explore the woven graph (hubs, neighbours, shortest path)
     "fpdf2>=2.8",    # pure-Python PDF engine for PoUW certificates (no native deps)
 ]

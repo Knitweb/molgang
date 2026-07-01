@@ -34,7 +34,14 @@ try {
             // /api/version — contract drift check (Sprint 3 #58, docs/API.md). The PHP node is a
             // thin client/projection of the canonical Python bar; it speaks the same api_version.
             out(['api_version' => '1', 'engine' => 'php', 'molgang' => '0.1.0',
-                 'knitweb' => 'n/a (thin client)']);
+                 'knitweb' => 'n/a (thin client)', 'knitweb_requirement' => 'n/a (thin client)',
+                 'knitweb_compatibility' => [
+                     'status' => 'pass',
+                     'compatible' => true,
+                     'resolved' => 'n/a (thin client)',
+                     'requirement' => 'n/a (thin client)',
+                     'message' => 'PHP is a thin projection; Python peers advertise runtime knitweb compatibility.',
+                 ]]);
 
         case 'state':
             out(Bar::state(isset($q['sid']) ? (string) $q['sid'] : null));
