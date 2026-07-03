@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import subprocess
+import sys
 
 import pytest
 
@@ -119,15 +122,27 @@ def test_kg_merge_is_lossless():
     assert set(merged.nodes()) == set(g.nodes())
 
 
-def test_kg_shard_no_float():
-    """hash() is always integer — no float in shard assignment."""
-    import networkx as nx
-    from molgang.graphx import shard
-    g = nx.DiGraph()
-    g.add_nodes_from(["H2O", "CO2", "NaCl"])
-    # This just verifies shard() runs without error on string nodes
-    shards = shard(g, n_shards=2)
-    assert len(shards) == 2
+def test_kg_shard_stable_across_python_hash_seeds():
+    """Shard ownership must be identical on peers with different hash seeds."""
+    code = """
+import json
+import networkx as nx
+from molgang.graphx import shard
+g = nx.DiGraph()
+g.add_nodes_from(["H2O", "CO2", "NaCl", "V2O5", "oxygen"])
+assignments = {}
+for index, sg in enumerate(shard(g, n_shards=4)):
+    for node in sg.nodes():
+        assignments[node] = index
+print(json.dumps(assignments, sort_keys=True))
+"""
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(["src", env.get("PYTHONPATH", "")])
+    env["PYTHONHASHSEED"] = "1"
+    first = subprocess.check_output([sys.executable, "-c", code], text=True, env=env)
+    env["PYTHONHASHSEED"] = "2"
+    second = subprocess.check_output([sys.executable, "-c", code], text=True, env=env)
+    assert json.loads(first) == json.loads(second)
 
 
 # ---------------------------------------------------------------------------

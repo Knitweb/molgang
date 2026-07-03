@@ -9,6 +9,7 @@ knitweb `Web`; this is the explorer lens on top of it.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 
@@ -564,19 +565,36 @@ def subgraph(g: nx.DiGraph, term: str, depth: int = 2, *, langs=None,
             "truncated": len(seen) >= max_nodes}
 
 
-def shard(g: nx.DiGraph, n_shards: int = 8) -> list[nx.DiGraph]:
-    """Partition ``g`` into ``n_shards`` sub-graphs by ``hash(node) % n_shards``.
+def _stable_node_bucket(node, n_shards: int) -> int:
+    """Return a deterministic shard bucket for a graph node.
 
-    Each shard holds the nodes whose integer bucket index matches the shard
-    number, plus all edges induced by those nodes.  Uses Python's built-in
-    ``hash()`` — an integer operation, no float arithmetic.  Enables a peer to
-    hold 1/n_shards of the graph.
+    Python's built-in ``hash()`` is salted per process, so peers can disagree on
+    shard ownership unless the bucket comes from canonical bytes.
+    """
+    if isinstance(node, str):
+        payload = {"type": "str", "value": node}
+    elif isinstance(node, (int, float, bool)) or node is None:
+        payload = {"type": type(node).__name__, "value": node}
+    else:
+        payload = {"type": type(node).__qualname__, "value": str(node)}
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    digest = hashlib.sha256(raw.encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big") % n_shards
+
+
+def shard(g: nx.DiGraph, n_shards: int = 8) -> list[nx.DiGraph]:
+    """Partition ``g`` into deterministic content-hash shards.
+
+    Each shard holds the nodes whose stable bucket index matches the shard
+    number, plus all edges induced by those nodes.  The bucket uses canonical
+    SHA-256 bytes instead of Python's per-process salted ``hash()``, so peers
+    assign the same node to the same shard across processes and devices.
     """
     if n_shards < 1:
         raise ValueError("n_shards must be ≥ 1")
     buckets: list[list] = [[] for _ in range(n_shards)]
     for node in g.nodes():
-        buckets[hash(node) % n_shards].append(node)
+        buckets[_stable_node_bucket(node, n_shards)].append(node)
     shards = []
     for bucket in buckets:
         shards.append(g.subgraph(bucket).copy())
