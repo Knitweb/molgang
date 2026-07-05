@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QuantumV — quantum circuit puzzles</title>
+<style>
+  /* MOLGANG palette (matches ../style.css) */
+  :root{--bg:#070912;--surface:rgba(22,28,42,.72);--surface2:rgba(28,36,54,.72);
+    --line:rgba(120,140,180,.18);--line2:rgba(140,160,210,.30);--text:#eaf1fb;
+    --muted:#93a3bd;--accent:#8b5cff;--accent2:#22e3ff;--gold:#ffd24a;--purple:#ff5cf0;--red:#ff6f93;
+    --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace}
+  body{background:radial-gradient(1200px 800px at 70% -10%, #0b1020, #070912)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--mono);font-size:14px;line-height:1.55;
+    max-width:900px;margin:0 auto;padding:20px}
+  a{color:var(--accent2);text-decoration:none} a:hover{text-decoration:underline}
+  header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:12px}
+  h1{font-size:26px;font-weight:800;letter-spacing:-.5px}
+  h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:12px}
+  .lvlbar{display:flex;align-items:center;gap:10px;margin:14px 0;flex-wrap:wrap}
+  .section-tag{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--gold)}
+  .task{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:10px 0}
+  .task b{color:var(--accent)}
+  .stage{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start}
+  @media(max-width:720px){.stage{grid-template-columns:1fr}}
+  /* circuit grid */
+  .circuit{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto}
+  .wire{display:flex;align-items:center;gap:6px;margin:6px 0}
+  .wire .ket{width:44px;color:var(--muted);font-size:12px;text-align:right}
+  .cell{width:34px;height:34px;border:1px solid var(--line);border-radius:6px;display:flex;align-items:center;
+    justify-content:center;cursor:pointer;background:var(--bg);font-weight:700;font-size:14px;user-select:none;position:relative}
+  .cell:hover{border-color:var(--accent)}
+  .cell.locked{cursor:not-allowed;opacity:.5;background:var(--surface2)}
+  .cell.g-H{color:var(--accent2);border-color:var(--accent2)66}
+  .cell.g-X{color:var(--red);border-color:var(--red)66}
+  .cell.g-Y{color:var(--purple);border-color:var(--purple)66}
+  .cell.g-Z{color:var(--gold);border-color:var(--gold)66}
+  .cell.g-S{color:var(--accent);border-color:var(--accent)66}
+  .cell.g-Ctrl{color:var(--text)}
+  .cell.g-Ctrl::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--text)}
+  .colline{position:absolute;left:50%;top:-6px;bottom:-6px;width:2px;background:var(--line);transform:translateX(-50%);z-index:-1}
+  /* palette */
+  .side{min-width:240px}
+  .palette{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .gbtn{width:40px;height:40px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);
+    font-weight:700;cursor:pointer;font:inherit;font-size:15px}
+  .gbtn.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent)33}
+  .bars{display:flex;flex-direction:column;gap:3px;margin-top:8px}
+  .brow{display:flex;align-items:center;gap:8px;font-size:11px}
+  .brow .bl{width:52px;text-align:right;color:var(--muted)}
+  .btrack{flex:1;height:14px;background:var(--bg);border:1px solid var(--line);border-radius:3px;position:relative;overflow:hidden}
+  .bnow{position:absolute;left:0;top:0;bottom:0;background:var(--accent2);opacity:.85}
+  .btgt{position:absolute;top:0;bottom:0;width:2px;background:var(--gold)}
+  .btns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  button.act{background:var(--accent)1f;border:1px solid var(--accent)66;color:var(--accent);border-radius:8px;
+    padding:9px 16px;cursor:pointer;font:inherit;font-size:13px}
+  button.act:hover{background:var(--accent)33}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 14px;cursor:pointer;font:inherit;font-size:13px}
+  .verdict{margin-top:12px;padding:10px 12px;border-radius:8px;font-size:13px;display:none}
+  .verdict.ok{display:block;background:var(--accent)18;border:1px solid var(--accent)66;color:var(--accent)}
+  .verdict.no{display:block;background:var(--red)18;border:1px solid var(--red)55;color:var(--red)}
+  .legend{font-size:11px;color:var(--muted);margin-top:10px}
+  footer{border-top:1px solid var(--line);margin-top:24px;padding-top:12px;font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧪 Quantum<span>V</span></h1>
+  <span class="sub">MOLGANG quantum puzzles · build a circuit to reach the target state ·
+    <a href="quantum-lab.html">← Quantum lab</a> · <a href="../index.html">the bar</a></span>
+</header>
+
+<div class="lvlbar">
+  <button class="ghost" onclick="prevLevel()">◀ prev</button>
+  <span id="lvl-label" class="section-tag">—</span>
+  <button class="ghost" onclick="nextLevel()">next ▶</button>
+  <select id="lvl-jump" onchange="jumpLevel(this.value)" style="margin-left:auto;background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:6px;padding:6px"></select>
+</div>
+
+<div class="task" id="task"></div>
+
+<div class="stage">
+  <div class="circuit" id="circuit"></div>
+  <div class="side">
+    <div class="section-tag" style="color:var(--muted)">palette — click a gate, then a cell</div>
+    <div class="palette" id="palette"></div>
+    <div class="section-tag" style="color:var(--muted)">state — <span style="color:var(--accent2)">■ current</span> vs <span style="color:var(--gold)">▏target</span> (probability)</div>
+    <div class="bars" id="bars"></div>
+    <div class="btns">
+      <button class="act" onclick="evaluate()">⚡ Evaluate</button>
+      <button class="ghost" onclick="clearCircuit()">Clear</button>
+    </div>
+    <div class="verdict" id="verdict"></div>
+    <div class="legend">A column with a control (●) plus a gate applies that gate <em>only</em> when every control qubit is |1⟩ in that branch. Empty cells do nothing.</div>
+  </div>
+</div>
+
+<footer>
+  <strong>QuantumV</strong> — a web rebrand of
+  <a href="https://github.com/ray-pH/quantumQ">QuantumQ</a> by ray-pH, used under
+  <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0</a>. QuantumV is likewise GPL-3.0.
+  Runs entirely in your browser. Part of the <a href="quantum-lab.html">MOLGANG Quantum lab</a> —
+  hands-on intuition for the gate operations the quantum-chemistry solver will lean on.
+</footer>
+
+<script>
+// ── complex + statevector engine ─────────────────────────────────────────
+const R=(re,im)=>({re,im:im||0});
+const cadd=(a,b)=>R(a.re+b.re,a.im+b.im);
+const cmul=(a,b)=>R(a.re*b.re-a.im*b.im,a.re*b.im+a.im*b.re);
+const S2=1/Math.SQRT2;
+const MAT={
+  H:[R(S2),R(S2),R(S2),R(-S2)], X:[R(0),R(1),R(1),R(0)],
+  Y:[R(0),R(0,-1),R(0,1),R(0)], Z:[R(1),R(0),R(0),R(-1)],
+  S:[R(1),R(0),R(0),R(0,1)],
+};
+// apply single-qubit matrix U to qubit t (q0 = most-significant bit), controlled on ctrls (all must be |1>)
+function applyGate(st,n,t,U,ctrls){
+  const bit=q=>1<<(n-1-q);                 // q0 is MSB
+  const tb=bit(t);
+  for(let i=0;i<(1<<n);i++){
+    if(i & tb) continue;                    // iterate the lower member of each pair once
+    if(ctrls.some(c=>!(i & bit(c)))) continue;
+    const j=i|tb, x0=st[i], x1=st[j];
+    st[i]=cadd(cmul(U[0],x0),cmul(U[1],x1));
+    st[j]=cadd(cmul(U[2],x0),cmul(U[3],x1));
+  }
+}
+function simulate(grid,n,cols,input){
+  const st=new Array(1<<n).fill(0).map(()=>R(0));
+  // input basis state (q0 = MSB)
+  let idx=0; for(let q=0;q<n;q++) if(input[q]) idx|=1<<(n-1-q);
+  st[idx]=R(1);
+  for(let c=0;c<cols;c++){
+    const ctrls=[]; const targets=[];
+    for(let q=0;q<n;q++){ const g=grid[q][c];
+      if(g==='Ctrl') ctrls.push(q); else if(g&&g!=='Empty') targets.push(q); }
+    for(const t of targets) applyGate(st,n,t,MAT[grid[t][c]],ctrls);
+  }
+  return st;
+}
+const prob=st=>st.map(a=>a.re*a.re+a.im*a.im);
+
+// ── levels (ported/faithful to QuantumQ's progression) ───────────────────
+// amplitudes as [re,...]; compared by probability. q0 = leftmost bit of the ket.
+const K=Math.SQRT1_2;
+const LEVELS=[
+ {sec:"Introduction", task:"Press <b>Evaluate</b>. The qubit already reads |0⟩.", n:1, input:[0], gates:["Empty"], target:[1,0]},
+ {sec:"Introduction", task:"Turn the qubit into state |0⟩.", n:1, input:[1], gates:["Empty","X"], target:[1,0]},
+ {sec:"Introduction", task:"Create the state |10⟩.", n:2, input:[0,1], gates:["Empty","X"], target:[0,0,1,0]},
+ {sec:"Introduction", task:"Create the state |111⟩.", n:3, input:[0,1,0], gates:["Empty","X"], target:[0,0,0,0,0,0,0,1]},
+ {sec:"Control", task:"Create |00⟩ by placing a <b>control</b> (●) on the top wire. The X on the lower wire is locked and only fires when the control is |1⟩.", n:2, input:[0,0], gates:["Empty","Ctrl"], target:[1,0,0,0], locked:[[1,2,"X"]]},
+ {sec:"Control", task:"Create |00⟩. Use a control so the X only fires when it should.", n:2, input:[0,1], gates:["Empty","X","Ctrl"], target:[1,0,0,0]},
+ {sec:"Control", task:"Create |111⟩. A gate can take more than one control — it fires only when <em>all</em> controls are |1⟩.", n:3, input:[1,1,0], gates:["Empty","X","Ctrl"], target:[0,0,0,0,0,0,0,1]},
+ {sec:"Superposition", task:"Create an equal superposition of |0⟩ and |1⟩.", n:1, input:[0], gates:["Empty","X","H"], target:[K,K]},
+ {sec:"Superposition", task:"Create an equal superposition of all four 2-qubit basis states.", n:2, input:[0,0], gates:["Empty","X","H"], target:[0.5,0.5,0.5,0.5]},
+ {sec:"Superposition", task:"Create an equal superposition of |01⟩ and |11⟩.", n:2, input:[0,0], gates:["Empty","X","H"], target:[0,K,0,K]},
+ {sec:"Entanglement", task:"Create a Bell pair — an equal superposition of |00⟩ and |11⟩ — using H and a control.", n:2, input:[0,0], gates:["Empty","X","H","Ctrl"], target:[K,0,0,K]},
+ {sec:"Entanglement", task:"Create the entangled state — superposition of |01⟩ and |10⟩.", n:2, input:[0,1], gates:["Empty","X","H","Ctrl"], target:[0,K,K,0]},
+ {sec:"Phase", task:"Put the qubit in |−⟩ = (|0⟩ − |1⟩)/√2  (a phase-flipped superposition).", n:1, input:[0], gates:["Empty","X","H","Z"], target:[K,-K]},
+ {sec:"Phase", task:"From |1⟩, reach the state (|0⟩ − |1⟩)/√2.", n:1, input:[1], gates:["Empty","X","H","Z","S"], target:[K,-K]},
+];
+const COLS=6;
+
+// ── game state ────────────────────────────────────────────────────────────
+let cur=0, grid=[], selGate="X", lastProb=null;
+const GLABEL={Empty:"·",H:"H",X:"X",Y:"Y",Z:"Z",S:"S",Ctrl:"●"};
+
+function lvl(){return LEVELS[cur];}
+function ketLabel(i,n){return "|"+i.toString(2).padStart(n,"0")+"⟩";}
+
+function buildGrid(){
+  const L=lvl(); grid=[];
+  for(let q=0;q<L.n;q++){grid.push(new Array(COLS).fill("Empty"));}
+  L._locked=new Set();
+  (L.locked||[]).forEach(([q,c,g])=>{ if(q<L.n&&c<COLS){grid[q][c]=g; L._locked.add(q+","+c);} });
+}
+
+function render(){
+  const L=lvl();
+  document.getElementById("lvl-label").textContent = `${L.sec} · level ${cur+1}/${LEVELS.length}`;
+  document.getElementById("task").innerHTML = L.task;
+  // circuit
+  const cir=document.getElementById("circuit"); cir.innerHTML="";
+  for(let q=0;q<L.n;q++){
+    const wire=document.createElement("div"); wire.className="wire";
+    const ket=document.createElement("span"); ket.className="ket"; ket.textContent="|"+L.input[q]+"⟩"; wire.appendChild(ket);
+    for(let c=0;c<COLS;c++){
+      const cell=document.createElement("div");
+      const g=grid[q][c];
+      cell.className="cell g-"+g+(L._locked.has(q+","+c)?" locked":"");
+      cell.textContent = g==="Empty"?"":(g==="Ctrl"?"":GLABEL[g]);
+      if(colHasControl(c)) { const cl=document.createElement("div"); cl.className="colline"; cell.appendChild(cl); }
+      if(!L._locked.has(q+","+c)) cell.onclick=()=>placeCell(q,c);
+      wire.appendChild(cell);
+    }
+    cir.appendChild(wire);
+  }
+  // palette
+  const pal=document.getElementById("palette"); pal.innerHTML="";
+  L.gates.filter(g=>g!=="Empty").forEach(g=>{
+    const b=document.createElement("button"); b.className="gbtn"+(selGate===g?" sel":"");
+    b.textContent=GLABEL[g]; b.title=g; b.onclick=()=>{selGate=g;render();};
+    pal.appendChild(b);
+  });
+  if(!L.gates.includes(selGate)) selGate=L.gates.filter(g=>g!=="Empty")[0]||"X";
+  renderBars(lastProb, L.target);
+  // level jump
+  const jump=document.getElementById("lvl-jump");
+  if(jump.children.length!==LEVELS.length){ jump.innerHTML=LEVELS.map((l,i)=>`<option value="${i}">${i+1}. ${l.sec}</option>`).join(""); }
+  jump.value=cur;
+  document.getElementById("verdict").className="verdict";
+}
+function colHasControl(c){const L=lvl();for(let q=0;q<L.n;q++)if(grid[q][c]==="Ctrl")return true;return false;}
+function placeCell(q,c){ grid[q][c] = (grid[q][c]===selGate) ? "Empty" : selGate; lastProb=null; render(); }
+function clearCircuit(){buildGrid();lastProb=null;render();}
+
+function renderBars(now, tgt){
+  const L=lvl(); const bars=document.getElementById("bars"); bars.innerHTML="";
+  const tp=tgt.map(a=>a*a);
+  for(let i=0;i<(1<<L.n);i++){
+    const nowP=now?now[i]:0;
+    const row=document.createElement("div"); row.className="brow";
+    row.innerHTML=`<span class="bl">${ketLabel(i,L.n)}</span>
+      <span class="btrack"><span class="bnow" style="width:${Math.round(100*nowP)}%"></span>
+      <span class="btgt" style="left:${Math.round(100*tp[i])}%"></span></span>`;
+    bars.appendChild(row);
+  }
+}
+
+function evaluate(){
+  const L=lvl();
+  const st=simulate(grid,L.n,COLS,L.input);
+  const p=prob(st); lastProb=p;
+  const tp=L.target.map(a=>a*a);
+  const win=p.every((x,i)=>Math.abs(x-tp[i])<2e-3);
+  renderBars(p,L.target);
+  const v=document.getElementById("verdict");
+  if(win){ v.className="verdict ok";
+    v.innerHTML = cur<LEVELS.length-1 ? "✓ Solved! The state matches the target. → click <b>next ▶</b>" : "✓ Solved — that's the last puzzle. Nice work.";
+    try{localStorage.setItem("quantumv_max",Math.max(cur,+ (localStorage.getItem("quantumv_max")||0)));}catch(e){}
+  } else { v.className="verdict no"; v.textContent="Not yet — the current state (blue) doesn't match the target (gold). Keep building."; }
+}
+
+function nextLevel(){ if(cur<LEVELS.length-1){cur++;lastProb=null;buildGrid();render();} }
+function prevLevel(){ if(cur>0){cur--;lastProb=null;buildGrid();render();} }
+function jumpLevel(i){ cur=+i;lastProb=null;buildGrid();render(); }
+
+buildGrid(); render();
+</script>
+</body>
+</html>
