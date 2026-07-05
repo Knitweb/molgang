@@ -1,0 +1,34 @@
+name: mirror
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Mirrors GitHub -> GitLab on every push to main. It is GUARDED: if the
+# GITLAB_TOKEN secret / GITLAB_PATH var are not set, it prints a notice and
+# succeeds, so an unconfigured repo never fails CI.
+#
+# Radicle is intentionally NOT mirrored from CI: the node signing key must not
+# live in a CI secret (key exposure). Run scripts/mirror-remotes.sh on the node.
+jobs:
+  gitlab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Push mirror to GitLab (skips if unconfigured)
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          GITLAB_HOST: ${{ vars.GITLAB_HOST }}
+          GITLAB_PATH: ${{ vars.GITLAB_PATH }}
+        run: |
+          if [ -z "${GITLAB_TOKEN}" ] || [ -z "${GITLAB_PATH}" ]; then
+            echo "::notice::GitLab mirror not configured (add secret GITLAB_TOKEN + var GITLAB_PATH) — skipping."
+            exit 0
+          fi
+          host="${GITLAB_HOST:-gitlab.com}"
+          url="https://oauth2:${GITLAB_TOKEN}@${host}/${GITLAB_PATH}.git"
+          git push --force "${url}" "HEAD:refs/heads/main"
+          git push --force --tags "${url}" || true
+          echo "Mirrored to ${host}/${GITLAB_PATH}"
