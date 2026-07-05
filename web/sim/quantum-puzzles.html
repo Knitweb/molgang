@@ -98,9 +98,10 @@
 </div>
 
 <footer>
-  <strong>QuantumV</strong> — a web rebrand of
-  <a href="https://github.com/ray-pH/quantumQ">QuantumQ</a> by ray-pH, used under
-  <a href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0</a>. QuantumV is likewise GPL-3.0.
+  <strong>QuantumV</strong> — MOLGANG's own quantum-circuit puzzles, in the spirit of the genre
+  (e.g. <a href="https://github.com/ray-pH/quantumQ">quantumQ</a> by ray-pH). All levels and engine
+  code here are original to MOLGANG and covered by the repository's Apache-2.0 licence; no
+  third-party game code or level data is included.
   Runs entirely in your browser. Part of the <a href="quantum-lab.html">MOLGANG Quantum lab</a> —
   hands-on intuition for the gate operations the quantum-chemistry solver will lean on.
 </footer>
@@ -143,24 +144,26 @@ function simulate(grid,n,cols,input){
 }
 const prob=st=>st.map(a=>a.re*a.re+a.im*a.im);
 
-// ── levels (ported/faithful to QuantumQ's progression) ───────────────────
+// ── levels — an original MOLGANG progression (clean-room; not ported) ─────
 // amplitudes as [re,...]; compared by probability. q0 = leftmost bit of the ket.
+// Every target is distinguishable by measurement probability and reachable with
+// the level's gate palette, so each puzzle is genuinely verifiable.
 const K=Math.SQRT1_2;
 const LEVELS=[
- {sec:"Introduction", task:"Press <b>Evaluate</b>. The qubit already reads |0⟩.", n:1, input:[0], gates:["Empty"], target:[1,0]},
- {sec:"Introduction", task:"Turn the qubit into state |0⟩.", n:1, input:[1], gates:["Empty","X"], target:[1,0]},
- {sec:"Introduction", task:"Create the state |10⟩.", n:2, input:[0,1], gates:["Empty","X"], target:[0,0,1,0]},
- {sec:"Introduction", task:"Create the state |111⟩.", n:3, input:[0,1,0], gates:["Empty","X"], target:[0,0,0,0,0,0,0,1]},
- {sec:"Control", task:"Create |00⟩ by placing a <b>control</b> (●) on the top wire. The X on the lower wire is locked and only fires when the control is |1⟩.", n:2, input:[0,0], gates:["Empty","Ctrl"], target:[1,0,0,0], locked:[[1,2,"X"]]},
- {sec:"Control", task:"Create |00⟩. Use a control so the X only fires when it should.", n:2, input:[0,1], gates:["Empty","X","Ctrl"], target:[1,0,0,0]},
- {sec:"Control", task:"Create |111⟩. A gate can take more than one control — it fires only when <em>all</em> controls are |1⟩.", n:3, input:[1,1,0], gates:["Empty","X","Ctrl"], target:[0,0,0,0,0,0,0,1]},
- {sec:"Superposition", task:"Create an equal superposition of |0⟩ and |1⟩.", n:1, input:[0], gates:["Empty","X","H"], target:[K,K]},
- {sec:"Superposition", task:"Create an equal superposition of all four 2-qubit basis states.", n:2, input:[0,0], gates:["Empty","X","H"], target:[0.5,0.5,0.5,0.5]},
- {sec:"Superposition", task:"Create an equal superposition of |01⟩ and |11⟩.", n:2, input:[0,0], gates:["Empty","X","H"], target:[0,K,0,K]},
- {sec:"Entanglement", task:"Create a Bell pair — an equal superposition of |00⟩ and |11⟩ — using H and a control.", n:2, input:[0,0], gates:["Empty","X","H","Ctrl"], target:[K,0,0,K]},
- {sec:"Entanglement", task:"Create the entangled state — superposition of |01⟩ and |10⟩.", n:2, input:[0,1], gates:["Empty","X","H","Ctrl"], target:[0,K,K,0]},
- {sec:"Phase", task:"Put the qubit in |−⟩ = (|0⟩ − |1⟩)/√2  (a phase-flipped superposition).", n:1, input:[0], gates:["Empty","X","H","Z"], target:[K,-K]},
- {sec:"Phase", task:"From |1⟩, reach the state (|0⟩ − |1⟩)/√2.", n:1, input:[1], gates:["Empty","X","H","Z","S"], target:[K,-K]},
+ {sec:"Warm-up", task:"The wire already carries |0⟩. Press <b>Evaluate</b> to read it out.", n:1, input:[0], gates:["Empty"], target:[1,0]},
+ {sec:"Warm-up", task:"Flip a single qubit from |0⟩ to |1⟩.", n:1, input:[0], gates:["Empty","X"], target:[0,1]},
+ {sec:"Warm-up", task:"You start in |1⟩ — return the wire to |0⟩.", n:1, input:[1], gates:["Empty","X"], target:[1,0]},
+ {sec:"Registers", task:"Prepare the two-qubit register |01⟩.", n:2, input:[0,0], gates:["Empty","X"], target:[0,1,0,0]},
+ {sec:"Registers", task:"Prepare |110⟩ across three wires.", n:3, input:[0,0,0], gates:["Empty","X"], target:[0,0,0,0,0,0,1,0]},
+ {sec:"Controls", task:"A <b>control</b> (●) fires its gate only when the control wire is |1⟩. The lower X is locked — put a control on top so the register stays |00⟩.", n:2, input:[0,0], gates:["Empty","Ctrl"], target:[1,0,0,0], locked:[[1,2,"X"]]},
+ {sec:"Controls", task:"Build a CNOT: from |10⟩, flip the lower wire (because the top is |1⟩) to reach |11⟩.", n:2, input:[1,0], gates:["Empty","X","Ctrl"], target:[0,0,0,1]},
+ {sec:"Controls", task:"A gate can take several controls and fires only when <em>all</em> are |1⟩. From |110⟩ reach |111⟩.", n:3, input:[1,1,0], gates:["Empty","X","Ctrl"], target:[0,0,0,0,0,0,0,1]},
+ {sec:"Superposition", task:"The H gate spreads |0⟩ evenly over |0⟩ and |1⟩ — make that balanced superposition.", n:1, input:[0], gates:["Empty","X","H"], target:[K,K]},
+ {sec:"Superposition", task:"Spread two wires evenly across all four outcomes.", n:2, input:[0,0], gates:["Empty","X","H"], target:[0.5,0.5,0.5,0.5]},
+ {sec:"Interference", task:"Phase stays hidden until it interferes. From |0⟩, apply H, then Z, then H to land squarely on |1⟩ — the Z is what makes the difference.", n:1, input:[0], gates:["Empty","X","H","Z"], target:[0,1]},
+ {sec:"Entanglement", task:"Weave a Knit between two qubits: an equal mix of |00⟩ and |11⟩ (a Bell pair), using H and a control.", n:2, input:[0,0], gates:["Empty","X","H","Ctrl"], target:[K,0,0,K]},
+ {sec:"Entanglement", task:"Weave the other Bell Knit — an equal mix of |01⟩ and |10⟩.", n:2, input:[0,1], gates:["Empty","X","H","Ctrl"], target:[0,K,K,0]},
+ {sec:"Entanglement", task:"Stretch a Knit across three wires: the GHZ state, an equal mix of |000⟩ and |111⟩.", n:3, input:[0,0,0], gates:["Empty","X","H","Ctrl"], target:[K,0,0,0,0,0,0,K]},
 ];
 const COLS=6;
 
