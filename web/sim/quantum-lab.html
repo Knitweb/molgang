@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MOLGANG — Quantum lab</title>
+  <link rel="stylesheet" href="../style.css" />
+  <style>
+    .lab{max-width:980px;margin:0 auto;padding:22px 18px 60px}
+    .lab h1{font-size:1.5em;margin:6px 0}
+    .lab .lede{color:var(--dim);max-width:640px;line-height:1.6}
+    .sims{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));margin:22px 0}
+    .sim{background:var(--panel);border:1px solid var(--line2);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:8px;backdrop-filter:blur(6px)}
+    .sim h3{margin:0;font-size:1.1em}
+    .sim .ic{font-size:1.8em}
+    .sim p{color:var(--dim);font-size:.92em;line-height:1.5;flex:1}
+    .sim a.launch{align-self:flex-start;text-decoration:none;display:inline-block;padding:9px 15px;border-radius:12px;color:#fff;font-weight:700;
+      background:linear-gradient(135deg,var(--accent),#5b8cff 60%,var(--accent2))}
+    .roadmap{background:var(--panel2);border:1px solid var(--line2);border-radius:16px;padding:18px;margin-top:8px}
+    .roadmap ol{margin:8px 0 0 18px;line-height:1.7}
+    .roadmap code{background:rgba(8,11,20,.6);padding:1px 6px;border-radius:6px}
+    .credit{color:var(--dim);font-size:.85em;line-height:1.6;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+    details.embed{margin-top:14px}
+    details.embed summary{cursor:pointer;color:var(--accent2);font-weight:700}
+    details.embed iframe{width:100%;height:520px;border:1px solid var(--line2);border-radius:14px;margin-top:10px;background:#000}
+    a.back{color:var(--dim);text-decoration:none}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">🧪 <b>MOLGANG</b> <span class="dim">· Quantum lab</span></div>
+    <a href="../index.html" class="help-btn ghost back" title="Back to the bar" style="text-decoration:none">← the bar</a>
+  </header>
+
+  <main class="lab">
+    <h1>⚛️ Quantum lab</h1>
+    <p class="lede">
+      Real-time, grid-based quantum &amp; physics simulators to build intuition next to the
+      <a href="../knitweb-graph-3d.html">3D Knitweb</a>. These are the visual layer on the road to a
+      <b>MOLGANG quantum-chemistry simulator</b> — where a Fiber (molecule) and its Knits (bonds) can be
+      simulated, not just drawn. See the plan in
+      <a href="https://github.com/Knitweb/molgang/issues/214" target="_blank" rel="noopener">#214</a>.
+    </p>
+
+    <div class="sims">
+      <div class="sim">
+        <div class="ic">🌊</div>
+        <h3>Quantum Wavefunction</h3>
+        <p>Real-time Schrödinger wavefunction visualization on a grid — watch a particle's probability
+           amplitude evolve, tunnel and interfere. The core intuition behind orbitals and bonding.</p>
+        <a class="launch" href="https://ray-ph.github.io/px_qWavefun/" target="_blank" rel="noopener">Open simulator ↗</a>
+        <details class="embed">
+          <summary>Try embedded preview</summary>
+          <iframe src="https://ray-ph.github.io/px_qWavefun/" title="Quantum Wavefunction simulator"
+                  loading="lazy" referrerpolicy="no-referrer"></iframe>
+          <p class="dim small">If the frame is blank, the source redirects to http and your browser blocks
+             mixed content — use “Open simulator ↗” instead.</p>
+        </details>
+      </div>
+
+      <div class="sim">
+        <div class="ic">🎛️</div>
+        <h3>Quantum Circuits (quantumQ)</h3>
+        <p>A puzzle game about quantum circuits and logic gates — hands-on intuition for superposition,
+           entanglement and gate operations that the future quantum-chemistry solver will lean on.</p>
+        <a class="launch" href="https://ray-ph.github.io/quantumQ/" target="_blank" rel="noopener">Open puzzle ↗</a>
+      </div>
+
+      <div class="sim">
+        <div class="ic">🧪</div>
+        <h3>Quantum chemistry (roadmap)</h3>
+        <p>Next: seed a scene from a woven Fiber, then compute real electronic structure server-side and
+           weave the result back as verified Knits. Tracked in #214.</p>
+        <a class="launch" href="https://github.com/Knitweb/molgang/issues/214" target="_blank" rel="noopener">Read the plan ↗</a>
+      </div>
+    </div>
+
+    <div class="roadmap">
+      <b>From visual sim → quantum-chemistry simulator</b>
+      <ol>
+        <li><b>Embed</b> the pixelPhysics quantum sims here (this page).</li>
+        <li><b>Wire</b> <code>knitwebs/chemistry</code> term-nodes → sim inputs (elements, bonds, reaction
+            conditions from #109).</li>
+        <li><b>Compute</b> electronic structure server-side with <code>RDKit</code> + <code>PySCF</code>.</li>
+        <li><b>Quantum</b> path via <code>Qiskit&nbsp;Nature</code> / <code>OpenFermion</code> / <code>PennyLane</code>;
+            results woven back and pulse-verified.</li>
+      </ol>
+    </div>
+
+    <p class="credit">
+      Simulators by <a href="https://ray-ph.github.io/" target="_blank" rel="noopener">ray-pH</a> —
+      <a href="https://github.com/ray-pH/pixelPhysics" target="_blank" rel="noopener">pixelPhysics</a>
+      (<a href="https://github.com/ray-pH/px_qWavefun" target="_blank" rel="noopener">px_qWavefun</a>,
+      <a href="https://github.com/ray-pH/quantumQ" target="_blank" rel="noopener">quantumQ</a>).
+      Embedded by link with attribution. The pixelPhysics hub is MIT-licensed; the individual module
+      repositories currently carry no license, so they are <b>linked/embedded, not vendored</b>. Vendoring
+      (roadmap phase 2) needs the author's permission — see <a href="https://github.com/Knitweb/molgang/issues/214" target="_blank" rel="noopener">#214</a>.
+    </p>
+  </main>
+</body>
+</html>
