@@ -23,6 +23,9 @@
   -->
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%A7%AA%3C/text%3E%3C/svg%3E" />
+  <!-- Full app stylesheet (vendored from web/style.css — see serverless/README.md).
+       Linked BEFORE the inline boot styles so the splash rules below win the cascade. -->
+  <link rel="stylesheet" href="style.css" />
   <style>
     /* Minimal boot styling only. The full app stylesheet (style.css from the
        legacy bundle) is still served and cached by the service worker; the
@@ -151,8 +154,9 @@
   <!-- transient capture toast -->
   <div id="toast" class="toast hidden"></div>
 
-  <!-- walk-in overlay -->
-  <div id="enter" class="overlay hidden">
+  <!-- walk-in overlay — starts VISIBLE (as in the classic shell): the boot
+       splash covers it until the engine is ready, then app.js drives it. -->
+  <div id="enter" class="overlay">
     <div class="card">
       <h1>🍸 Welcome to the MOLGANG bar</h1>
       <p>Grab free <b>silk</b> + <b>pulses</b> from the on-device faucet, take a seat, and
@@ -161,7 +165,8 @@
          <span class="dim">(web3, no NFTs)</span></p>
       <label>Your name <input id="name" maxlength="24" placeholder="e.g. Mara" /></label>
       <div id="avatars" class="avatars"></div>
-      <button id="go">Walk in →</button>
+      <label class="agegate"><input type="checkbox" id="age-ok" /> <span>I am 13 or older, or have a parent/guardian's permission.</span></label>
+      <button id="go" disabled>Walk in →</button>
       <p class="dim small">📱 This device has its <b>own PLS wallet</b>, derived from a seed kept on
          <i>this device only</i> — leave and rejoin and you're back in the same account. The wallet
          signs your onboarding QR so peers can verify you before any link opens.</p>
@@ -259,8 +264,29 @@
 
   <section id="monitor" class="view hidden">
     <h2>📡 Monitor <span class="dim small">— node & p2p status · the local woven knitweb</span></h2>
-    <h3>Nodes &amp; p2p</h3>
+    <h3>Nodes &amp; p2p
+      <span class="dim small" style="float:right">
+        simulate:
+        <select id="sim-n" style="background:#1a2030;color:#bfe9f5;border:1px solid #2a3f5f;border-radius:4px;padding:2px 4px">
+          <option value="0">— off</option>
+          <option value="3">3 nodes</option>
+          <option value="4">4 nodes</option>
+          <option value="6" selected>6 nodes</option>
+          <option value="8">8 nodes</option>
+          <option value="10">10 nodes</option>
+        </select>
+        <button id="btn-sim" style="margin-left:4px">▶ Run</button>
+      </span>
+    </h3>
     <div id="mon-nodes" class="mon-nodes"></div>
+    <div id="mon-sim-net" style="display:none">
+      <div id="mon-sim-stats" class="summary"></div>
+      <div id="mon-p2p-net" style="height:340px;border:1px solid #2a3f5f;border-radius:6px;margin-top:8px"></div>
+      <div class="mon-legend" style="margin-top:4px">
+        <span><i class="sw" style="background:#22e3ff"></i>relay</span>
+        <span><i class="sw" style="background:#ffd24a"></i>webrtc</span>
+      </div>
+    </div>
     <div id="mon-web" class="summary"></div>
     <div id="mon-anchor" class="anchor-bar"></div>
     <h3>🕸 Local woven knitweb <span class="dim small" id="mon-src"></span></h3>

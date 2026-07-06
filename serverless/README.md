@@ -49,6 +49,25 @@ the engine changes so the live dapp never runs a stale engine. `cryptography`
 (secp256k1/SHA-256) is NOT in the wheel — the shell installs it separately via
 micropip in Pyodide.
 
+## Classic render layer (vendored copies from ../web)
+
+The playable UI in `web/` here reuses the classic render layer UNCHANGED. These
+files are verbatim copies of the top-level `web/` bundle and must be refreshed
+whenever the originals change:
+
+```sh
+cp web/app.js web/config.js web/i18n.js web/style.css serverless/web/
+cp -R web/locales web/avatars serverless/web/
+```
+
+At runtime `peer.js` boots the engine, then `app-bridge.js` installs a fetch
+interceptor (any same-origin request whose path contains `/api/` is answered by
+the in-tab engine and wrapped back into a real `Response`), stubs the world
+WebSocket, and loads `config.js` → `i18n.js` → `app.js` in classic-script order
+— so `app.js` runs byte-identical to the served flavour, on top of the
+in-worker Bar instead of an HTTP backend. The `/api/*` dispatch itself lives in
+`web/engine/serverless_api.py` (fetched into Pyodide next to the wheel).
+
 ## Files
 
 ```

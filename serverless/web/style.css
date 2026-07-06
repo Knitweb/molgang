@@ -1,0 +1,354 @@
+/* MOLGANG bar — "molecular nightclub" 3D UI.
+   A dark, neon, glassmorphic, depth-layered theme. Pure CSS 3D (perspective,
+   preserve-3d, layered shadows) — no libs, no build step, every class/ID the
+   app.js relies on is preserved. */
+:root{
+  --bg:#070912; --bg2:#0b1020;
+  --panel:rgba(22,28,42,.72); --panel2:rgba(28,36,54,.72); --glass:rgba(255,255,255,.04);
+  --line:rgba(120,140,180,.18); --line2:rgba(140,160,210,.30);
+  --ink:#eaf1fb; --dim:#93a3bd;
+  --accent:#8b5cff; --accent2:#22e3ff; --accent3:#ff5cf0;
+  --ok:#34f5b0; --no:#ff6f93; --gold:#ffd24a; --radius:18px;
+  --glow:0 0 24px;
+  --shadow-3d:0 1px 0 rgba(255,255,255,.06) inset,0 18px 40px -18px rgba(0,0,0,.9),0 4px 14px -6px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;min-height:100vh;color:var(--ink);position:relative;overflow-x:hidden;
+  background:
+    radial-gradient(1100px 620px at 78% -12%,rgba(139,92,255,.20),transparent 60%),
+    radial-gradient(900px 560px at 8% 8%,rgba(34,227,255,.14),transparent 55%),
+    radial-gradient(800px 700px at 50% 120%,rgba(255,92,240,.12),transparent 60%),
+    linear-gradient(180deg,var(--bg2),var(--bg));
+  font:15px/1.55 -apple-system,Segoe UI,Inter,Helvetica,Arial,sans-serif}
+/* animated aurora + molecular grid ambiance behind everything */
+body::before{content:"";position:fixed;inset:-20%;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(closest-side at 30% 30%,rgba(139,92,255,.16),transparent),
+    radial-gradient(closest-side at 75% 60%,rgba(34,227,255,.14),transparent),
+    radial-gradient(closest-side at 55% 85%,rgba(255,92,240,.12),transparent);
+  filter:blur(40px);animation:drift 22s ease-in-out infinite alternate}
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(rgba(120,140,200,.05) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(120,140,200,.05) 1px,transparent 1px);
+  background-size:46px 46px;mask-image:radial-gradient(1000px 700px at 50% 0,#000,transparent 80%)}
+@keyframes drift{0%{transform:translate3d(-2%,-1%,0) rotate(0)}100%{transform:translate3d(3%,2%,0) rotate(8deg)}}
+
+b{color:#fff}.dim{color:var(--dim)}.small{font-size:12px}
+.mono{font-family:SFMono-Regular,Menlo,monospace}.hidden{display:none!important}
+
+button{cursor:pointer;border:0;border-radius:13px;padding:10px 16px;font:inherit;font-weight:700;color:#fff;
+  background:linear-gradient(135deg,var(--accent),#5b8cff 60%,var(--accent2));
+  box-shadow:0 8px 22px -10px var(--accent),0 1px 0 rgba(255,255,255,.25) inset;
+  transition:transform .16s cubic-bezier(.2,.9,.3,1.4),box-shadow .16s,filter .16s;transform:translateZ(0)}
+button:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 14px 30px -10px var(--accent),0 0 22px -4px var(--accent2)}
+button:active{transform:translateY(0) scale(.98)}
+button.ghost{background:var(--glass);color:var(--ink);border:1px solid var(--line2);box-shadow:none;backdrop-filter:blur(6px)}
+button.cert-btn{padding:6px 11px;font-size:.82rem;border-radius:10px;
+  background:linear-gradient(135deg,#b01c2c,#e0564a);box-shadow:0 6px 16px -8px #b01c2c}
+button.cert-btn:hover{box-shadow:0 10px 22px -8px #e0564a}
+input{background:rgba(8,11,20,.72);border:1px solid var(--line);border-radius:13px;color:var(--ink);
+  padding:12px 14px;width:100%;transition:.18s;backdrop-filter:blur(4px)}
+input:focus{outline:0;border-color:var(--accent2);box-shadow:0 0 0 3px rgba(34,227,255,.16),var(--glow) rgba(34,227,255,.25)}
+textarea{background:rgba(8,11,20,.72);border:1px solid var(--line);border-radius:13px;color:var(--ink);
+  padding:12px 14px;width:100%;font:inherit;transition:.18s;backdrop-filter:blur(4px);resize:vertical}
+textarea:focus{outline:0;border-color:var(--accent2);box-shadow:0 0 0 3px rgba(34,227,255,.16),var(--glow) rgba(34,227,255,.25)}
+
+
+/* glass header with neon underline */
+header{display:flex;align-items:center;gap:16px;padding:14px 24px;position:sticky;top:0;z-index:5;flex-wrap:wrap;
+  background:linear-gradient(180deg,rgba(10,14,24,.86),rgba(10,14,24,.55));
+  backdrop-filter:blur(14px) saturate(1.3);border-bottom:1px solid var(--line2);
+  box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 18px 30px -26px #000}
+header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),var(--accent2),var(--accent3),transparent);
+  opacity:.7;animation:scan 6s linear infinite;background-size:200% 100%}
+@keyframes scan{to{background-position:200% 0}}
+.brand{font-size:19px;letter-spacing:.2px;text-shadow:var(--glow) rgba(139,92,255,.5)}
+.pulse-host{background:var(--glass);border:1px solid var(--line);border-radius:999px;padding:5px 12px;backdrop-filter:blur(6px)}
+.help-btn{padding:6px 11px;border-radius:999px;font-size:12px;white-space:nowrap;
+  background:var(--glass);color:var(--ink);border:1px solid var(--line2);box-shadow:none;backdrop-filter:blur(6px)}
+.help-btn:visited{color:var(--ink)}
+.me{display:flex;align-items:center;gap:9px;margin-left:auto;flex-wrap:wrap}
+.me .av{font-size:23px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
+.bal{background:var(--panel);border:1px solid var(--line2);border-radius:999px;padding:6px 12px;font-size:13px;
+  backdrop-filter:blur(8px);box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 6px 14px -8px #000}
+.tabs{display:flex;gap:8px;width:100%;margin-top:6px}
+.tabs button{background:var(--glass);color:var(--dim);font-weight:700;border:1px solid var(--line);box-shadow:none}
+.tabs button.active{color:#06121a;border-color:transparent;
+  background:linear-gradient(135deg,var(--accent2),var(--accent));box-shadow:var(--glow) rgba(34,227,255,.4)}
+
+/* overlay walk-in — floating glass card with depth */
+.overlay{position:fixed;inset:0;display:grid;place-items:center;z-index:10;padding:18px;
+  background:radial-gradient(800px 600px at 50% 20%,rgba(20,12,45,.6),rgba(4,6,12,.92))}
+.overlay .card{background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line2);border-radius:24px;padding:30px;max-width:500px;width:100%;
+  backdrop-filter:blur(18px) saturate(1.25);box-shadow:var(--shadow-3d),var(--glow) rgba(139,92,255,.25);
+  transform:perspective(1200px) rotateX(4deg);animation:rise .6s cubic-bezier(.2,.9,.3,1.2)}
+@keyframes rise{from{opacity:0;transform:perspective(1200px) rotateX(14deg) translateY(40px) scale(.96)}}
+
+/* first-run coach marks */
+.tour-layer{position:fixed;inset:0;z-index:40;pointer-events:none}
+.tour-dim{position:absolute;inset:0;background:rgba(3,5,12,.48);backdrop-filter:blur(1px)}
+.tour-highlight{position:fixed;z-index:41;border:2px solid var(--accent2);border-radius:18px;
+  box-shadow:0 0 0 9999px rgba(3,5,12,.18),var(--glow) rgba(34,227,255,.55);
+  transition:left .18s,top .18s,width .18s,height .18s}
+.tour-card{position:fixed;z-index:42;max-width:360px;border:1px solid var(--line2);border-radius:18px;
+  padding:15px;background:linear-gradient(180deg,rgba(28,36,54,.98),rgba(17,23,38,.98));
+  box-shadow:var(--shadow-3d),var(--glow) rgba(139,92,255,.28);pointer-events:auto}
+.tour-card h3{margin:2px 0 6px;font-size:17px;letter-spacing:0;color:#fff}
+.tour-card p{margin:0 0 13px;color:var(--dim);font-size:13px;line-height:1.45}
+.tour-kicker{color:var(--accent2);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0}
+.tour-actions{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.tour-actions button{min-width:96px;padding:9px 12px;font-size:13px}
+.tour-target{position:relative;z-index:41}
+.card h1{margin:.1em 0 .45em;font-size:24px;
+  background:linear-gradient(90deg,#fff,var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.card label{display:block;margin:14px 0 6px;color:var(--dim);font-size:13px}
+.avatars,.av-pick{margin-top:8px}.avatars{display:flex;flex-wrap:wrap;gap:9px}
+.av-pick{display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 7px;border-radius:14px;
+  background:var(--glass);border:1px solid var(--line);font-size:10px;color:var(--dim);transition:.18s;
+  transform:translateZ(0)}
+.av-pick:hover{transform:translateY(-3px) scale(1.05);border-color:var(--line2)}
+.av-pick img{width:44px;height:44px;border-radius:12px;filter:drop-shadow(0 6px 8px rgba(0,0,0,.5))}
+.av-pick.sel{border-color:var(--accent2);box-shadow:0 0 0 2px var(--accent2),var(--glow) rgba(34,227,255,.4);color:var(--ink)}
+.av-img{width:1.7em;height:1.7em;vertical-align:middle;border-radius:8px;background:rgba(8,11,20,.6)}
+.chair-av{width:28px;height:28px;border-radius:50%}
+.seat-av{width:42px;height:42px;border-radius:12px;background:rgba(8,11,20,.6);filter:drop-shadow(0 4px 6px rgba(0,0,0,.5))}
+.card #go{margin-top:20px;width:100%;padding:13px;font-size:15px}
+
+main,section{padding:24px 22px;max-width:1140px;margin:0 auto}
+
+/* THE FLOOR — a 3D bar room: a tilted floor plane, tables standing on it like
+   lit standees that lean back into the room and float. */
+.floor{position:relative;display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));
+  gap:30px 22px;padding-top:26px;perspective:1100px;perspective-origin:50% 18%}
+/* the bar-room floor receding into depth */
+.floor::before{content:"";position:absolute;left:-6%;right:-6%;top:30%;bottom:-90px;z-index:-1;pointer-events:none;
+  background:
+    linear-gradient(rgba(139,92,255,.10),transparent 70%),
+    repeating-linear-gradient(90deg,rgba(120,140,200,.10) 0 1px,transparent 1px 64px),
+    repeating-linear-gradient(0deg,rgba(120,140,200,.10) 0 1px,transparent 1px 64px);
+  transform:perspective(700px) rotateX(60deg);transform-origin:50% 0;
+  mask-image:linear-gradient(#000,transparent 80%);opacity:.7}
+.table-card{position:relative;background:linear-gradient(180deg,var(--panel2),var(--panel));
+  border:1px solid var(--line2);border-radius:var(--radius);padding:20px;transform-style:preserve-3d;
+  transform-origin:50% 100%;transform:rotateX(13deg);transition:transform .35s cubic-bezier(.2,.9,.3,1.2),box-shadow .35s;
+  box-shadow:var(--shadow-3d);backdrop-filter:blur(10px) saturate(1.2);animation:floaty 7s ease-in-out infinite}
+.table-card:nth-child(3n){animation-delay:-2.3s}.table-card:nth-child(3n+1){animation-delay:-4.6s}
+.table-card::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(130% 70% at 50% -15%,rgba(139,92,255,.28),transparent 60%);opacity:.9}
+/* contact shadow on the floor below each standee */
+.table-card::after{content:"";position:absolute;left:6%;right:6%;bottom:-30px;height:34px;border-radius:50%;
+  background:rgba(8,6,20,.85);filter:blur(20px);opacity:.7;transform:translateZ(-60px) rotateX(70deg);z-index:-1}
+.table-card:hover{transform:rotateX(2deg) translateY(-10px) scale(1.03);
+  box-shadow:var(--shadow-3d),var(--glow) rgba(34,227,255,.35),0 40px 70px -26px #000}
+.table-card h3{margin:0 0 12px;font-size:17px}
+@keyframes floaty{0%,100%{translate:0 0;rotate:x 13deg}50%{translate:0 -8px;rotate:x 11deg}}
+
+.chairs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.chair{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;font-size:17px;
+  background:radial-gradient(circle at 35% 30%,rgba(120,140,200,.25),rgba(8,11,20,.9));
+  border:1px dashed var(--line);box-shadow:0 6px 12px -6px #000,0 1px 0 rgba(255,255,255,.08) inset;transition:.2s}
+.chair.occ{border:1px solid var(--accent2);background:radial-gradient(circle at 35% 30%,rgba(34,227,255,.3),rgba(18,24,48,.95));
+  box-shadow:var(--glow) rgba(34,227,255,.35),0 8px 16px -6px #000;animation:pulseGlow 3s ease-in-out infinite}
+@keyframes pulseGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+.join-table{margin-top:12px;width:100%}
+
+/* TABLE VIEW — seats as 3D pucks */
+.table-view h2{margin:.2em 0;font-size:24px}
+.table-title{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.table-title h2{margin:.2em 0 0 0;font-size:24px}
+#rename-table{padding:.35rem .65rem; white-space:nowrap}
+.seats{display:flex;flex-wrap:wrap;gap:14px;margin:16px 0;perspective:1000px}
+.seat{display:flex;align-items:center;gap:11px;border-radius:16px;padding:12px 16px;transform-style:preserve-3d;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line2);
+  box-shadow:var(--shadow-3d);transform:perspective(800px) rotateX(5deg);transition:.25s}
+.seat:hover{transform:perspective(800px) rotateX(0) translateY(-4px)}
+.seat.you{border-color:var(--accent2);box-shadow:var(--shadow-3d),var(--glow) rgba(34,227,255,.35)}
+.seat .av{font-size:25px;filter:drop-shadow(0 5px 7px rgba(0,0,0,.6))}
+
+.knit-box{display:flex;gap:10px;flex-wrap:wrap;border-radius:16px;padding:16px;margin:10px 0 18px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line2);
+  box-shadow:var(--shadow-3d);backdrop-filter:blur(10px)}
+.knit-box input{flex:1;min-width:220px}
+.suggest{width:100%;margin-top:8px;color:var(--dim);font-size:13px}
+.chip{background:var(--glass);border:1px solid var(--line2);color:var(--ink);font-weight:600;
+  border-radius:999px;padding:4px 12px;margin:0 4px;font-size:12px;backdrop-filter:blur(4px);
+  transition:.15s;display:inline-block}
+.chip:hover{transform:translateY(-2px);border-color:var(--accent2);box-shadow:var(--glow) rgba(34,227,255,.3)}
+
+/* open knits — voting cards */
+.open .knit{border:1px solid var(--line2);border-radius:14px;padding:12px 16px;margin-bottom:10px;
+  display:flex;align-items:center;gap:11px;flex-wrap:wrap;background:linear-gradient(180deg,var(--panel2),var(--panel));
+  box-shadow:0 10px 24px -16px #000;transition:.2s;transform:translateZ(0)}
+.open .knit:hover{transform:translateX(3px);border-color:var(--line2);box-shadow:var(--glow) rgba(139,92,255,.2)}
+.tally{margin-left:auto;color:var(--dim);font-size:13px}
+.vote.ok{background:linear-gradient(135deg,var(--ok),#10b981);box-shadow:0 8px 20px -10px var(--ok)}
+.vote.no{background:linear-gradient(135deg,var(--no),#e11d48);box-shadow:0 8px 20px -10px var(--no)}
+
+/* WOVEN FIBERS — glowing, shimmering threads */
+.fabric{display:flex;flex-wrap:wrap;gap:10px}
+.woven{position:relative;border:1px solid #1f9f72;border-radius:999px;padding:6px 14px;font-size:13px;color:#bdf7df;
+  background:linear-gradient(110deg,#0f2a20,#123a2c,#0f2a20);background-size:200% 100%;
+  box-shadow:var(--glow) rgba(52,245,176,.25),0 8px 18px -10px #000;animation:weave 4s linear infinite}
+@keyframes weave{to{background-position:-200% 0}}
+
+/* ledger / summary */
+.summary{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 18px}
+.summary>*{background:var(--panel);border:1px solid var(--line2);border-radius:14px;padding:10px 14px;
+  backdrop-filter:blur(8px);box-shadow:0 8px 18px -12px #000}
+table.grid{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line2);border-radius:16px;
+  overflow:hidden;background:var(--panel);backdrop-filter:blur(8px);box-shadow:var(--shadow-3d)}
+.grid th,.grid td{padding:11px 15px;text-align:left;border-bottom:1px solid var(--line)}
+.grid th{background:rgba(28,36,54,.9);color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.grid tr:hover td{background:rgba(139,92,255,.06)}
+
+/* explorer columns — tilted 3D cards, winner glows */
+#explorer-rows{perspective:1200px}
+.erow{border:1px solid var(--line2);border-radius:16px;padding:16px;margin-bottom:16px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));box-shadow:var(--shadow-3d);backdrop-filter:blur(8px)}
+.etopic{font-weight:800;margin-bottom:12px;font-size:16px}
+.ecols{display:flex;gap:14px;overflow-x:auto;padding:4px 2px 10px}
+.ecol{min-width:220px;flex:0 0 244px;border:1px solid var(--line2);border-radius:14px;padding:14px;
+  background:linear-gradient(180deg,var(--panel2),var(--panel));box-shadow:var(--shadow-3d);
+  transform:perspective(900px) rotateY(-4deg);transition:.25s}
+.ecol:hover{transform:perspective(900px) rotateY(0) translateY(-4px)}
+.ecol.won{border-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset,var(--glow) rgba(52,245,176,.4)}
+.erank{font-size:22px}.eterm{margin:5px 0}.evotes{color:var(--dim);font-size:13px;margin:6px 0}
+
+.anchor-bar{margin:12px 0;padding:12px 15px;background:linear-gradient(110deg,#0f2a20,#123a2c);
+  border:1px solid #1f9f72;border-radius:14px;color:#bdf7df;font-size:13px;word-break:break-all;
+  box-shadow:var(--glow) rgba(52,245,176,.2)}
+.linkrow{display:flex;align-items:center;gap:9px;margin:6px 0;padding:7px 11px;border-radius:11px;
+  background:var(--glass);border:1px solid var(--line);transition:.15s}
+.linkrow:hover{border-color:var(--line2);transform:translateX(3px)}
+footer{padding:22px;text-align:center;border-top:1px solid var(--line2);margin-top:28px;color:var(--dim)}
+
+h2,h3{letter-spacing:.2px}
+
+/* 📡 Monitor tab — node/p2p status + the local woven knitweb (:8990) */
+.mon-nodes{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 14px}
+.mon-node{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line2);
+  border-radius:14px;padding:9px 14px;box-shadow:var(--shadow-3d)}
+.mdot{width:9px;height:9px;border-radius:50%;display:inline-block;box-shadow:0 0 8px currentColor}
+.mdot.up{background:var(--ok);color:var(--ok)}.mdot.down{background:var(--no);color:var(--no)}
+.pos{color:var(--ok)}.neg{color:var(--no)}
+.mon-grid{display:flex;gap:16px;margin-top:8px}
+.mon-side{display:flex;flex-direction:column;gap:14px;width:300px;min-width:280px}
+.mon-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px;
+  box-shadow:var(--shadow-3d)}
+.mon-card h4{margin:0 0 9px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.mon-card .row{display:flex;justify-content:space-between;align-items:center;padding:3px 0;
+  border-bottom:1px dashed var(--line);gap:10px}
+.mon-card .row b{color:var(--accent2)}
+.mon-langs{display:flex;flex-direction:column;gap:4px}
+.mon-lang{display:flex;justify-content:space-between;align-items:center;padding:3px 0;
+  border-bottom:1px dashed var(--line)}
+.mon-lang b{color:var(--accent2)}
+.mon-hub{cursor:pointer}
+.sw{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.mon-graph{flex:1;min-width:0;position:relative;background:rgba(7,9,18,.6);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow-3d)}
+#mon-net{width:100%;height:460px}
+.mon-legend{position:absolute;left:12px;bottom:12px;background:var(--panel);border:1px solid var(--line);
+  border-radius:11px;padding:7px 10px;font-size:12px;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.mon-legend span{display:inline-flex;align-items:center}
+
+/* reduce motion / 3D on phones for usability + perf */
+@media (max-width:600px){
+  .mon-grid{flex-direction:column}.mon-side{width:100%;min-width:0}
+  #mon-net{height:340px}
+  header{padding:10px 13px;gap:8px}.brand{font-size:16px}
+  .me{gap:6px}.bal{font-size:12px;padding:5px 9px}
+  main,section{padding:16px 13px}
+  .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}.tabs button{white-space:nowrap;flex:0 0 auto}
+  .tour-card{left:14px!important;right:14px;width:auto!important;max-width:none}
+  .tour-actions{align-items:stretch}.tour-actions button{flex:1;min-width:0}
+  .floor{grid-template-columns:1fr;perspective:none}
+  .table-card,.seat,.ecol{transform:none!important;animation:none}
+  .knit-box{flex-direction:column}.knit-box input{min-width:0}
+  .seats{gap:9px}.seat{padding:9px 11px}.overlay .card{padding:20px;transform:none}
+  button{padding:12px 15px}input{font-size:16px}
+  #gx-a,#gx-b{max-width:100%!important}
+}
+
+/* ── #118 mobile-first upgrades (≤600px) ────────────────────────────────── */
+@media (max-width:600px){
+  /* thumb-reachable bottom tab bar — the ONE consistent mobile nav choice */
+  .tabs:not(.hidden){position:fixed;left:0;right:0;bottom:0;z-index:30;margin:0;
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(0deg,rgba(10,14,24,.96),rgba(10,14,24,.82));
+    backdrop-filter:blur(14px) saturate(1.3);border-top:1px solid var(--line2);
+    box-shadow:0 -14px 30px -22px #000}
+  .tabs button{min-height:44px}
+  /* keep content clear of the fixed bar */
+  main,section{padding-bottom:96px}
+  footer{padding-bottom:96px}
+  /* ≥44px tap targets for every primary action (walk in/seat/knit/vote/spiral) */
+  button{min-height:44px}
+  .help-btn,#lang-switch{min-height:38px}
+  .chip{padding:8px 14px;min-height:36px}
+  /* compact balance cluster: one scrollable chip row instead of tall wrapping */
+  .me{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;
+    scrollbar-width:none}
+  .me::-webkit-scrollbar{display:none}
+  .bal{flex:0 0 auto}
+  /* walk-in card + spiral modal fit a 360px viewport, dismiss stays reachable */
+  .overlay{padding:10px;align-items:flex-start;overflow-y:auto}
+  .overlay .card{max-width:100%;margin:12px 0}
+  #spiral-links{font-size:16px;min-height:120px}
+  .spiral-x{min-width:44px;min-height:44px}
+  /* settings popover hugs the small screen */
+  .settings-pop{left:12px;right:12px;top:auto}
+}
+/* very narrow phones (≤380px): tighten paddings without hiding anything */
+@media (max-width:380px){
+  header{padding:8px 9px;gap:6px}
+  .brand{font-size:14px}
+  .pulse-host{display:none}
+  main,section{padding:12px 9px 96px}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important}
+  .table-card,.seat,.ecol,.overlay .card{transform:none!important;transition:none!important}
+}
+
+/* 🏅 Progress tab — quests, achievement badges, seasonal leaderboard (#110/#111/#112) */
+.progress-list{display:flex;flex-direction:column;gap:8px;margin:8px 0 18px}
+.progress-item{display:grid;grid-template-columns:1fr auto;gap:2px 12px;align-items:center;
+  padding:10px 14px;border:1px solid var(--line);border-radius:13px;background:var(--panel)}
+.progress-item.done{border-color:var(--ok);box-shadow:0 0 0 1px rgba(52,245,176,.18)}
+.progress-item .pi-title{font-weight:600}
+.progress-item .pi-desc{grid-column:1/2}
+.progress-item .pi-meta{grid-column:2/3;justify-self:end;white-space:nowrap}
+.progress-item .pi-bar{grid-column:1/3;height:6px;border-radius:6px;background:var(--glass);overflow:hidden;margin-top:4px}
+.progress-item .pi-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.progress-item.done .pi-bar i{background:var(--ok)}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 18px}
+.badge{padding:6px 12px;border-radius:999px;border:1px solid var(--line);font-size:13px;background:var(--panel)}
+.badge.unlocked{border-color:var(--gold);color:var(--ink);box-shadow:0 0 14px -6px var(--gold)}
+.badge.locked{color:var(--dim);opacity:.7}
+.leaderboard-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.season-toggle{display:flex;gap:6px}
+.season-toggle button{padding:6px 12px;font-size:13px}
+.season-toggle button.active{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
+.ladder{margin:8px 0 18px;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--panel)}
+.ladder-now{font-size:15px;margin-bottom:6px}
+.ladder .perks{margin:0;padding-left:18px;color:var(--dim);font-size:13px;display:flex;flex-direction:column;gap:2px}
+.ladder .perks li{list-style:none;margin-left:-12px}
+
+/* settings popover — the language switcher retires here after first use (#i18n v2) */
+.settings-pop { position: absolute; top: 52px; right: 12px; z-index: 40;
+  background: var(--bg2, #0b1020); border: 1px solid var(--accent, #8b5cff);
+  border-radius: 10px; padding: 10px 12px; box-shadow: 0 8px 28px rgba(0,0,0,.5); }
+.settings-pop label { display: block; font-size: 12px; color: #8a93b2; margin-bottom: 4px; }
+/* #139 age/consent gate on the walk-in card */
+.agegate{display:flex;align-items:flex-start;gap:8px;margin:14px 0 4px;font-size:13px;color:var(--dim);cursor:pointer}
+.agegate input{width:auto;flex:0 0 auto;margin-top:2px}
+/* #119 accessibility: a visible focus ring + AA-contrast body text */
+:focus-visible{outline:3px solid var(--accent2);outline-offset:2px;border-radius:8px}
+:root{--dim:#a7b6cf}          /* lift dimmed text contrast on the dark theme (was #93a3bd) */
+[dir="rtl"] .me{margin-left:0;margin-right:auto}
+[dir="rtl"] .tabs{direction:rtl}

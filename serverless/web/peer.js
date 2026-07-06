@@ -25,11 +25,14 @@ const BOOT = {
   splash: document.getElementById("boot"),
 };
 
+let bootFailed = false;
 function bootProgress(pct, phase) {
+  if (bootFailed) return; // an error phase is STICKY: later progress must never overwrite it
   if (BOOT.bar) BOOT.bar.style.width = Math.max(4, Math.min(100, pct)) + "%";
   if (phase && BOOT.phase) BOOT.phase.textContent = phase;
 }
 function bootError(message) {
+  bootFailed = true;
   if (BOOT.err) BOOT.err.textContent = message;
   if (BOOT.phase) BOOT.phase.textContent = "boot failed";
 }
@@ -46,6 +49,15 @@ function bootDone() {
 const PYODIDE_VERSION = "0.26.2";
 const PYODIDE_BASE = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`;
 const CONFORMANCE_TAG = "molgang-wire-corpus/v1";
+
+// ABSOLUTE URLs, computed on the MAIN thread. The engine worker runs from a
+// blob: URL, and a blob URL cannot base relative fetches — micropip.install
+// of "./engine/….whl" inside the worker threw "Failed to parse URL" and the
+// engine never booted. Resolving against location.href here keeps the app
+// path-relative (works at / or under any subpath on a dumb file host).
+const ENGINE_WHEEL_URL = new URL(
+  "engine/molgang_engine-0.0.0-py3-none-any.whl", location.href).href;
+const BRIDGE_PY_URL = new URL("engine/serverless_api.py", location.href).href;
 
 // ---------------------------------------------------------------------------
 // Device seed (the ONLY secret JS handles, and it never leaves this origin).
@@ -108,6 +120,13 @@ class Engine {
     }
     if (msg.kind === "boot") {
       bootProgress(msg.pct, msg.phase);
+      return;
+    }
+    if (msg.kind === "boot-error") {
+      // Fatal engine-boot failure: surface it immediately (sticky) and let the
+      // main() waiter reject NOW instead of sitting out the watchdog.
+      bootError(msg.message);
+      for (const fn of this.listeners.event) fn("boot-error", { message: msg.message });
       return;
     }
   }
@@ -414,12 +433,18 @@ async function registerServiceWorker() {
 function spawnEngineWorker() {
   const seed = deviceSeed();
   const bootstrap = `
-    // Module-worker bootstrap for the MOLGANG engine. Loads Pyodide, then runs
-    // the UNCHANGED molgang + knitweb Python bytes and answers RPC. All sacred
+    // Worker bootstrap for the MOLGANG engine. Loads Pyodide, installs the
+    // UNCHANGED molgang + knitweb Python bytes (the wheel), runs the serverless
+    // API bridge (engine/serverless_api.py) and answers RPC. All sacred
     // invariant logic stays in Python; this glue only marshals messages.
+    // NOTE: this file runs from a blob: URL, so every URL below arrives
+    // pre-resolved (absolute) from the main thread — a blob URL cannot base
+    // relative fetches, which is exactly the bug that used to kill the boot.
     const PYODIDE_BASE = ${JSON.stringify(PYODIDE_BASE)};
     const SEED = ${JSON.stringify(seed)};
     const CONFORMANCE_TAG = ${JSON.stringify(CONFORMANCE_TAG)};
+    const ENGINE_WHEEL_URL = ${JSON.stringify(ENGINE_WHEEL_URL)};
+    const BRIDGE_PY_URL = ${JSON.stringify(BRIDGE_PY_URL)};
 
     function post(m, t) { self.postMessage(m, t || []); }
     function boot(pct, phase) { post({ kind: "boot", pct, phase }); }
@@ -435,63 +460,40 @@ function spawnEngineWorker() {
       boot(46, "loading crypto backend…");
       // secp256k1/SHA-256 lives in the 'cryptography' package (OpenSSL in-WASM).
       // It MUST emit DER/low-S bytes identical to native CPython; the conformance
-      // corpus asserts that before this build is trusted.
-      await pyodide.loadPackage(["micropip"]);
+      // corpus asserts that before this build is trusted. knitweb.core.crypto
+      // hard-imports it, so a failure here is FATAL (fail fast, no watchdog).
+      // "hashlib" is Pyodide's unvendored OpenSSL stdlib piece — without it
+      // hashlib.pbkdf2_hmac (the device→wallet KDF in molgang.game) is missing.
+      await pyodide.loadPackage(["micropip", "hashlib"]);
       const micropip = pyodide.pyimport("micropip");
-      try {
-        await micropip.install(["cryptography"]);
-      } catch (e) {
-        // If the OpenSSL wheel is unavailable in-WASM, the engine module falls
-        // back to a pinned pure-Python secp256k1 gated by the corpus vectors.
-        boot(46, "crypto: using pinned fallback…");
-      }
+      await micropip.install(["cryptography"]);
+      boot(56, "loading graph tools…");
+      // networkx powers the Web-tab graph explorer + the p2p simulation. It is
+      // OPTIONAL: the bridge degrades those routes gracefully when absent
+      // (e.g. a fully offline boot from the service-worker cache).
+      try { await micropip.install(["networkx"]); }
+      catch (e) { boot(56, "graph tools unavailable — continuing…"); }
       boot(64, "mounting engine bytes…");
 
-      // The molgang + knitweb source is shipped alongside the app and fetched as
-      // a wheel/zip the service worker caches. We mount it onto the Pyodide FS so
-      // the IDENTICAL .py bytes import — that is what makes byte-identity FREE.
-      try {
-        await micropip.install("./engine/molgang_engine-0.0.0-py3-none-any.whl");
-      } catch (e) {
-        post({ kind: "boot", pct: 64, phase: "engine wheel: " + (e && e.message || e) });
-      }
+      // The molgang + knitweb source is shipped alongside the app as ONE wheel
+      // the service worker caches. Installing it makes the IDENTICAL .py bytes
+      // import — that is what makes byte-identity FREE. Fatal on failure:
+      // everything downstream imports molgang/knitweb.
+      await micropip.install(ENGINE_WHEEL_URL);
 
-      boot(82, "deriving wallet + warming peer…");
-      // Hand control to Python. molgang_serverless.bridge owns the in-worker Bar,
-      // the WebRtcTransport, the signed-QR onboarding, and the RPC dispatch. JS
-      // only relays. This Python module is NEW engine glue (server-free wiring);
-      // every sacred path it calls is the unchanged molgang/knitweb code.
-      pyodide.runPython(\`
-import json
+      boot(78, "wiring the in-tab bar…");
+      // The serverless API bridge is plain Python shipped next to the wheel
+      // (engine/serverless_api.py): one Bar + the legacy /api/* dispatch +
+      // the wallet-signed QR onboarding. Every sacred path it calls is the
+      // unchanged molgang/knitweb code from the wheel.
+      const bridgeResp = await fetch(BRIDGE_PY_URL);
+      if (!bridgeResp.ok) throw new Error("bridge fetch failed: HTTP " + bridgeResp.status);
+      pyodide.runPython(await bridgeResp.text());
 
-# Eliminate the pulse_host subprocess dependency: identity is derived purely.
-from knitweb.ledger.node import AccountNode
-
-def _make_bridge(seed):
-    # AccountNode.from_seed: priv = sha256("knitweb:account:seed:"+seed). Pure,
-    # deterministic, NO subprocess — this is what kills pulse_host.run().
-    node = AccountNode.from_seed(seed)
-    try:
-        from molgang_serverless.bridge import ServerlessBridge
-        return ServerlessBridge(seed=seed, node=node)
-    except Exception:
-        # Minimal in-tab Bar bring-up if the serverless bridge package is not
-        # present yet: still 100% server-free (in-process Bar, no /api HTTP).
-        from molgang.bar import Bar
-        bar = Bar(world_path=None)
-        class _MinBridge:
-            def __init__(self): self.bar = bar; self.node = node; self.seed = seed
-            def onboarding(self):
-                from molgang_serverless.identity import signed_onboarding
-                return signed_onboarding(node, multiaddr="webrtc:self")
-            def verify(self, payload):
-                from molgang_serverless.identity import verify_onboarding
-                return verify_onboarding(payload)
-            def api(self, path, method, body):
-                return _MIN_API(self.bar, path, method, body)
-        return _MinBridge()
-\`);
-      const make = pyodide.globals.get("_make_bridge");
+      boot(88, "deriving wallet + warming peer…");
+      // AccountNode.from_seed: priv = sha256("knitweb:account:seed:"+seed).
+      // Pure, deterministic, NO subprocess — this is what kills pulse_host.run().
+      const make = pyodide.globals.get("make_bridge");
       engine = make(SEED);
       make.destroy();
 
@@ -507,8 +509,11 @@ def _make_bridge(seed):
         if (!engine) { reply(null, "engine not ready"); return; }
         switch (msg.kind) {
           case "api": {
-            const out = engine.api(msg.path, msg.method, msg.body ? JSON.stringify(msg.body) : null);
-            reply(typeof out === "string" ? JSON.parse(out) : out);
+            // Python returns json.dumps({status, body}) — the HTTP-shaped
+            // envelope the fetch interceptor (app-bridge.js) wraps back into a
+            // real Response for the unchanged render layer.
+            const out = engine.api(msg.path, msg.method || "GET", msg.body ? JSON.stringify(msg.body) : null);
+            reply(JSON.parse(out));
             break;
           }
           case "qr-mine": {
@@ -542,7 +547,9 @@ def _make_bridge(seed):
       }
     };
 
-    init().catch((err) => post({ kind: "boot", pct: 8, phase: "ERROR: " + ((err && err.message) || err) }));
+    // A boot failure is FATAL and immediate: post a dedicated boot-error so the
+    // main thread surfaces it (sticky) and stops waiting — no 120s watchdog.
+    init().catch((err) => post({ kind: "boot-error", message: (err && err.message) || String(err) }));
   `;
   const blob = new Blob([bootstrap], { type: "text/javascript" });
   const url = URL.createObjectURL(blob);
@@ -586,25 +593,33 @@ async function main() {
   const mesh = new WebRtcMesh(engine);
 
   // Wait for the engine to report ready (its Python bridge is constructed).
+  // A worker boot-error rejects IMMEDIATELY — the watchdog is only for hangs.
   await new Promise((resolve, reject) => {
     const t = setTimeout(() => reject(new Error("engine boot timed out")), 120000);
-    engine.on("event", (event) => {
+    engine.on("event", (event, data) => {
       if (event === "ready") { clearTimeout(t); resolve(); }
+      else if (event === "boot-error") {
+        clearTimeout(t);
+        reject(new Error((data && data.message) || "engine boot failed"));
+      }
     });
   }).catch((err) => { bootError(String(err.message || err)); throw err; });
 
   wireUi(engine, mesh);
   updatePeerStatus(mesh);
-  bootDone();
 
-  // Load the legacy render layer LAST, now that window.MOLGANG_ENGINE exists.
-  // app.js is patched to prefer MOLGANG_ENGINE.api over fetch when present; if
-  // an older app.js is bundled it still finds the same response shapes.
+  // Load the render bridge, now that window.MOLGANG_ENGINE exists. It installs
+  // the fetch→engine interceptor, then loads the classic render layer
+  // (config.js → i18n.js → app.js, vendored from web/) which runs unchanged on
+  // top of the in-tab engine instead of an HTTP backend. The splash stays up
+  // until the render layer is in — and stays (sticky) if it fails.
   try {
     await import("./app-bridge.js");
   } catch (err) {
-    console.warn("render layer not loaded as module; expecting classic app.js", err);
+    bootError("render layer failed to load: " + ((err && err.message) || err));
+    throw err;
   }
+  bootDone();
 }
 
 main().catch((err) => {
