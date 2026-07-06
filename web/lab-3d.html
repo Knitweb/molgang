@@ -70,6 +70,19 @@
   .votes{display:flex;gap:8px;font-family:var(--mono);font-size:.8em;margin-top:6px}
   .votes .c{color:var(--good)}.votes .m{color:var(--bad)}.votes .a{color:var(--dim)}
   .perk{font-size:.8em;color:var(--dim);padding:2px 0}
+  .modes{display:flex;gap:6px;margin-bottom:10px}
+  .mode{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--dim);
+    border-radius:8px;padding:6px;cursor:pointer;font-size:.85em}
+  .mode.on{border-color:var(--teal);color:var(--ink);background:var(--panel)}
+  .tray{margin:4px 0 10px}
+  #tray-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .achip{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line2);
+    color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:.9em;transition:.1s}
+  .achip:hover:not(:disabled){border-color:var(--teal);transform:translateY(-1px)}
+  .achip:disabled{opacity:.4;cursor:default}
+  .achip .el{font-weight:700}.achip .ct{color:var(--dim);font-size:.85em;margin-left:4px}
+  .achip.full{border-color:var(--good);color:var(--good)}
+  .hidden{display:none}
   .lvl{display:inline-block;background:var(--panel2);border:1px solid var(--line2);border-radius:6px;
     padding:2px 8px;font-family:var(--mono);font-size:.85em}
   .locked{opacity:.55}
@@ -102,9 +115,19 @@
 
   <aside class="right">
     <div class="card">
+      <div class="modes">
+        <button id="m-explore" class="mode on">🔬 Explore</button>
+        <button id="m-build" class="mode">🧪 Build</button>
+      </div>
       <h3 id="sel-name">No molecule selected</h3>
       <div class="row"><span class="k">Formula</span><span class="v" id="sel-formula">–</span></div>
       <div class="row"><span class="k">Atoms · bonds</span><span class="v" id="sel-counts">–</span></div>
+      <div id="tray" class="tray hidden">
+        <div class="lbl" style="margin:2px 0 6px">Add atoms to assemble it</div>
+        <div id="tray-chips"></div>
+        <div class="row"><span class="k">Placed</span><span class="v" id="tray-count">0 / 0</span></div>
+        <button class="ghost" id="tray-reset" style="width:100%;margin-top:4px">↺ Reset build</button>
+      </div>
       <button class="cta" id="propose" disabled>Propose bond</button>
       <div id="result" style="margin-top:10px"></div>
     </div>
@@ -231,29 +254,33 @@ function bondMesh(a, b, order){
 }
 
 let ELEM = {}, MOLS = {};
-function renderMolecule(m){
+const SCALE = 1.15;                       // Å → scene units
+// Render a molecule, optionally revealing only a subset of atom indices
+// (Build mode). Geometry is pre-centred on the origin by the generator, so we
+// frame once against the FULL molecule and keep the camera steady as atoms
+// pop in — no jumpy re-centring per partial state.
+function renderMolecule(m, revealed=null){
   molGroup.clear();
   assembly = 0;   // restart the grow-in animation
-  const s = 1.15; // scene scale (Å → units)
-  m.atoms.forEach(a=>{
+  const show = i => revealed===null || revealed.has(i);
+  m.atoms.forEach((a,i)=>{
+    if(!show(i)) return;
     const e = ELEM[a.el] || {color:"#cccccc", radius:0.7};
     const mesh = new THREE.Mesh(sphereGeo, atomMaterial(e.color));
     const r = 0.28 + e.radius*0.22;
     mesh.scale.setScalar(0.001);
     mesh.userData = {target:r};       // grown by tickAssembly
-    mesh.position.set(a.x*s, a.y*s, a.z*s);
+    mesh.position.set(a.x*SCALE, a.y*SCALE, a.z*SCALE);
     mesh.castShadow = true;
     molGroup.add(mesh);
   });
   m.bonds.forEach(([i,j,o])=>{
-    const A={x:m.atoms[i].x*s,y:m.atoms[i].y*s,z:m.atoms[i].z*s};
-    const B={x:m.atoms[j].x*s,y:m.atoms[j].y*s,z:m.atoms[j].z*s};
+    if(!show(i) || !show(j)) return;   // only bonds between placed atoms
+    const A={x:m.atoms[i].x*SCALE,y:m.atoms[i].y*SCALE,z:m.atoms[i].z*SCALE};
+    const B={x:m.atoms[j].x*SCALE,y:m.atoms[j].y*SCALE,z:m.atoms[j].z*SCALE};
     molGroup.add(bondMesh(A,B,o));
   });
-  // frame it
-  const box = new THREE.Box3().setFromObject(molGroup);
-  const c = box.getCenter(new THREE.Vector3());
-  molGroup.position.sub(c).setY(molGroup.position.y - c.y + 0.2);
+  molGroup.position.set(0, 0.2, 0);
 }
 
 // Tier-1 post-processing: SAO ambient occlusion + subtle bloom.
@@ -341,19 +368,80 @@ function buildShelf(){
 }
 const sub = f => f.replace(/(\d+)/g,'<sub>$1</sub>');
 
+let mode = "explore";
+let revealed = new Set();          // atom indices placed in Build mode
+
 function select(f, btn){
   selected=f;
   document.querySelectorAll(".shelf button").forEach(b=>b.classList.remove("sel"));
   if(btn) btn.classList.add("sel");
   const m=MOLS[f];
-  renderMolecule(m);
   $("#sel-name").innerHTML = m.name + ` <span class="dim" style="font-size:.8em">· ${m.name_nl}</span>`;
   $("#sel-formula").innerHTML = sub(f);
   $("#sel-counts").textContent = `${m.atoms.length} · ${m.bonds.length}`;
-  $("#propose").disabled=false;
   $("#result").innerHTML="";
-  $("#hud").innerHTML = `<b>${sub(f)}</b> — ${m.atoms.length} atoms · drag to rotate`;
+  applyMode();
 }
+
+function setMode(next){
+  mode = next;
+  $("#m-explore").classList.toggle("on", mode==="explore");
+  $("#m-build").classList.toggle("on", mode==="build");
+  $("#tray").classList.toggle("hidden", mode!=="build");
+  if(selected) applyMode(); else renderStub();
+}
+$("#m-explore").onclick=()=>setMode("explore");
+$("#m-build").onclick=()=>setMode("build");
+$("#tray-reset").onclick=()=>{ if(selected){ revealed.clear(); refreshBuild(); } };
+
+function applyMode(){
+  const m=MOLS[selected];
+  if(mode==="explore"){
+    renderMolecule(m);
+    $("#propose").disabled=false;
+    $("#hud").innerHTML = `<b>${sub(selected)}</b> — ${m.atoms.length} atoms · drag to rotate`;
+  } else {
+    revealed = new Set();
+    refreshBuild();
+  }
+}
+
+// build-mode atom counts
+function need(m){ const c={}; m.atoms.forEach(a=>c[a.el]=(c[a.el]||0)+1); return c; }
+function placed(m){ const c={}; [...revealed].forEach(i=>{const e=m.atoms[i].el;c[e]=(c[e]||0)+1;}); return c; }
+
+function addAtom(el){
+  const m=MOLS[selected];
+  const idx = m.atoms.findIndex((a,i)=>a.el===el && !revealed.has(i));
+  if(idx<0){ toast(`No more ${el} needed in ${selected}`); return; }
+  revealed.add(idx);
+  refreshBuild(true);
+}
+
+function refreshBuild(grew){
+  const m=MOLS[selected];
+  renderMolecule(m, revealed);
+  const nd=need(m), pl=placed(m);
+  const chips=$("#tray-chips"); chips.innerHTML="";
+  Object.keys(nd).sort((a,b)=>(ELEM[b]?.z||0)-(ELEM[a]?.z||0)).forEach(el=>{
+    const rem = nd[el]-(pl[el]||0);
+    const b=document.createElement("button");
+    b.className="achip"+(rem===0?" full":"");
+    b.style.borderLeft=`3px solid ${ELEM[el]?.color||'#888'}`;
+    b.innerHTML=`<span class="el">${el}</span><span class="ct">${pl[el]||0}/${nd[el]}</span>`;
+    b.disabled = rem===0;
+    b.onclick=()=>addAtom(el);
+    chips.appendChild(b);
+  });
+  $("#tray-count").textContent=`${revealed.size} / ${m.atoms.length}`;
+  const done = revealed.size===m.atoms.length;
+  $("#propose").disabled = !done;
+  if(done){ $("#hud").innerHTML=`<b>${sub(selected)}</b> — complete! propose it →`;
+    if(grew) toast("✓ Molecule assembled — propose it!"); }
+  else $("#hud").innerHTML=`Build <b>${sub(selected)}</b> — ${m.atoms.length-revealed.size} atoms to go`;
+}
+
+function renderStub(){ molGroup.clear(); }
 
 $("#propose").onclick = async ()=>{
   if(!selected) return;
