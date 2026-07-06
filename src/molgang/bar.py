@@ -240,8 +240,12 @@ class Bar:
             links = prop.links or (
                 [prop.parsed] if isinstance(prop.parsed, dict) and prop.parsed.get("kind") == "link" else []
             )
+            head_kind = prop.parsed.get("kind") if isinstance(prop.parsed, dict) else None
             if prop.round.bond is not None:
                 verdict = game.honest_verdict(prop.round.bond).value
+            elif head_kind == "reaction":
+                # a reaction knit has hard ground truth: balanced real chemistry or bust (#109)
+                verdict = game.honest_reaction_verdict(prop.parsed["equation"]).value
             elif links:
                 verdict = game.honest_spiral_verdict(links).value
             else:

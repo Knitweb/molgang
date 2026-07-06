@@ -61,7 +61,9 @@ class WovenItem:
         if self.kind == "spiral":
             return (" → ".join([self.links[0]["subject"], *[l["object"] for l in self.links]])
                     if self.links else "spiral")
-        return self.term if self.kind == "term" else f"{self.subject} {self.relation} {self.object}"
+        if self.kind in ("term", "reaction"):
+            return self.term
+        return f"{self.subject} {self.relation} {self.object}"
 
 
 class World:
@@ -102,7 +104,9 @@ class World:
         if it.kind == "link":
             s, o = self._term_node(it.subject), self._term_node(it.object)
             self.web.link(s, o, rel=it.relation or "links", weight=max(1, it.confirmations))
-        elif it.kind == "spiral":
+        elif it.kind in ("spiral", "reaction"):
+            # a reaction weaves like a mini-spiral: every reactant→product pair is a
+            # real edge (rel "reacts-to"), so confirmed reactions render in the explorer (#109)
             for pl in it.links:
                 s, o = self._term_node(pl["subject"]), self._term_node(pl["object"])
                 self.web.link(s, o, rel=pl.get("relation", "links"), weight=max(1, it.confirmations))
@@ -181,10 +185,19 @@ class World:
     # -- the operation the game calls on a confirmed knit -------------------
     def weave_knit(self, parsed: dict, by: str, fiber_cid: str, confirmations: int) -> None:
         self._sync()
+        links = []
+        if parsed.get("kind") == "reaction":
+            # strip stoichiometric coefficients for the node names (2H2O -> H2O);
+            # the full equation (with conditions) is preserved as the item's term.
+            import re as _re
+            strip = lambda s: _re.sub(r"^\d+\s*", "", s)
+            links = [{"subject": strip(r), "object": strip(p), "relation": "reacts-to"}
+                     for r in parsed.get("reactants", []) for p in parsed.get("products", [])]
         item = WovenItem(
             kind=parsed.get("kind", "term"), by=by, fiber_cid=fiber_cid, confirmations=confirmations,
             term=parsed.get("term", ""), subject=parsed.get("subject", ""),
             object=parsed.get("object", ""), relation=parsed.get("relation", ""),
+            links=links,
             anchor_rel=_seed_anchor_rel(confirmations), anchor_ts=int(time.time()),
         )
         self._apply(item)
@@ -299,6 +312,9 @@ class World:
                 node["knitweb:relation"] = item.relation
                 node["knitweb:object"] = item.object
             elif item.kind == "spiral":
+                node["knitweb:links"] = item.links
+            elif item.kind == "reaction":
+                node["knitweb:equation"] = item.term
                 node["knitweb:links"] = item.links
             graph.append(node)
         anchor = self.anchor()
