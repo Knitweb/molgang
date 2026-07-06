@@ -202,6 +202,27 @@ def seed_cmd(argv: list[str]) -> int:
     return 0
 
 
+def facts_cmd(argv: list[str]) -> int:
+    """`molgang facts --cache DIR --ledger PATH [--world PATH] [--max-cid N]` — weave
+    Fable-verified, PubChem-sourced chemistry facts into a world at scale (see facts.py)."""
+    import argparse
+
+    from .facts import build_facts_world
+    ap = argparse.ArgumentParser(prog="molgang facts")
+    ap.add_argument("--cache", required=True, help="HTTP cache dir (the reproducibility snapshot)")
+    ap.add_argument("--ledger", required=True, help="facts ledger output (JSONL, incl. rejects)")
+    ap.add_argument("--world", default=None, help="world file to weave into")
+    ap.add_argument("--max-cid", type=int, default=26000, help="highest PubChem CID to fetch")
+    a = ap.parse_args(argv)
+    stats = build_facts_world(a.cache, a.ledger, a.world, max_cid=a.max_cid)
+    print(f"facts: {stats['facts_verified']}/{stats['facts_total']} verified & woven "
+          f"({stats['facts_rejected']} rejected -> ledger only)  "
+          f"->  fabric {stats['nodes']} nodes / {stats['edges']} edges")
+    if a.world:
+        print(f"wrote {a.world}  —  explore with: molgang explore --web {a.world}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv if argv is None else argv)
     cmd = argv[1] if len(argv) > 1 else "demo"
@@ -219,6 +240,8 @@ def main(argv: list[str] | None = None) -> int:
         return certificate(argv[2:])
     if cmd == "seed":
         return seed_cmd(argv[2:])
+    if cmd == "facts":
+        return facts_cmd(argv[2:])
     return demo()
 
 
