@@ -60,6 +60,14 @@ floats anywhere — day is an integer, values are integer µPLS.
 2. **Failed work mints nothing** — stakes come back, no reward-bank transfer.
 3. **Integer-exact settlement** — no floats anywhere on a value path.
 
+### Story tracks pay silk
+
+Themed quest chains (scope `set` in `quests.QUESTS`) carry a one-time **silk
+reward** (3–10 silk per track) paid at the settle that completes them.
+Completion derives from the persistent world; paid track ids persist per
+device wallet (registry `quest_grant` table) — never paid twice. Every
+molecule in the ground truth belongs to at least one track (test-enforced).
+
 ### Level-ups refill the loom
 
 Every level gained (levels derive deterministically from woven count,
