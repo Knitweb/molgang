@@ -11,6 +11,7 @@ endpoints are used by humans (the browser) and machines (bots/agents) — dual p
     POST /api/propose  {sid,term}             brainstorm + knit a term (spends silk)
     POST /api/vote     {sid,pid,verdict}      vote with a pulse ('confirm'|'mismatch'|'abstain')
     POST /api/certificate {sid}                download a public PoUW Certificate PDF
+    GET  /metrics                              Prometheus RED metrics + domain gauges (#121)
                                               (always redacted; bearer export is CLI/local only)
 
     molgang serve --port 8765
@@ -203,6 +204,7 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 self.send_header("Access-Control-Max-Age", "86400")
 
         def _json(self, code: int, obj, headers: dict[str, str] | None = None) -> None:
+            self._last_code = code
             body = json.dumps(obj, ensure_ascii=False).encode()
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -214,6 +216,7 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
             self.wfile.write(body)
 
         def _pdf(self, body: bytes, filename: str) -> None:
+            self._last_code = 200
             self.send_response(200)
             self.send_header("Content-Type", "application/pdf")
             self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
@@ -300,6 +303,32 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
             self.wfile.write(body)
 
         def do_GET(self) -> None:
+            self._timed(self._get_impl)
+
+        def do_POST(self) -> None:
+            self._timed(self._post_impl)
+
+        def _timed(self, impl) -> None:
+            """RED metrics around every request (#121): rate, errors, duration, inflight."""
+            import time as _time
+
+            from . import metrics as _metrics
+            path = self.path.split("?")[0]
+            _metrics.REGISTRY.track(+1)
+            start = _time.perf_counter()
+            self._last_code = 200
+            try:
+                impl()
+            except Exception:
+                self._last_code = 500
+                raise
+            finally:
+                _metrics.REGISTRY.track(-1)
+                _metrics.record_request(path, self.command or "GET",
+                                        getattr(self, "_last_code", 200),
+                                        _time.perf_counter() - start)
+
+        def _get_impl(self) -> None:
             path = self.path.split("?")[0]
             if path.startswith("/api/") and not self._rate_limit("GET", path):
                 return
@@ -431,7 +460,7 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return self._json(200, c)
             return self._json(404, {"error": "not found"})
 
-        def do_POST(self) -> None:
+        def _post_impl(self) -> None:
             try:
                 b = self._body()
                 path = self.path.split("?")[0]
@@ -506,8 +535,9 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return self._json(400, {"error": str(e)})
 
         def _metrics(self) -> None:
-            """Prometheus-compatible text/plain metrics endpoint."""
-            lines = []
+            """Prometheus-compatible text/plain metrics endpoint (RED + domain gauges)."""
+            from . import metrics as _m
+            lines = [_m.REGISTRY.render().rstrip("\n")]
 
             def gauge(name, value, labels=None):
                 lbl = (
@@ -530,6 +560,7 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
             # player / session counts
             sessions = list(bar.sessions.values())
             gauge("molgang_players_total", len(sessions))
+            gauge("molgang_seats_occupied", sum(1 for s in sessions if s.table_id))
 
             # pulses circulating (non-bot sessions)
             pulses = sum(s.player.pulses for s in sessions if not s.bot)
