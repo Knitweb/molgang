@@ -161,12 +161,18 @@ def parse_knit(text: str) -> dict | list[dict]:
 
 def parse_links(text: str) -> list[dict]:
     """Always return a list of link dicts. A bare term → `[]`; a single link → `[link]`;
-    a one-to-many knit → all its links. Lets callers handle multi-links uniformly."""
+    a one-to-many knit → all its links; a REACTION line (`O2 + C -> CO2`) expands into
+    its reactant→product links (coefficients stripped), so spirals can thread real
+    reactions (#109 follow-up). Lets callers handle multi-links uniformly."""
     parsed = parse_knit(text)
     if isinstance(parsed, list):
         return parsed
     if parsed.get("kind") == "link":
         return [parsed]
+    if parsed.get("kind") == "reaction":
+        strip = lambda s: re.sub(r"^\d+\s*", "", s)
+        return [_link(strip(r), strip(pr), "reacts-to")
+                for r in parsed["reactants"] for pr in parsed["products"]]
     return []
 
 
