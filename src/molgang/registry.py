@@ -39,6 +39,12 @@ class Registry:
         self._db.execute(
             "CREATE TABLE IF NOT EXISTS level_grant ("
             "  device_id TEXT PRIMARY KEY, level INTEGER NOT NULL)")
+        # Story-track silk rewards already paid to a device wallet (quest id per row) —
+        # persisted so a restart or re-join never pays a track twice.
+        self._db.execute(
+            "CREATE TABLE IF NOT EXISTS quest_grant ("
+            "  device_id TEXT NOT NULL, quest_id TEXT NOT NULL,"
+            "  PRIMARY KEY (device_id, quest_id))")
         # Tracked list of every PoUW certificate this node has issued (public data only —
         # holder/address/metrics + the PDF's sha256 so any copy can be verified later).
         self._db.execute(
@@ -128,6 +134,17 @@ class Registry:
             "INSERT INTO level_grant (device_id,level) VALUES (?,?) "
             "ON CONFLICT(device_id) DO UPDATE SET level=excluded.level",
             (device_id, int(level)))
+        self._db.commit()
+
+    def has_quest_grant(self, device_id: str, quest_id: str) -> bool:
+        return self._db.execute(
+            "SELECT 1 FROM quest_grant WHERE device_id=? AND quest_id=?",
+            (device_id, quest_id)).fetchone() is not None
+
+    def add_quest_grant(self, device_id: str, quest_id: str) -> None:
+        self._db.execute(
+            "INSERT OR IGNORE INTO quest_grant (device_id,quest_id) VALUES (?,?)",
+            (device_id, quest_id))
         self._db.commit()
 
     def count(self) -> int:

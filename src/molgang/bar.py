@@ -578,6 +578,7 @@ class Bar:
             # level-ups refill the loom — counted AFTER the weave so the persistent
             # world already contains this knit
             self._grant_level_silk(prop.by)
+            self._grant_quest_silk(prop.by)
 
     def web_view(self) -> dict:
         """The shared web's current state + its OriginTrail provenance anchor."""
@@ -760,6 +761,33 @@ class Bar:
             sess.silk_level = level
             if self.registry and sess.device:
                 self.registry.set_granted_level(sess.device, level)
+
+    def _grant_quest_silk(self, sid: str) -> None:
+        """Completing a story track pays its silk reward exactly once (#owner tracks).
+
+        Completion derives from the PERSISTENT world (term items by player name), and
+        paid quest ids persist per device wallet (registry quest_grant) — restarts and
+        re-joins never pay a track twice. Guests track paid ids on the session."""
+        from . import quests
+        sess = self.sessions.get(sid)
+        if sess is None or sess.bot:
+            return
+        woven = [{"term": i.term, "by": i.by} for i in self.world.items if i.kind == "term"]
+        for row in quests.quest_progress(woven, sess.name):
+            if not row["complete"] or not row.get("silk_reward"):
+                continue
+            qid = row["id"]
+            if self.registry and sess.device:
+                if self.registry.has_quest_grant(sess.device, qid):
+                    continue
+                self.registry.add_quest_grant(sess.device, qid)
+            else:
+                paid = getattr(sess, "quests_paid", None) or set()
+                if qid in paid:
+                    continue
+                paid.add(qid)
+                sess.quests_paid = paid
+            sess.player.silk += row["silk_reward"]
 
     def _require(self, sid: str) -> Session:
         self.reap_stale()

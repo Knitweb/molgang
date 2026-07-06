@@ -41,31 +41,59 @@ QUESTS: list[dict] = [
     # quest tells a real process story instead of a generic tally.
     {"id": "slag-prospector", "title": "Slag prospector", "tier": "high", "scope": "set",
      "set": ["FeO", "Fe2O3", "CaO", "SiO2", "MgO"],
-     "need": 3, "xp": 250, "desc": "Weave 3 of the oxides that make up steel slag (FeO, Fe2O3, CaO, SiO2, MgO)."},
+     "need": 3, "xp": 250, "silk": 5, "desc": "Weave 3 of the oxides that make up steel slag (FeO, Fe2O3, CaO, SiO2, MgO)."},
     {"id": "slag-run", "title": "Slag Run — vanadium recovery", "tier": "high", "scope": "set",
      "set": ["FeO", "Fe2O3", "Cr2O3", "V2O3", "V2O5"],
-     "need": "all", "xp": 500, "desc": "Weave the full recovery chain from steel slag to battery-grade "
+     "need": "all", "xp": 500, "silk": 10, "desc": "Weave the full recovery chain from steel slag to battery-grade "
                                        "vanadium: FeO, Fe2O3, Cr2O3, V2O3 and V2O5 (the VRFB electrolyte precursor)."},
     # Story tracks beyond Slag Run (#owner: "veel meer levels uit het script") — each a
     # themed chain over the graded ground truth, easiest first.
     {"id": "waterworks", "title": "Waterworks", "tier": "elementary", "scope": "set",
      "set": ["H2", "O2", "H2O", "H2O2", "O3"],
-     "need": 3, "xp": 150, "desc": "The water track: weave 3 of H2, O2, H2O, H2O2 and O3."},
+     "need": 3, "xp": 150, "silk": 3, "desc": "The water track: weave 3 of H2, O2, H2O, H2O2 and O3."},
     {"id": "combustion-track", "title": "Fire & smoke", "tier": "middle", "scope": "set",
      "set": ["CH4", "O2", "CO2", "CO", "H2O"],
-     "need": "all", "xp": 300, "desc": "The combustion track: methane, oxygen and every product "
+     "need": "all", "xp": 300, "silk": 6, "desc": "The combustion track: methane, oxygen and every product "
                                        "of clean and dirty burning (CO2, CO, H2O)."},
     {"id": "kitchen-lab", "title": "Kitchen lab", "tier": "middle", "scope": "set",
      "set": ["NaCl", "NaHCO3", "CH3COOH", "C6H12O6", "C2H5OH"],
-     "need": 4, "xp": 350, "desc": "Chemistry from your own kitchen: salt, baking soda, vinegar, "
+     "need": 4, "xp": 350, "silk": 7, "desc": "Chemistry from your own kitchen: salt, baking soda, vinegar, "
                                    "glucose and ethanol — weave any 4."},
     {"id": "acid-base", "title": "Acids & bases", "tier": "high", "scope": "set",
      "set": ["HCl", "NaOH", "H2SO4", "KOH", "HNO3", "CH3COOH"],
-     "need": 4, "xp": 450, "desc": "The neutralisation track: weave 4 of the classic acids and bases."},
+     "need": 4, "xp": 450, "silk": 9, "desc": "The neutralisation track: weave 4 of the classic acids and bases."},
     {"id": "noble-lab", "title": "Copper, silver & barium", "tier": "high", "scope": "set",
      "set": ["CuO", "CuSO4", "AgNO3", "BaSO4"],
-     "need": "all", "xp": 400, "desc": "The wet-lab classics: copper oxide and sulfate, silver "
+     "need": "all", "xp": 400, "silk": 8, "desc": "The wet-lab classics: copper oxide and sulfate, silver "
                                        "nitrate and the barium sulfate precipitate."},
+    {"id": "air-atmosphere", "title": "Air & atmosphere", "tier": "middle", "scope": "set",
+     "set": ["N2", "O2", "CO2", "O3", "NO2"],
+     "need": 4, "xp": 250, "silk": 5, "desc": "What you breathe (and what you shouldn't): weave 4 of "
+                                              "N2, O2, CO2, O3 and NO2."},
+    {"id": "haber-nitrogen", "title": "The nitrogen cycle", "tier": "high", "scope": "set",
+     "set": ["N2", "H2", "NH3", "HNO3", "NO2"],
+     "need": "all", "xp": 450, "silk": 9, "desc": "From air to fertiliser: N2 and H2 through the Haber "
+                                                  "process to NH3, and on to HNO3 and NO2."},
+    {"id": "sulfur-line", "title": "The sulfur line", "tier": "high", "scope": "set",
+     "set": ["H2S", "SO2", "H2SO4"],
+     "need": "all", "xp": 350, "silk": 7, "desc": "Volcano to factory: hydrogen sulfide, sulfur dioxide "
+                                                  "and the acid that industry runs on."},
+    {"id": "builders-yard", "title": "Builder's yard", "tier": "middle", "scope": "set",
+     "set": ["CaCO3", "CaO", "SiO2", "Al2O3", "MgO"],
+     "need": 4, "xp": 300, "silk": 6, "desc": "Limestone, quicklime, sand, alumina and magnesia — the "
+                                              "chemistry of cement, glass and ceramics. Weave 4."},
+    {"id": "salt-family", "title": "The salt family", "tier": "middle", "scope": "set",
+     "set": ["NaCl", "KCl", "NaF", "KBr", "KI"],
+     "need": 4, "xp": 300, "silk": 6, "desc": "Halide salts from table salt to toothpaste fluoride and "
+                                              "iodised salt. Weave 4 of the family."},
+    {"id": "pigments", "title": "Pigments & coatings", "tier": "high", "scope": "set",
+     "set": ["TiO2", "ZnO", "MnO", "Cr2O3", "Fe2O3"],
+     "need": 4, "xp": 400, "silk": 8, "desc": "The oxides that colour the world: titanium white, zinc "
+                                              "white, manganese, chrome green and iron red. Weave 4."},
+    {"id": "npk-fertiliser", "title": "NPK fertiliser", "tier": "high", "scope": "set",
+     "set": ["NH3", "HNO3", "H3PO4", "KCl"],
+     "need": "all", "xp": 400, "silk": 8, "desc": "Feed the world: nitrogen (NH3/HNO3), phosphorus "
+                                                  "(H3PO4) and potassium (KCl) — the N-P-K of every fertiliser bag."},
 ]
 
 _TIER_ORDER = ("elementary", "middle", "high")
@@ -127,6 +155,7 @@ def quest_progress(woven: Iterable[dict], by: str | None = None, *, molecules=No
             "scope": q["scope"], "need": need, "done": done,
             "pct": min(100, round(100 * done / need)) if need else 100,
             "complete": complete, "xp_reward": q["xp"], "xp_awarded": q["xp"] if complete else 0,
+            "silk_reward": q.get("silk", 0),
         })
     return rows
 
