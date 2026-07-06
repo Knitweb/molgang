@@ -536,6 +536,12 @@ class WebPeer:
             return self.version()
         if method == "identity":
             return self.identity()
+        if method == "recovery_phrase":
+            # #141: the non-custodial recovery phrase for THIS wallet's seed. The
+            # phrase encodes the seed itself (never leaves the device); entering it
+            # on a new device restores the identical wallet/address.
+            from ..recovery import seed_to_phrase
+            return {"phrase": seed_to_phrase(self.account.priv), "address": self.account.address}
         # --- async p2p control ---
         if method == "peer_start":
             return await self.peer_start(seed_peer=args.get("seed_peer"))
