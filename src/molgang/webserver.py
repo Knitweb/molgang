@@ -35,7 +35,10 @@ from .pulse_host import bootstrap_host, default_wallet_path
 
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "web")
 _CTYPE = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
-          ".json": "application/json", ".svg": "image/svg+xml"}
+          ".json": "application/json", ".svg": "image/svg+xml",
+          # PWA install assets (#115)
+          ".webmanifest": "application/manifest+json", ".png": "image/png",
+          ".pdf": "application/pdf"}
 
 # Frozen /api contract version (Sprint 3 #58, see docs/API.md). Bump only on a breaking change.
 API_VERSION = "1"
