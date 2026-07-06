@@ -170,13 +170,27 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const API = (window.MOLGANG_API ?? "");
 const $ = s => document.querySelector(s);
-const api = async (path, method="GET", body=null) => {
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+// api() retries once on 429 (respecting Retry-After) and surfaces the server's
+// error message so callers can tell a lost session from a real failure.
+const api = async (path, method="GET", body=null, _retry=true) => {
   const r = await fetch(API + path, {
     method, headers: body ? {"content-type":"application/json"} : {},
     body: body ? JSON.stringify(body) : null });
-  if(!r.ok) throw new Error(path+" "+r.status);
+  if(r.status===429 && _retry){
+    const wait = (parseFloat(r.headers.get("Retry-After"))||1)*1000;
+    await sleep(Math.min(wait, 4000));
+    return api(path, method, body, false);
+  }
+  if(!r.ok){
+    let msg="";
+    try{ msg=(await r.json()).error||""; }catch{}
+    const e = new Error(msg || (path+" "+r.status)); e.status=r.status; throw e;
+  }
   return r.json();
 };
+const isSessionLost = e =>
+  e && (/session|seat|take a seat|unknown/i.test(e.message||"") || e.status===404);
 
 /* ---------- 3D scene ---------- */
 const canvas = $("#c");
@@ -459,19 +473,41 @@ function refreshBuild(grew){
 
 function renderStub(){ molGroup.clear(); }
 
+// Run an action that needs a live seat. If the session was reaped (idle >45s,
+// common in Build mode) the first call fails with a session error — we silently
+// rejoin (same device → same wallet+balance) and retry once.
+async function withSession(fn){
+  try{ return await fn(); }
+  catch(e){
+    if(!isSessionLost(e)) throw e;
+    await rejoin();
+    return await fn();
+  }
+}
+
 $("#propose").onclick = async ()=>{
   if(!selected) return;
   $("#propose").disabled=true; $("#propose").textContent="Proposing…";
   try{
-    const p = await api("/api/propose","POST",{sid, term:selected});
-    // bots at the table settle it; read the result from state
-    const st = await api("/api/state?sid="+sid);
-    const knit = (st.my_knits.knits||[]).find(k=>k.pid===p.pid) || st.my_knits.knits[0];
+    const st = await withSession(async ()=>{
+      const p = await api("/api/propose","POST",{sid, term:selected});
+      const s = await api("/api/state?sid="+sid);
+      s._pid = p.pid; return s;
+    });
+    const knit = (st.my_knits.knits||[]).find(k=>k.pid===st._pid) || st.my_knits.knits[0];
     showResult(knit);
     applyWallet(st.you, {flash:true});
   }catch(e){ toast("Propose failed: "+e.message); }
   $("#propose").textContent="Propose bond"; $("#propose").disabled=false;
 };
+
+// Keep the seat alive so it isn't reaped mid-build (server reaps idle humans
+// at 45s). Heartbeat well inside that window; rejoin if the seat was already lost.
+setInterval(async ()=>{
+  if(!sid) return;
+  try{ await api("/api/heartbeat","POST",{sid}); }
+  catch(e){ if(isSessionLost(e)){ try{ await rejoin(); await refresh(); }catch{} } }
+}, 20000);
 
 function showResult(k){
   if(!k){ $("#result").innerHTML=`<span class="dim">No settlement returned.</span>`; return; }
