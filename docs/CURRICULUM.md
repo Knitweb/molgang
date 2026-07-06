@@ -31,7 +31,7 @@ see [Keeping this doc honest](#keeping-this-doc-honest)).
 |---|---|---|
 | elementary | `H` `He` `C` `N` `O` | `H2O` `CO2` `O2` `H2` |
 | middle | `F` `Na` `Mg` `Cl` `Ca` `Fe` `Zn` | `NaCl` `CH4` `NH3` `HCl` `CaCO3` `N2` `CO` `SiO2` `NaF` |
-| high | `Al` `Si` `P` `S` `K` `Br` `I` | `C6H12O6` `SO2` `H2SO4` `NaOH` `CaO` `MgO` `Al2O3` `KCl` `H3PO4` `H2O2` `HNO3` `H2S` `NO2` `KOH` `ZnO` `KBr` `KI` |
+| high | `Al` `Si` `P` `S` `K` `Br` `I` `Ti` `V` `Cr` `Mn` | `C6H12O6` `SO2` `H2SO4` `NaOH` `CaO` `MgO` `Al2O3` `KCl` `H3PO4` `H2O2` `HNO3` `H2S` `NO2` `KOH` `ZnO` `KBr` `KI` `FeO` `Fe2O3` `TiO2` `MnO` `Cr2O3` `V2O3` `V2O5` |
 
 Every label is available in **English, Dutch, Russian, Chinese, and Arabic** (see
 [MULTILINGUAL.md](MULTILINGUAL.md)), so the same lesson serves a global classroom; new content cannot
