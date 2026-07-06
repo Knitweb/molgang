@@ -190,6 +190,9 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
                 if not _wait_for_contains(page, "#tour-title", "Pick an avatar", timeout_ms=5_000):
                     failures.append("tutorial replay did not restart the walk-in step")
 
+            # #139 age/consent gate: acknowledge 13+/guardian like a real player,
+            # otherwise #go stays disabled and the join can never happen.
+            page.check("#age-ok")
             page.fill("#name", "🤖 Playwright")
             _click(page, "#go")
             page.wait_for_selector("#floor:not(.hidden) .table-card", timeout=15_000)
