@@ -46,7 +46,8 @@ git clone https://github.com/knitweb/molgang.git && cd molgang
 source .venv/bin/activate
 
 molgang serve     # 🍸 the browser bar       →  http://localhost:8765
-molgang explore   # 🕸 knowledge-graph explorer →  http://localhost:8990
+molgang seed --world chem_web.json   # 🌱 weave the full chemistry curriculum into a fabric
+molgang explore --web chem_web.json  # 🕸 knowledge-graph explorer →  http://localhost:8990
 molgang           # a narrated session in the terminal
 molgang play      # interactive terminal
 molgang doctor    # check your setup
