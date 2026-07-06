@@ -69,6 +69,7 @@
   "err.tooMany": "Te veel acties. Probeer het zo weer.",
   "err.tooManyRetry": "Te veel acties. Probeer het over {s}s weer.",
   "err.failed": "Verzoek mislukt ({status})",
+  "err.offline": "⚠ Server onbereikbaar — draait `molgang serve` nog? Probeer zo opnieuw.",
   "tutorial.replay": "🎓 Tutorial",
   "tutorial.replayTitle": "Tutorial opnieuw afspelen",
   "tutorial.step": "Stap",

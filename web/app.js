@@ -12,17 +12,31 @@ const BASE = (typeof window !== "undefined" && window.MOLGANG_API)
   ? window.MOLGANG_API.replace(/\/$/, "")
   : location.pathname.replace(/\/(index\.html)?$/, "");
 const friendlyApiError = (status, data, retryAfter) => {
+  if (status === 0) {
+    // network-level failure: fetch threw (server down / restarted / no route).
+    // t() falls back to the key's default text if the translation is missing.
+    return t("err.offline") || "⚠ Can't reach the server — is it running? Try again in a moment.";
+  }
   if (status === 429) {
     return retryAfter ? t("err.tooManyRetry", { s: retryAfter }) : t("err.tooMany");
   }
   return (data && data.error) || t("err.failed", { status });
 };
 const api = async (path, method = "GET", body = null) => {
-  const r = await fetch(BASE + path, {
-    method,
-    headers: body ? { "Content-Type": "application/json" } : {},
-    body: body ? JSON.stringify(body) : null,
-  });
+  let r;
+  try {
+    r = await fetch(BASE + path, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : {},
+      body: body ? JSON.stringify(body) : null,
+    });
+  } catch (e) {
+    // fetch rejects on a dead/unreachable server — return an error object so
+    // every `if (r.error) showToast(...)` call site surfaces it instead of the
+    // click handler rejecting silently (a dead server used to look like "nothing
+    // happens" on the knit / pulse buttons).
+    return { ok: false, status: 0, error: friendlyApiError(0, {}, 0) };
+  }
   let data = {};
   try {
     data = await r.json();
