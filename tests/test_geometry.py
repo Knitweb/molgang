@@ -57,3 +57,14 @@ def test_centred_on_origin():
         n = len(d["atoms"])
         cx = sum(a["x"] for a in d["atoms"]) / n
         assert abs(cx) < 1e-3, formula
+
+
+def test_served_web_data_matches_canonical_data():
+    """web/data/*.json is the browser-served copy of data/*.json — they must not drift."""
+    import json
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[1]
+    for name in ("molecules-3d.json", "elements-cpk.json"):
+        canonical = json.loads((root / "data" / name).read_text(encoding="utf-8"))
+        served = json.loads((root / "web" / "data" / name).read_text(encoding="utf-8"))
+        assert served == canonical, f"web/data/{name} drifted from data/{name}"

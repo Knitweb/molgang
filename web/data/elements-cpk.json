@@ -112,5 +112,29 @@
     "z": 53,
     "color": "#940094",
     "radius": 1.39
+  },
+  "Ti": {
+    "name": "Titanium",
+    "z": 22,
+    "color": "#bfc2c7",
+    "radius": 1.6
+  },
+  "V": {
+    "name": "Vanadium",
+    "z": 23,
+    "color": "#a6a6ab",
+    "radius": 1.53
+  },
+  "Cr": {
+    "name": "Chromium",
+    "z": 24,
+    "color": "#8a99c7",
+    "radius": 1.39
+  },
+  "Mn": {
+    "name": "Manganese",
+    "z": 25,
+    "color": "#9c7ac7",
+    "radius": 1.39
   }
 }
