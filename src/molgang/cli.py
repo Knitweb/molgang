@@ -184,6 +184,24 @@ def merge(argv: list[str]) -> int:
     return merge_main(argv)
 
 
+def seed_cmd(argv: list[str]) -> int:
+    """`molgang seed [--world PATH]` — weave the full chemistry curriculum into the
+    real fabric via the propose->NPC-quorum path, for `molgang explore --web PATH`."""
+    import argparse
+
+    from .seed import seed_world
+    ap = argparse.ArgumentParser(prog="molgang seed")
+    ap.add_argument("--world", default=None,
+                    help="world file to weave into (also what `molgang explore --web` reads)")
+    a = ap.parse_args(argv)
+    stats = seed_world(world_path=a.world)
+    print(f"seeded curriculum: {stats['woven']}/{stats['proposed']} knits woven "
+          f"({stats['rejected']} rejected)  ->  fabric {stats['nodes']} nodes / {stats['edges']} edges")
+    if a.world:
+        print(f"wrote {a.world}  —  explore with: molgang explore --web {a.world}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv if argv is None else argv)
     cmd = argv[1] if len(argv) > 1 else "demo"
@@ -199,6 +217,8 @@ def main(argv: list[str] | None = None) -> int:
         return merge(argv[2:])
     if cmd == "certificate":
         return certificate(argv[2:])
+    if cmd == "seed":
+        return seed_cmd(argv[2:])
     return demo()
 
 
