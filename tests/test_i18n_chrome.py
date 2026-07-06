@@ -65,3 +65,30 @@ def test_sw_precaches_locale_assets():
     sw = (ROOT / "web" / "sw.js").read_text(encoding="utf-8")
     for asset in ("i18n.js", "locales/en.json", "locales/nl.json"):
         assert asset in sw, f"{asset} missing from the offline shell precache"
+
+
+def test_locale_detection_cascade_order_and_safety():
+    """Initial locale: 1) device data, 2) ISP location, 3) referrer — saved choice wins."""
+    js = (ROOT / "web" / "i18n.js").read_text(encoding="utf-8")
+    # order inside pick(): explicit choice -> device -> ISP -> referrer -> "en"
+    pick = js.split("async function pick()", 1)[1].split("\n  }", 1)[0]
+    assert (pick.index("molgang_locale") < pick.index("deviceLocale()")
+            < pick.index("ispLocale()") < pick.index("referrerLocale()") < pick.index('"en"'))
+    # device data = navigator.languages + timezone hint
+    assert "navigator.languages" in js and "resolvedOptions().timeZone" in js
+    # the geo lookup is bounded, fail-silent and session-cached — never blocks boot
+    assert "AbortController" in js and "1500" in js
+    assert "sessionStorage" in js and "molgang_geo_cc" in js
+    # referrer sniff is TLD-based and wrapped
+    assert 'endsWith(".nl")' in js and "document.referrer" in js
+
+
+def test_switcher_retires_into_settings_after_first_use():
+    html = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+    js = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
+    assert 'id="settings-gear"' in html and 'id="settings-pop"' in html
+    assert 'id="lang-inline"' in html
+    assert "molgang_lang_seen" in js               # first use persists...
+    assert "retire()" in js                        # ...and moves the select to the popover
+    css = (ROOT / "web" / "style.css").read_text(encoding="utf-8")
+    assert ".settings-pop" in css

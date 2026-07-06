@@ -296,3 +296,9 @@ h2,h3{letter-spacing:.2px}
 .ladder-now{font-size:15px;margin-bottom:6px}
 .ladder .perks{margin:0;padding-left:18px;color:var(--dim);font-size:13px;display:flex;flex-direction:column;gap:2px}
 .ladder .perks li{list-style:none;margin-left:-12px}
+
+/* settings popover — the language switcher retires here after first use (#i18n v2) */
+.settings-pop { position: absolute; top: 52px; right: 12px; z-index: 40;
+  background: var(--bg2, #0b1020); border: 1px solid var(--accent, #8b5cff);
+  border-radius: 10px; padding: 10px 12px; box-shadow: 0 8px 28px rgba(0,0,0,.5); }
+.settings-pop label { display: block; font-size: 12px; color: #8a93b2; margin-bottom: 4px; }
