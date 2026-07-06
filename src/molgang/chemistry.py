@@ -38,6 +38,15 @@ ELEMENTS: dict[str, tuple[str, str, int]] = {
     "V": ("Vanadium", "Vanadium", 23),
     "Cr": ("Chromium", "Chroom", 24),
     "Mn": ("Manganese", "Mangaan", 25),
+    # remaining school main-group + common transition set (#108 final)
+    "Li": ("Lithium", "Lithium", 3),
+    "B": ("Boron", "Boor", 5),
+    "Ne": ("Neon", "Neon", 10),
+    "Ar": ("Argon", "Argon", 18),
+    "Cu": ("Copper", "Koper", 29),
+    "Ag": ("Silver", "Zilver", 47),
+    "Ba": ("Barium", "Barium", 56),
+    "Pb": ("Lead", "Lood", 82),
 }
 
 # Known molecules: formula -> (name_en, name_nl). The lesson set newcomers learn first.
@@ -80,6 +89,15 @@ MOLECULES: dict[str, tuple[str, str]] = {
     "Cr2O3": ("Chromium(III) oxide", "Chroom(III)oxide"),
     "V2O3": ("Vanadium(III) oxide", "Vanadium(III)oxide"),
     "V2O5": ("Vanadium(V) oxide", "Vanadium(V)oxide"),
+    # everyday acids/bases/salts/organics rounding out the school set (#108 final)
+    "O3": ("Ozone", "Ozon"),
+    "NaHCO3": ("Sodium bicarbonate", "Natriumbicarbonaat"),
+    "CH3COOH": ("Acetic acid", "Azijnzuur"),
+    "C2H5OH": ("Ethanol", "Ethanol"),
+    "CuO": ("Copper(II) oxide", "Koper(II)oxide"),
+    "CuSO4": ("Copper(II) sulfate", "Koper(II)sulfaat"),
+    "AgNO3": ("Silver nitrate", "Zilvernitraat"),
+    "BaSO4": ("Barium sulfate", "Bariumsulfaat"),
 }
 
 # Curriculum tiers (scheikunde), ordered easiest → hardest, so quests, missions, and the
@@ -106,6 +124,13 @@ _TIER_OF: dict[str, str] = {
     "Ti": "high", "V": "high", "Cr": "high", "Mn": "high",
     "FeO": "high", "Fe2O3": "high", "TiO2": "high", "MnO": "high",
     "Cr2O3": "high", "V2O3": "high", "V2O5": "high",
+    # school-set completion (#108 final)
+    "Ne": "elementary", "Ar": "elementary",
+    "Li": "middle", "Cu": "middle", "Ag": "middle",
+    "B": "high", "Ba": "high", "Pb": "high",
+    "O3": "middle", "NaHCO3": "middle",
+    "CH3COOH": "high", "C2H5OH": "high", "CuO": "high",
+    "CuSO4": "high", "AgNO3": "high", "BaSO4": "high",
 }
 
 
