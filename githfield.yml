@@ -1,0 +1,17 @@
+# githfield.yml — links this repo's docs & backlog into githfield (product-management field)
+field:   molgang
+name:    MOLGANG
+accent:  "#f4b41a"
+summary: P2P chemistry (scheikunde) learning game on the Knitweb
+homepage: https://molgang.knitweb.art
+project:  https://github.com/orgs/Knitweb/projects/1
+backlog:
+  labels: []            # [] = all open issues
+  group_by: "prio:"     # bucket cards by this label prefix
+docs:
+  - { title: "Architecture",               path: "docs/ARCHITECTURE.md", stage: reference }
+  - { title: "Curriculum & teacher guide", path: "docs/CURRICULUM.md",   stage: guide }
+  - { title: "Features",                   path: "docs/FEATURES.md",     stage: reference }
+  - { title: "API",                        path: "docs/API.md",          stage: reference }
+  - { title: "Tokenomics",                 path: "docs/TOKENOMICS.md",   stage: reference }
+  - { title: "Roadmap to 1M",              path: "docs/ROADMAP_1M.pdf",  stage: roadmap }
