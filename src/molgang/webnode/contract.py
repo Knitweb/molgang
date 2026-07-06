@@ -126,6 +126,7 @@ RPC_METHODS: dict[str, tuple[str, ...]] = {
     # --- identity / lifecycle ---
     "version": (),                                   # {contract, engine, molgang, knitweb}
     "identity": (),                                  # derive/return this tab's account (pubkey/address)
+    "recovery_phrase": (),                           # #141 non-custodial wallet recovery phrase
     # --- bar gameplay (one-to-one with the retired POST routes) ---
     "state": ("sid",),                               # full bar snapshot (was GET /api/state)
     "join": ("name", "avatar", "table", "device", "today"),   # was POST /api/join
