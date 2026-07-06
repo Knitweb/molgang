@@ -1,0 +1,29 @@
+# Prometheus alert rules for the MOLGANG SLOs (#125). Mirrors docs/BUDGETS.md.
+# Fires on a budget breach over a 5m window; clears when healthy.
+groups:
+  - name: molgang-slos
+    rules:
+      - alert: MolgangApiStateP99High
+        expr: histogram_quantile(0.99, sum(rate(molgang_http_request_duration_seconds_bucket{path="/api/state"}[5m])) by (le)) > 0.150
+        for: 5m
+        labels: { severity: warning, slo: api_state_p99 }
+        annotations:
+          summary: "/api/state p99 latency over the 150ms budget"
+      - alert: MolgangVoteP99High
+        expr: histogram_quantile(0.99, sum(rate(molgang_http_request_duration_seconds_bucket{path="/api/vote"}[5m])) by (le)) > 0.300
+        for: 5m
+        labels: { severity: warning, slo: api_vote_p99 }
+        annotations:
+          summary: "/api/vote p99 latency over the 300ms budget"
+      - alert: MolgangQuorumSettleP99High
+        expr: histogram_quantile(0.99, sum(rate(molgang_http_request_duration_seconds_bucket{path="/api/propose"}[5m])) by (le)) > 0.500
+        for: 5m
+        labels: { severity: critical, slo: quorum_settle_p99 }
+        annotations:
+          summary: "quorum-settle p99 (propose->woven) over the 500ms budget"
+      - alert: MolgangErrorRateHigh
+        expr: sum(rate(molgang_http_requests_total{code=~"[45].."}[5m])) / sum(rate(molgang_http_requests_total[5m])) > 0.01
+        for: 5m
+        labels: { severity: critical, slo: error_rate }
+        annotations:
+          summary: "request error rate over the 1% budget"
