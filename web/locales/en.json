@@ -5,7 +5,6 @@
   "header.cert.title": "Download a public Proof of Useful Work certificate PDF — private wallet material is redacted",
   "header.3d.title": "Open the 3D knitweb knowledge-graph explorer",
   "header.lab.title": "Quantum lab — physics/quantum simulators toward a quantum-chemistry simulator",
-
   "tab.bar": "🍸 Bar",
   "tab.ledger": "📒 My knits",
   "tab.explorer": "🔭 Explorer",
@@ -13,14 +12,12 @@
   "tab.progress": "🏅 Progress",
   "tab.records": "🕸 Spirals",
   "tab.monitor": "📡 Monitor",
-
   "walkin.title": "🍸 Welcome to the MOLGANG bar",
   "walkin.pitch": "Grab free <b>silk</b> + <b>pulses</b>, take a seat, and <b>knit chemistry terms</b> with the others at your table. Peers <b>vote with a pulse</b>; a quorum weaves your term. No tokens to buy, nothing to sell — just knowledge. <span class=\"dim\">(web3, no NFTs)</span>",
   "walkin.name": "Your name",
   "walkin.name.placeholder": "e.g. Mara",
   "walkin.go": "Walk in →",
   "walkin.device": "📱 This device gets its own PLS wallet — leave and rejoin from your phone and you're back in the same account. Machine-playable too: same API at /api/*.",
-
   "table.back": "← back to the floor",
   "table.rename": "✏️ rename",
   "table.knit.placeholder": "brainstorm a term to knit — e.g. H2O, CO2, NaCl…",
@@ -28,16 +25,14 @@
   "table.open": "Open knits — vote with a pulse",
   "table.spirals": "🕸 Spirals",
   "table.spiral.start": "🕸 Start a spiral",
-  "table.spiral.blurb": "A spider weaves spirals, not chains: thread 2–7 links (A → B) together. Peers back it by staking pulses; a quorum captures it sticky.",
+  "table.spiral.blurb": "A spider weaves spirals, not chains: thread 2–7 links (A → B, or a reaction like O2 + C -> CO2) together. Peers back it by staking pulses; a quorum captures it sticky.",
   "table.fabric": "Woven into this table's fabric",
-
   "ledger.title": "📒 My knits",
   "ledger.th.knit": "knit (term)",
   "ledger.th.topic": "topic",
   "ledger.th.status": "status",
   "ledger.th.votes": "✓ / ✗ / – / total",
   "ledger.th.fiber": "woven Fiber",
-
   "explorer.title.sub": "— competing knits per topic, best column first",
   "web.title.sub": "— the shared web every player extends",
   "web.recent": "Recently woven",
@@ -48,7 +43,6 @@
   "web.gx.from": "from",
   "web.gx.to": "to",
   "web.gx.path": "shortest path",
-
   "progress.title.sub": "— your quests, badges & seasonal standing",
   "progress.ladder": "🧗 Reputation ladder",
   "progress.ladder.sub": "— climb Apprentice → Laureate (reputation, no NFTs)",
@@ -59,20 +53,15 @@
   "progress.leaderboard": "🏆 Leaderboard",
   "progress.lb.all": "All-time",
   "progress.lb.season": "This season",
-
   "records.title.sub": "— the longest spirals captured across the bar",
   "records.blurb": "A spiral captures a sticky Fiber when peers stake pulses to confirm every link. The longer the chain you can get a table to back, the higher you rank.",
-
   "monitor.title.sub": "— node & p2p status · the local woven knitweb",
-
   "spiral.modal.title": "🕸 Start a spiral",
-  "spiral.modal.howto": "One link per line — each line must be a link A → B or A = B (2–7 links). Costs escalating silk; peers back it by staking pulses per link.",
+  "spiral.modal.howto": "One link per line — a link A → B or A = B, or a reaction like O2 + C -> CO2 (2–7 links). Costs escalating silk; peers back it by staking pulses per link.",
   "spiral.modal.submit": "🕸 Weave the spiral",
-
   "footer.woven": "bar woven:",
   "footer.rest": "terms · bonds are Knits · molecules are Fibers · peers validate with pulses ·",
   "footer.nonft": "no NFTs",
-
   "toast.reconnecting": "⚠ Reconnecting…",
   "toast.reconnected": "✓ Reconnected",
   "toast.cert.done": "🏅 Certificate downloaded — private key redacted",
@@ -80,7 +69,6 @@
   "err.tooMany": "Too many actions. Try again soon.",
   "err.tooManyRetry": "Too many actions. Try again in {s}s.",
   "err.failed": "Request failed ({status})",
-
   "tutorial.replay": "🎓 Tutorial",
   "tutorial.replayTitle": "Replay tutorial",
   "tutorial.step": "Step",
@@ -100,5 +88,6 @@
   "tutorial.vote.primary": "Show fabric",
   "tutorial.fabric.title": "Woven into the fabric",
   "tutorial.fabric.body": "Your knit is now a Fiber-backed contribution. Silk and PLS rewards keep useful players knitting.",
-  "tutorial.fabric.primary": "Finish"
+  "tutorial.fabric.primary": "Finish",
+  "table.knit.title": "Stakes 1 silk — a peer-confirmed knit returns it (plus PLS rewards); a rejected knit costs it. Every level-up grants +5 fresh silk."
 }

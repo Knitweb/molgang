@@ -68,3 +68,18 @@ def test_unbalanced_reaction_is_rejected_by_bots(tmp_path):
     prop = bar.propose(me.sid, "H2 + O2 -> H2O @ spark")   # not balanced
     assert not prop.woven
     assert not [i for i in bar.world.items if i.kind == "reaction"]
+
+
+def test_spiral_threads_reaction_lines(tmp_path):
+    """Owner-reported: a spiral of 'H2O -> O2' / 'O2 + C -> CO2' / 'CO2 -> C + O2'
+    must weave — reaction lines expand into their reactant→product links."""
+    from molgang.knit_parse import spiral_links
+    links = spiral_links(["H2O -> O2", "O2 + C -> CO2", "CO2 -> C + O2"])
+    assert len(links) == 5                       # 1 link + 2 + 2 reaction pairs
+    assert any(l["subject"] == "O2" and l["object"] == "CO2"
+               and l["relation"] == "reacts-to" and l["kind"] == "link" for l in links)
+
+    bar = Bar(str(tmp_path / "world.json"))
+    me = bar.join("Spinner", "laser-maxi", "periodic", device="dev-spiral-rxn")
+    sv = bar.propose_spiral(me.sid, ["H2O -> O2", "O2 + C -> CO2", "CO2 -> C + O2"])
+    assert sv.captured, "bots must back a spiral of recognizable chemistry"

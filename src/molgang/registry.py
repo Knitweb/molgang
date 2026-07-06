@@ -34,6 +34,11 @@ class Registry:
             "CREATE TABLE IF NOT EXISTS faucet_grant ("
             "  device_id TEXT PRIMARY KEY, source TEXT NOT NULL,"
             "  claimed REAL NOT NULL)")
+        # Highest level a device wallet has been silk-rewarded for (level-up grants,
+        # game.LEVEL_SILK_GRANT) — persisted so a server restart never double-grants.
+        self._db.execute(
+            "CREATE TABLE IF NOT EXISTS level_grant ("
+            "  device_id TEXT PRIMARY KEY, level INTEGER NOT NULL)")
         # Tracked list of every PoUW certificate this node has issued (public data only —
         # holder/address/metrics + the PDF's sha256 so any copy can be verified later).
         self._db.execute(
@@ -113,6 +118,17 @@ class Registry:
             (device_id, src, now))
         self._db.commit()
         return {"device_id": device_id, "source": src, "claimed": now, "new": True}
+
+    def get_granted_level(self, device_id: str) -> int:
+        r = self._db.execute("SELECT level FROM level_grant WHERE device_id=?", (device_id,)).fetchone()
+        return int(r[0]) if r else 1
+
+    def set_granted_level(self, device_id: str, level: int) -> None:
+        self._db.execute(
+            "INSERT INTO level_grant (device_id,level) VALUES (?,?) "
+            "ON CONFLICT(device_id) DO UPDATE SET level=excluded.level",
+            (device_id, int(level)))
+        self._db.commit()
 
     def count(self) -> int:
         return self._db.execute("SELECT COUNT(*) FROM device").fetchone()[0]
