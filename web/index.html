@@ -12,29 +12,33 @@
 </head>
 <body>
   <header>
-    <div class="brand">🧪 <b>MOLGANG</b> <span class="dim">· the bar</span></div>
+    <div class="brand">🧪 <b>MOLGANG</b> <span class="dim" data-i18n="brand.tag">· the bar</span></div>
     <div id="pulse-host" class="pulse-host dim small"></div>
-    <button id="tutorial-replay" class="help-btn ghost" title="Replay tutorial">🎓 Tutorial</button>
-    <a href="knitweb-graph-3d.html" target="_blank" rel="noopener" class="help-btn ghost" title="Open the 3D knitweb knowledge-graph explorer" style="text-decoration:none">🕸 3D Knitweb</a>
-    <a href="sim/quantum-lab.html" target="_blank" rel="noopener" class="help-btn ghost" title="Quantum lab — physics/quantum simulators toward a quantum-chemistry simulator" style="text-decoration:none">⚛️ Quantum lab</a>
+    <select id="lang-switch" class="help-btn ghost" title="Language / Taal" aria-label="Language">
+      <option value="en">EN</option>
+      <option value="nl">NL</option>
+    </select>
+    <button id="tutorial-replay" class="help-btn ghost" title="Replay tutorial" data-i18n="tutorial.replay" data-i18n-title="tutorial.replayTitle">🎓 Tutorial</button>
+    <a href="knitweb-graph-3d.html" target="_blank" rel="noopener" class="help-btn ghost" data-i18n-title="header.3d.title" title="Open the 3D knitweb knowledge-graph explorer" style="text-decoration:none">🕸 3D Knitweb</a>
+    <a href="sim/quantum-lab.html" target="_blank" rel="noopener" class="help-btn ghost" data-i18n-title="header.lab.title" title="Quantum lab — physics/quantum simulators toward a quantum-chemistry simulator" style="text-decoration:none">⚛️ Quantum lab</a>
     <div id="me" class="me hidden">
       <span id="me-av" class="av"></span>
       <span id="me-name"></span>
-      <span class="bal mono small" id="me-wallet" title="your device wallet"></span>
+      <span class="bal mono small" id="me-wallet" data-i18n-title="header.wallet.title" title="your device wallet"></span>
       <span class="bal">⚡ <b id="me-pulses">0</b> PLS</span>
       <span class="bal">🧵 <b id="me-silk">0</b> silk</span>
       <span class="bal">🪢 <b id="me-knits">0</b> knits</span>
       <span class="bal">🏅 <b id="me-level">L1</b> <i id="me-title" class="dim"></i></span>
-      <button id="me-cert" class="cert-btn" title="Download a public Proof of Useful Work certificate PDF — private wallet material is redacted">🏅 Request PoUW Certificate</button>
+      <button id="me-cert" class="cert-btn" data-i18n="header.cert" data-i18n-title="header.cert.title" title="Download a public Proof of Useful Work certificate PDF — private wallet material is redacted">🏅 Request PoUW Certificate</button>
     </div>
     <nav id="tabs" class="tabs hidden">
-      <button data-view="bar" class="active">🍸 Bar</button>
-      <button data-view="ledger">📒 My knits</button>
-      <button data-view="explorer">🔭 Explorer</button>
-      <button data-view="web">🌐 Web</button>
-      <button data-view="progress">🏅 Progress</button>
-      <button data-view="records">🕸 Spirals</button>
-      <button data-view="monitor">📡 Monitor</button>
+      <button data-view="bar" class="active" data-i18n="tab.bar">🍸 Bar</button>
+      <button data-view="ledger" data-i18n="tab.ledger">📒 My knits</button>
+      <button data-view="explorer" data-i18n="tab.explorer">🔭 Explorer</button>
+      <button data-view="web" data-i18n="tab.web">🌐 Web</button>
+      <button data-view="progress" data-i18n="tab.progress">🏅 Progress</button>
+      <button data-view="records" data-i18n="tab.records">🕸 Spirals</button>
+      <button data-view="monitor" data-i18n="tab.monitor">📡 Monitor</button>
     </nav>
   </header>
 
@@ -44,15 +48,12 @@
   <!-- walk-in overlay -->
   <div id="enter" class="overlay">
     <div class="card">
-      <h1>🍸 Welcome to the MOLGANG bar</h1>
-      <p>Grab free <b>silk</b> + <b>pulses</b>, take a seat, and <b>knit chemistry terms</b> with
-         the others at your table. Peers <b>vote with a pulse</b>; a quorum weaves your term.
-         No tokens to buy, nothing to sell — just knowledge. <span class="dim">(web3, no NFTs)</span> · <a href="https://www.binance.com/en/square/post/23850171083089" target="_blank" rel="noopener" class="dim" title="MOLGANG epic faucet">⚡ epic Faucet</a></p>
-      <label>Your name <input id="name" maxlength="24" placeholder="e.g. Mara" /></label>
+      <h1 data-i18n="walkin.title">🍸 Welcome to the MOLGANG bar</h1>
+      <p><span data-i18n="walkin.pitch" data-i18n-html>Grab free <b>silk</b> + <b>pulses</b>, take a seat, and <b>knit chemistry terms</b> with the others at your table. Peers <b>vote with a pulse</b>; a quorum weaves your term. No tokens to buy, nothing to sell — just knowledge. <span class="dim">(web3, no NFTs)</span></span> · <a href="https://www.binance.com/en/square/post/23850171083089" target="_blank" rel="noopener" class="dim" title="MOLGANG epic faucet">⚡ epic Faucet</a></p>
+      <label><span data-i18n="walkin.name">Your name</span> <input id="name" maxlength="24" data-i18n-placeholder="walkin.name.placeholder" placeholder="e.g. Mara" /></label>
       <div id="avatars" class="avatars"></div>
-      <button id="go">Walk in →</button>
-      <p class="dim small">📱 This device gets its own PLS wallet — leave and rejoin from your phone
-         and you're back in the same account. Machine-playable too: same API at <code>/api/*</code>.</p>
+      <button id="go" data-i18n="walkin.go">Walk in →</button>
+      <p class="dim small" data-i18n="walkin.device">📱 This device gets its own PLS wallet — leave and rejoin from your phone and you're back in the same account. Machine-playable too: same API at /api/*.</p>
     </div>
   </div>
 
@@ -60,70 +61,68 @@
 
   <!-- table view -->
   <section id="table" class="table-view hidden">
-    <button id="leave-table" class="ghost">← back to the floor</button>
+    <button id="leave-table" class="ghost" data-i18n="table.back">← back to the floor</button>
     <div class="table-title">
       <h2 id="table-name"></h2>
-      <button id="rename-table" class="ghost hidden">✏️ rename</button>
+      <button id="rename-table" class="ghost hidden" data-i18n="table.rename">✏️ rename</button>
     </div>
     <div class="seats" id="seats"></div>
 
     <div class="knit-box">
-      <input id="term" placeholder="brainstorm a term to knit — e.g. H2O, CO2, NaCl…" />
-      <button id="knit">🧵 knit (1 silk)</button>
+      <input id="term" data-i18n-placeholder="table.knit.placeholder" placeholder="brainstorm a term to knit — e.g. H2O, CO2, NaCl…" />
+      <button id="knit" data-i18n="table.knit">🧵 knit (1 silk)</button>
       <div class="suggest" id="suggest"></div>
     </div>
 
-    <h3>Open knits — vote with a pulse</h3>
+    <h3 data-i18n="table.open">Open knits — vote with a pulse</h3>
     <div id="open" class="open"></div>
 
     <div class="spiral-head">
-      <h3>🕸 Spirals <span id="table-spiral-record" class="dim small"></span></h3>
-      <button id="start-spiral" class="spiral-start">🕸 Start a spiral</button>
+      <h3><span data-i18n="table.spirals">🕸 Spirals</span> <span id="table-spiral-record" class="dim small"></span></h3>
+      <button id="start-spiral" class="spiral-start" data-i18n="table.spiral.start">🕸 Start a spiral</button>
     </div>
-    <p class="dim small spiral-blurb">A spider weaves spirals, not chains: thread 2–7 links
-      (<code>A → B</code>) together. Peers back it by staking pulses; a quorum
-      <b>captures</b> it sticky.</p>
+    <p class="dim small spiral-blurb" data-i18n="table.spiral.blurb">A spider weaves spirals, not chains: thread 2–7 links (A → B) together. Peers back it by staking pulses; a quorum captures it sticky.</p>
     <div id="spirals" class="spirals"></div>
 
-    <h3>Woven into this table's fabric</h3>
+    <h3 data-i18n="table.fabric">Woven into this table's fabric</h3>
     <div id="fabric" class="fabric"></div>
   </section>
 
   <!-- my knits ledger -->
   <section id="ledger" class="view hidden">
-    <h2>📒 My knits</h2>
+    <h2 data-i18n="ledger.title">📒 My knits</h2>
     <div id="ledger-summary" class="summary"></div>
     <table class="grid">
-      <thead><tr><th>knit (term)</th><th>topic</th><th>status</th><th>✓ / ✗ / – / total</th><th>woven Fiber</th></tr></thead>
+      <thead><tr><th data-i18n="ledger.th.knit">knit (term)</th><th data-i18n="ledger.th.topic">topic</th><th data-i18n="ledger.th.status">status</th><th data-i18n="ledger.th.votes">✓ / ✗ / – / total</th><th data-i18n="ledger.th.fiber">woven Fiber</th></tr></thead>
       <tbody id="ledger-rows"></tbody>
     </table>
   </section>
 
   <!-- explorer: competing knits in side-by-side columns -->
   <section id="explorer" class="view hidden">
-    <h2>🔭 Explorer <span class="dim small">— competing knits per topic, best column first</span></h2>
+    <h2><span data-i18n="tab.explorer">🔭 Explorer</span> <span class="dim small" data-i18n="explorer.title.sub">— competing knits per topic, best column first</span></h2>
     <div id="explorer-rows"></div>
   </section>
 
   <!-- the shared knitweb web everyone extends -->
   <section id="web" class="view hidden">
-    <h2>🌐 The Knitweb <span class="dim small">— the shared web every player extends</span></h2>
+    <h2>🌐 The Knitweb <span class="dim small" data-i18n="web.title.sub">— the shared web every player extends</span></h2>
     <div id="web-stats" class="summary"></div>
     <div id="web-anchor" class="anchor-bar"></div>
-    <h3>Recently woven</h3>
+    <h3 data-i18n="web.recent">Recently woven</h3>
     <div id="web-recent" class="fabric"></div>
-    <h3>Links — terms knit together</h3>
+    <h3 data-i18n="web.links">Links — terms knit together</h3>
     <div id="web-links"></div>
 
     <h3>🧠 Graph explorer <span class="dim small">— NetworkX over the woven web</span></h3>
     <div id="gx-stats" class="summary"></div>
     <div id="gx-hubs"></div>
     <div class="knit-box">
-      <input id="gx-term" list="gx-names" autocomplete="off" placeholder="explore a term's links — e.g. V2O5 (case-insensitive)" />
-      <button id="gx-go">explore</button>
-      <input id="gx-a" list="gx-names" autocomplete="off" placeholder="from" style="max-width:150px" />
-      <input id="gx-b" list="gx-names" autocomplete="off" placeholder="to" style="max-width:150px" />
-      <button id="gx-path">shortest path</button>
+      <input id="gx-term" list="gx-names" autocomplete="off" data-i18n-placeholder="web.gx.placeholder" placeholder="explore a term's links — e.g. V2O5 (case-insensitive)" />
+      <button id="gx-go" data-i18n="web.gx.go">explore</button>
+      <input id="gx-a" list="gx-names" autocomplete="off" data-i18n-placeholder="web.gx.from" placeholder="from" style="max-width:150px" />
+      <input id="gx-b" list="gx-names" autocomplete="off" data-i18n-placeholder="web.gx.to" placeholder="to" style="max-width:150px" />
+      <button id="gx-path" data-i18n="web.gx.path">shortest path</button>
     </div>
     <datalist id="gx-names"></datalist>
     <div id="gx-result" class="dim"></div>
@@ -131,22 +130,22 @@
 
   <!-- 🏅 Progress — quests, achievements & seasonal standing (#110/#111/#112) -->
   <section id="progress" class="view hidden">
-    <h2>🏅 Progress <span class="dim small">— your quests, badges &amp; seasonal standing</span></h2>
+    <h2><span data-i18n="tab.progress">🏅 Progress</span> <span class="dim small" data-i18n="progress.title.sub">— your quests, badges &amp; seasonal standing</span></h2>
 
-    <h3>🧗 Reputation ladder <span class="dim small">— climb Apprentice → Laureate (reputation, no NFTs)</span></h3>
+    <h3><span data-i18n="progress.ladder">🧗 Reputation ladder</span> <span class="dim small" data-i18n="progress.ladder.sub">— climb Apprentice → Laureate (reputation, no NFTs)</span></h3>
     <div id="ladder" class="ladder"></div>
 
-    <h3>🎯 Quests <span class="dim small">— tier-graded goals; reputation/XP only, no NFTs</span></h3>
+    <h3><span data-i18n="progress.quests">🎯 Quests</span> <span class="dim small" data-i18n="progress.quests.sub">— tier-graded goals; reputation/XP only, no NFTs</span></h3>
     <div id="quests-list" class="progress-list"></div>
 
-    <h3>🏅 Achievements <span class="dim small">— milestone badges (reputation, not tokens)</span></h3>
+    <h3><span data-i18n="progress.badges">🏅 Achievements</span> <span class="dim small" data-i18n="progress.badges.sub">— milestone badges (reputation, not tokens)</span></h3>
     <div id="achievements-list" class="badges"></div>
 
     <div class="leaderboard-head">
-      <h3>🏆 Leaderboard</h3>
+      <h3 data-i18n="progress.leaderboard">🏆 Leaderboard</h3>
       <div class="season-toggle">
-        <button id="lb-all" class="active">All-time</button>
-        <button id="lb-season" class="ghost">This season</button>
+        <button id="lb-all" class="active" data-i18n="progress.lb.all">All-time</button>
+        <button id="lb-season" class="ghost" data-i18n="progress.lb.season">This season</button>
       </div>
     </div>
     <div id="season-board" class="records-board"></div>
@@ -154,15 +153,14 @@
 
   <!-- spiral records leaderboard -->
   <section id="records" class="view hidden">
-    <h2>🕸 Spiral Records <span class="dim small">— the longest spirals captured across the bar</span></h2>
-    <p class="dim small">A spiral captures a sticky Fiber when peers stake pulses to confirm
-      every link. The longer the chain you can get a table to back, the higher you rank.</p>
+    <h2>🕸 Spiral Records <span class="dim small" data-i18n="records.title.sub">— the longest spirals captured across the bar</span></h2>
+    <p class="dim small" data-i18n="records.blurb">A spiral captures a sticky Fiber when peers stake pulses to confirm every link. The longer the chain you can get a table to back, the higher you rank.</p>
     <div id="records-board" class="records-board"></div>
   </section>
 
   <!-- 📡 Monitor — node/p2p status + the local woven knitweb (:8990) -->
   <section id="monitor" class="view hidden">
-    <h2>📡 Monitor <span class="dim small">— node & p2p status · the local woven knitweb</span></h2>
+    <h2><span data-i18n="tab.monitor">📡 Monitor</span> <span class="dim small" data-i18n="monitor.title.sub">— node & p2p status · the local woven knitweb</span></h2>
 
     <h3>Nodes &amp; p2p
       <span class="dim small" style="float:right">
@@ -227,21 +225,20 @@
   <div id="spiral-modal" class="overlay hidden">
     <div class="card">
       <button id="spiral-close" class="ghost spiral-x" title="close">✕</button>
-      <h1>🕸 Start a spiral</h1>
-      <p class="dim small">One link per line — each line must be a link
-        <code>A → B</code> or <code>A = B</code> (2–7 links). Costs escalating silk;
-        peers back it by staking pulses per link.</p>
+      <h1 data-i18n="spiral.modal.title">🕸 Start a spiral</h1>
+      <p class="dim small" data-i18n="spiral.modal.howto">One link per line — each line must be a link A → B or A = B (2–7 links). Costs escalating silk; peers back it by staking pulses per link.</p>
       <textarea id="spiral-links" rows="6" spellcheck="false"
         placeholder="H2O -> O2&#10;O2 -> O3&#10;O3 -> O2"></textarea>
       <div id="spiral-cost" class="dim small spiral-cost"></div>
       <div id="spiral-error" class="spiral-error"></div>
-      <button id="spiral-submit">🕸 Weave the spiral</button>
+      <button id="spiral-submit" data-i18n="spiral.modal.submit">🕸 Weave the spiral</button>
     </div>
   </div>
 
-  <footer class="dim small">bar woven: <b id="bar-woven">0</b> terms · bonds are Knits · molecules are Fibers · peers validate with pulses · <b>no NFTs</b> · <a href="https://www.binance.com/en/square/post/23850171083089" target="_blank" rel="noopener" title="MOLGANG epic faucet">⚡ epic Faucet</a></footer>
+  <footer class="dim small"><span data-i18n="footer.woven">bar woven:</span> <b id="bar-woven">0</b> <span data-i18n="footer.rest">terms · bonds are Knits · molecules are Fibers · peers validate with pulses ·</span> <b data-i18n="footer.nonft">no NFTs</b> · <a href="https://www.binance.com/en/square/post/23850171083089" target="_blank" rel="noopener" title="MOLGANG epic faucet">⚡ epic Faucet</a></footer>
   <script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
   <script src="config.js"></script>
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

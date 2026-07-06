@@ -60,7 +60,8 @@ def test_app_registers_sw_and_survives_offline_refresh():
     js = (ROOT / "web" / "app.js").read_text(encoding="utf-8")
     assert 'serviceWorker' in js and 'register("sw.js")' in js   # relative scope
     # the poll loop shows one reconnecting toast and resumes — no unhandled throw
-    assert "Reconnecting" in js and "Reconnected" in js
+    # (strings moved to web/locales/*.json in #117; the keys are the contract now)
+    assert 't("toast.reconnecting")' in js and 't("toast.reconnected")' in js
     body = js.split("async function refresh()", 1)[1].split("\n}", 1)[0]
     assert "try" in body and "catch" in body
 

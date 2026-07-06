@@ -13,11 +13,9 @@ const BASE = (typeof window !== "undefined" && window.MOLGANG_API)
   : location.pathname.replace(/\/(index\.html)?$/, "");
 const friendlyApiError = (status, data, retryAfter) => {
   if (status === 429) {
-    return retryAfter
-      ? `Too many actions. Try again in ${retryAfter}s.`
-      : "Too many actions. Try again soon.";
+    return retryAfter ? t("err.tooManyRetry", { s: retryAfter }) : t("err.tooMany");
   }
-  return (data && data.error) || `Request failed (${status})`;
+  return (data && data.error) || t("err.failed", { status });
 };
 const api = async (path, method = "GET", body = null) => {
   const r = await fetch(BASE + path, {
@@ -67,64 +65,11 @@ const DEVICE_ID = (() => {
   return d;
 })();
 
-// ---- first-run tutorial / small i18n layer ----
-const STRINGS = {
-  en: {
-    "tutorial.replay": "🎓 Tutorial",
-    "tutorial.replayTitle": "Replay tutorial",
-    "tutorial.step": "Step",
-    "tutorial.skip": "Skip",
-    "tutorial.done": "Tutorial complete",
-    "tutorial.walkin.title": "Pick an avatar and claim the faucet",
-    "tutorial.walkin.body": "Choose a name and avatar, then walk in. This creates a device wallet with starter silk and PLS.",
-    "tutorial.walkin.primary": "Walk in when ready",
-    "tutorial.seat.title": "Take a seat",
-    "tutorial.seat.body": "Tables are where knits happen. Sit with NPC peers so your first useful work can reach quorum.",
-    "tutorial.seat.primary": "Take a seat",
-    "tutorial.knit.title": "Knit a real term",
-    "tutorial.knit.body": "Silk pays for a proposed knit. Use H2O for the first run; peers can validate it immediately.",
-    "tutorial.knit.primary": "Knit H2O",
-    "tutorial.vote.title": "Peers vote with pulses",
-    "tutorial.vote.body": "Each peer stakes PLS on the verdict. A confirming quorum weaves your term into the fabric.",
-    "tutorial.vote.primary": "Show fabric",
-    "tutorial.fabric.title": "Woven into the fabric",
-    "tutorial.fabric.body": "Your knit is now a Fiber-backed contribution. Silk and PLS rewards keep useful players knitting.",
-    "tutorial.fabric.primary": "Finish",
-  },
-  nl: {
-    "tutorial.replay": "🎓 Tutorial",
-    "tutorial.replayTitle": "Tutorial opnieuw afspelen",
-    "tutorial.step": "Stap",
-    "tutorial.skip": "Overslaan",
-    "tutorial.done": "Tutorial voltooid",
-    "tutorial.walkin.title": "Kies een avatar en claim de faucet",
-    "tutorial.walkin.body": "Kies een naam en avatar en loop naar binnen. Dit maakt een device-wallet met start-silk en PLS.",
-    "tutorial.walkin.primary": "Loop binnen wanneer je klaar bent",
-    "tutorial.seat.title": "Neem plaats",
-    "tutorial.seat.body": "Aan tafels gebeurt het knitten. Ga zitten bij NPC-peers zodat je eerste nuttige werk quorum kan halen.",
-    "tutorial.seat.primary": "Neem plaats",
-    "tutorial.knit.title": "Knit een echte term",
-    "tutorial.knit.body": "Silk betaalt voor een voorgestelde knit. Gebruik H2O voor de eerste ronde; peers kunnen die direct valideren.",
-    "tutorial.knit.primary": "Knit H2O",
-    "tutorial.vote.title": "Peers stemmen met pulses",
-    "tutorial.vote.body": "Elke peer staket PLS op het oordeel. Een bevestigend quorum weeft je term in de fabric.",
-    "tutorial.vote.primary": "Toon fabric",
-    "tutorial.fabric.title": "Geweven in de fabric",
-    "tutorial.fabric.body": "Je knit is nu een Fiber-bijdrage. Silk- en PLS-beloningen houden nuttige spelers aan het knitten.",
-    "tutorial.fabric.primary": "Afronden",
-  },
-};
-
-function locale() {
-  const saved = (localStorage.getItem("molgang_locale") || "").toLowerCase();
-  const lang = saved || (document.documentElement.lang || navigator.language || "en").toLowerCase();
-  return lang.startsWith("nl") ? "nl" : "en";
-}
-
-function t(key) {
-  const lang = locale();
-  return (STRINGS[lang] && STRINGS[lang][key]) || STRINGS.en[key] || key;
-}
+// ---- i18n (chrome-wide, #117) — locale data lives in web/locales/*.json ----
+// window.I18N (web/i18n.js) owns loading, [data-i18n] scanning and persistence.
+// Keep the historical t()/locale() names as thin delegates for existing callers.
+function locale() { return window.I18N ? I18N.locale() : "en"; }
+function t(key, vars) { return window.I18N ? I18N.t(key, vars) : key; }
 
 const TOUR_STEPS = [
   {
@@ -404,10 +349,10 @@ async function refresh() {
   } catch (e) {
     // network blip: show ONE non-blocking reconnecting toast, keep the last
     // rendered state on screen, and let the poll interval retry cleanly (#116)
-    if (!offlineToastShown) { offlineToastShown = true; showToast("⚠ Reconnecting…"); }
+    if (!offlineToastShown) { offlineToastShown = true; showToast(t("toast.reconnecting")); }
     return;
   }
-  if (offlineToastShown) { offlineToastShown = false; showToast("✓ Reconnected"); }
+  if (offlineToastShown) { offlineToastShown = false; showToast(t("toast.reconnected")); }
   return renderState(s);
 }
 
@@ -777,7 +722,7 @@ function detectCaptures(s) {
     if (sp.state === "capture") {
       now.add(sp.cid);
       if (!_capturedSeen.has(sp.cid)) {
-        showToast(`🕸 Spiral captured! ${sp.length} links by ${sp.by}`);
+        showToast(`${t("toast.spiral.captured")} ${sp.length} links · ${sp.by}`);
         const card = document.querySelector(`.spiral[data-cid="${sp.cid}"]`);
         if (card) card.classList.add("flash");
       }
@@ -1145,4 +1090,13 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").catch(() => {/* http/unsupported: fine */});
 }
 
-boot();
+// ── i18n boot: load locale, translate static chrome, wire the switcher (#117)
+(async () => {
+  if (window.I18N) {
+    await I18N.ready;
+    I18N.apply();
+    const sw = document.getElementById("lang-switch");
+    if (sw) sw.onchange = async () => { await I18N.setLocale(sw.value); };
+  }
+  boot();
+})();
