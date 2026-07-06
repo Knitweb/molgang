@@ -33,6 +33,11 @@ ELEMENTS: dict[str, tuple[str, str, int]] = {
     "Zn": ("Zinc", "Zink", 30),
     "Br": ("Bromine", "Broom", 35),
     "I": ("Iodine", "Jood", 53),
+    # steel-slag metals — the SmartSlag/VANELEX valorisation set (#108)
+    "Ti": ("Titanium", "Titaan", 22),
+    "V": ("Vanadium", "Vanadium", 23),
+    "Cr": ("Chromium", "Chroom", 24),
+    "Mn": ("Manganese", "Mangaan", 25),
 }
 
 # Known molecules: formula -> (name_en, name_nl). The lesson set newcomers learn first.
@@ -67,6 +72,14 @@ MOLECULES: dict[str, tuple[str, str]] = {
     "NaF": ("Sodium fluoride", "Natriumfluoride"),
     "KBr": ("Potassium bromide", "Kaliumbromide"),
     "KI": ("Potassium iodide", "Kaliumjodide"),
+    # steel-slag oxides + the vanadium recovery ladder (#108, Slag Run quest)
+    "FeO": ("Iron(II) oxide", "IJzer(II)oxide"),
+    "Fe2O3": ("Iron(III) oxide", "IJzer(III)oxide"),
+    "TiO2": ("Titanium dioxide", "Titaandioxide"),
+    "MnO": ("Manganese(II) oxide", "Mangaan(II)oxide"),
+    "Cr2O3": ("Chromium(III) oxide", "Chroom(III)oxide"),
+    "V2O3": ("Vanadium(III) oxide", "Vanadium(III)oxide"),
+    "V2O5": ("Vanadium(V) oxide", "Vanadium(V)oxide"),
 }
 
 # Curriculum tiers (scheikunde), ordered easiest → hardest, so quests, missions, and the
@@ -89,6 +102,10 @@ _TIER_OF: dict[str, str] = {
     "MgO": "high", "Al2O3": "high", "KCl": "high", "H3PO4": "high",
     "H2O2": "high", "HNO3": "high", "H2S": "high", "NO2": "high", "KOH": "high",
     "ZnO": "high", "KBr": "high", "KI": "high",
+    # steel-slag set — all high tier
+    "Ti": "high", "V": "high", "Cr": "high", "Mn": "high",
+    "FeO": "high", "Fe2O3": "high", "TiO2": "high", "MnO": "high",
+    "Cr2O3": "high", "V2O3": "high", "V2O5": "high",
 }
 
 
@@ -261,11 +278,15 @@ REACTIONS: dict[str, dict] = {
                                  "equation": "S + O2 -> SO2 @ burn"},
     "neutralisation-hcl-naoh": {"name": "Neutralisation of hydrochloric acid", "type": "neutralisation",
                                 "tier": "high", "equation": "HCl + NaOH -> NaCl + H2O"},
+    "roast-vanadium": {"name": "Oxidative roast of vanadium oxide", "type": "synthesis", "tier": "high",
+                       "equation": "V2O3 + O2 -> V2O5 @ 850C oxidative roast"},
+    "thermite-iron": {"name": "Thermite reduction of iron oxide", "type": "redox", "tier": "high",
+                      "equation": "Fe2O3 + 2 Al -> 2 Fe + Al2O3 @ ignition"},
     "decomposition-limestone": {"name": "Decomposition of limestone", "type": "decomposition",
                                 "tier": "high", "equation": "CaCO3 -> CaO + CO2 @ heat"},
 }
 
-REACTION_TYPES: tuple[str, ...] = ("combustion", "synthesis", "neutralisation", "decomposition")
+REACTION_TYPES: tuple[str, ...] = ("combustion", "synthesis", "neutralisation", "decomposition", "redox")
 
 
 def reaction(rid: str) -> Reaction:

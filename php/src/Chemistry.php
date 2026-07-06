@@ -26,6 +26,11 @@ final class Chemistry
         'Zn' => ['Zinc', 'Zink', 30],
         'Br' => ['Bromine', 'Broom', 35],
         'I'  => ['Iodine', 'Jood', 53],
+        // steel-slag metals — the SmartSlag/VANELEX valorisation set (#108)
+        'Ti' => ['Titanium', 'Titaan', 22],
+        'V'  => ['Vanadium', 'Vanadium', 23],
+        'Cr' => ['Chromium', 'Chroom', 24],
+        'Mn' => ['Manganese', 'Mangaan', 25],
     ];
 
     // Known molecules: formula => [name_en, name_nl]. The lesson set newcomers learn first.
@@ -60,6 +65,14 @@ final class Chemistry
         'NaF' => ['Sodium fluoride', 'Natriumfluoride'],
         'KBr' => ['Potassium bromide', 'Kaliumbromide'],
         'KI' => ['Potassium iodide', 'Kaliumjodide'],
+        // steel-slag oxides + the vanadium recovery ladder (#108, Slag Run quest)
+        'FeO' => ['Iron(II) oxide', 'IJzer(II)oxide'],
+        'Fe2O3' => ['Iron(III) oxide', 'IJzer(III)oxide'],
+        'TiO2' => ['Titanium dioxide', 'Titaandioxide'],
+        'MnO' => ['Manganese(II) oxide', 'Mangaan(II)oxide'],
+        'Cr2O3' => ['Chromium(III) oxide', 'Chroom(III)oxide'],
+        'V2O3' => ['Vanadium(III) oxide', 'Vanadium(III)oxide'],
+        'V2O5' => ['Vanadium(V) oxide', 'Vanadium(V)oxide'],
     ];
 
     // Curriculum tiers (easiest -> hardest) for graded quests/ladder. Mirrors chemistry.py 1:1.
@@ -78,6 +91,10 @@ final class Chemistry
         'MgO' => 'high', 'Al2O3' => 'high', 'KCl' => 'high', 'H3PO4' => 'high',
         'H2O2' => 'high', 'HNO3' => 'high', 'H2S' => 'high', 'NO2' => 'high', 'KOH' => 'high',
         'ZnO' => 'high', 'KBr' => 'high', 'KI' => 'high',
+        // steel-slag set — all high tier
+        'Ti' => 'high', 'V' => 'high', 'Cr' => 'high', 'Mn' => 'high',
+        'FeO' => 'high', 'Fe2O3' => 'high', 'TiO2' => 'high', 'MnO' => 'high',
+        'Cr2O3' => 'high', 'V2O3' => 'high', 'V2O5' => 'high',
     ];
 
     /** Curriculum tier of a symbol/formula, or null if unknown. Pure lookup. */
@@ -88,7 +105,7 @@ final class Chemistry
 
     // Reactions (#109): reactants -> products under optional conditions. Balanced iff every element
     // is conserved across the arrow. Mirrors src/molgang/chemistry.py REACTIONS 1:1.
-    public const REACTION_TYPES = ['combustion', 'synthesis', 'neutralisation', 'decomposition'];
+    public const REACTION_TYPES = ['combustion', 'synthesis', 'neutralisation', 'decomposition', 'redox'];
     public const REACTIONS = [
         'combustion-hydrogen' => ['name' => 'Combustion of hydrogen', 'type' => 'combustion', 'tier' => 'middle', 'equation' => '2 H2 + O2 -> 2 H2O @ spark'],
         'combustion-methane' => ['name' => 'Combustion of methane', 'type' => 'combustion', 'tier' => 'middle', 'equation' => 'CH4 + 2 O2 -> CO2 + 2 H2O @ spark'],
@@ -97,6 +114,8 @@ final class Chemistry
         'synthesis-sulfur-dioxide' => ['name' => 'Burning sulfur', 'type' => 'synthesis', 'tier' => 'high', 'equation' => 'S + O2 -> SO2 @ burn'],
         'neutralisation-hcl-naoh' => ['name' => 'Neutralisation of hydrochloric acid', 'type' => 'neutralisation', 'tier' => 'high', 'equation' => 'HCl + NaOH -> NaCl + H2O'],
         'decomposition-limestone' => ['name' => 'Decomposition of limestone', 'type' => 'decomposition', 'tier' => 'high', 'equation' => 'CaCO3 -> CaO + CO2 @ heat'],
+        'roast-vanadium' => ['name' => 'Oxidative roast of vanadium oxide', 'type' => 'synthesis', 'tier' => 'high', 'equation' => 'V2O3 + O2 -> V2O5 @ 850C oxidative roast'],
+        'thermite-iron' => ['name' => 'Thermite reduction of iron oxide', 'type' => 'redox', 'tier' => 'high', 'equation' => 'Fe2O3 + 2 Al -> 2 Fe + Al2O3 @ ignition'],
     ];
 
     /** Tally elements on one side ("2 H2 + O2") into [element => count], or null on a bad species. */

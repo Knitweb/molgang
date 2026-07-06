@@ -36,6 +36,16 @@ QUESTS: list[dict] = [
      "need": "all", "xp": 600, "desc": "Weave every high-school molecule."},
     {"id": "collector-10", "title": "Collector", "tier": "high", "scope": "any",
      "need": 10, "xp": 400, "desc": "Weave 10 different molecules."},
+    # Slag Run — the SmartSlag/VANELEX story chain (#108): recover vanadium from
+    # steel slag. scope "set" counts woven formulas from an explicit list, so the
+    # quest tells a real process story instead of a generic tally.
+    {"id": "slag-prospector", "title": "Slag prospector", "tier": "high", "scope": "set",
+     "set": ["FeO", "Fe2O3", "CaO", "SiO2", "MgO"],
+     "need": 3, "xp": 250, "desc": "Weave 3 of the oxides that make up steel slag (FeO, Fe2O3, CaO, SiO2, MgO)."},
+    {"id": "slag-run", "title": "Slag Run — vanadium recovery", "tier": "high", "scope": "set",
+     "set": ["FeO", "Fe2O3", "Cr2O3", "V2O3", "V2O5"],
+     "need": "all", "xp": 500, "desc": "Weave the full recovery chain from steel slag to battery-grade "
+                                       "vanadium: FeO, Fe2O3, Cr2O3, V2O3 and V2O5 (the VRFB electrolyte precursor)."},
 ]
 
 _TIER_ORDER = ("elementary", "middle", "high")
@@ -84,6 +94,10 @@ def quest_progress(woven: Iterable[dict], by: str | None = None, *, molecules=No
             tier = q["tier"]
             done = per[tier]["woven"]
             need = per[tier]["total"] if q["need"] == "all" else q["need"]
+        elif q["scope"] == "set":
+            wanted = q["set"]
+            done = sum(1 for f in wanted if f in formulas)
+            need = len(wanted) if q["need"] == "all" else q["need"]
         else:  # "any"
             done = have_total
             need = q["need"]
