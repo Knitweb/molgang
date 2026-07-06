@@ -1090,4 +1090,43 @@ async function monFocus(term) {
   }
 }
 
+// ── PWA install affordance (#115) ──────────────────────────────────────────
+// Chrome/Android fire `beforeinstallprompt` when the manifest + icons qualify.
+// We surface a dismissible button; dismissal persists in localStorage next to
+// molgang_device so we never nag a peer twice.
+let deferredInstall = null;
+window.addEventListener("beforeinstallprompt", (e) => {
+  if (localStorage.getItem("molgang_install_dismissed")) return;
+  e.preventDefault();
+  deferredInstall = e;
+  if (document.getElementById("pwa-install")) return;
+  const b = document.createElement("button");
+  b.id = "pwa-install";
+  b.textContent = "📲 Install MOLGANG";
+  b.style.cssText = "position:fixed;right:14px;bottom:14px;z-index:60;padding:10px 14px;" +
+    "border-radius:10px;border:1px solid #8b5cff;background:#0b1020;color:#fff;" +
+    "font-weight:700;cursor:pointer;box-shadow:0 6px 24px rgba(139,92,255,.35)";
+  const x = document.createElement("span");
+  x.textContent = " ✕";
+  x.style.cssText = "color:#8a93b2;margin-left:8px;cursor:pointer";
+  x.onclick = (ev) => {
+    ev.stopPropagation();
+    localStorage.setItem("molgang_install_dismissed", "1");
+    b.remove();
+  };
+  b.appendChild(x);
+  b.onclick = async () => {
+    if (!deferredInstall) return;
+    deferredInstall.prompt();
+    await deferredInstall.userChoice;
+    deferredInstall = null;
+    b.remove();
+  };
+  document.body.appendChild(b);
+});
+window.addEventListener("appinstalled", () => {
+  const b = document.getElementById("pwa-install");
+  if (b) b.remove();
+});
+
 boot();
