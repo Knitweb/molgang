@@ -46,6 +46,26 @@ QUESTS: list[dict] = [
      "set": ["FeO", "Fe2O3", "Cr2O3", "V2O3", "V2O5"],
      "need": "all", "xp": 500, "desc": "Weave the full recovery chain from steel slag to battery-grade "
                                        "vanadium: FeO, Fe2O3, Cr2O3, V2O3 and V2O5 (the VRFB electrolyte precursor)."},
+    # Story tracks beyond Slag Run (#owner: "veel meer levels uit het script") — each a
+    # themed chain over the graded ground truth, easiest first.
+    {"id": "waterworks", "title": "Waterworks", "tier": "elementary", "scope": "set",
+     "set": ["H2", "O2", "H2O", "H2O2", "O3"],
+     "need": 3, "xp": 150, "desc": "The water track: weave 3 of H2, O2, H2O, H2O2 and O3."},
+    {"id": "combustion-track", "title": "Fire & smoke", "tier": "middle", "scope": "set",
+     "set": ["CH4", "O2", "CO2", "CO", "H2O"],
+     "need": "all", "xp": 300, "desc": "The combustion track: methane, oxygen and every product "
+                                       "of clean and dirty burning (CO2, CO, H2O)."},
+    {"id": "kitchen-lab", "title": "Kitchen lab", "tier": "middle", "scope": "set",
+     "set": ["NaCl", "NaHCO3", "CH3COOH", "C6H12O6", "C2H5OH"],
+     "need": 4, "xp": 350, "desc": "Chemistry from your own kitchen: salt, baking soda, vinegar, "
+                                   "glucose and ethanol — weave any 4."},
+    {"id": "acid-base", "title": "Acids & bases", "tier": "high", "scope": "set",
+     "set": ["HCl", "NaOH", "H2SO4", "KOH", "HNO3", "CH3COOH"],
+     "need": 4, "xp": 450, "desc": "The neutralisation track: weave 4 of the classic acids and bases."},
+    {"id": "noble-lab", "title": "Copper, silver & barium", "tier": "high", "scope": "set",
+     "set": ["CuO", "CuSO4", "AgNO3", "BaSO4"],
+     "need": "all", "xp": 400, "desc": "The wet-lab classics: copper oxide and sulfate, silver "
+                                       "nitrate and the barium sulfate precipitate."},
 ]
 
 _TIER_ORDER = ("elementary", "middle", "high")

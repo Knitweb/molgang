@@ -88,5 +88,6 @@
   "tutorial.vote.primary": "Show fabric",
   "tutorial.fabric.title": "Woven into the fabric",
   "tutorial.fabric.body": "Your knit is now a Fiber-backed contribution. Silk and PLS rewards keep useful players knitting.",
-  "tutorial.fabric.primary": "Finish"
+  "tutorial.fabric.primary": "Finish",
+  "table.knit.title": "Stakes 1 silk — a peer-confirmed knit returns it (plus PLS rewards); a rejected knit costs it. Every level-up grants +5 fresh silk."
 }

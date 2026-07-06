@@ -36,6 +36,7 @@ VOTER_CONFIRM_REWARD = 1
 USEFULNESS_EXP_BASE = 2
 MAX_USEFULNESS_BONUS = 64
 ROUND_REWARD_BANK_PLS = 1_000_000
+LEVEL_SILK_GRANT = 5    # fresh silk a player earns on every level-up — levelling refills the loom
 # A confirmed knit pays from the staked vote-pot and from a transparent per-round
 # protocol reward bank. The exponential usefulness bonus grows with confirming
 # peers, capped so a local classroom cannot mint absurd balances by accident.

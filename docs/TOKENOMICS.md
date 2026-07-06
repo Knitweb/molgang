@@ -35,6 +35,8 @@ floats anywhere — day is an integer, values are integer µPLS.
 - Settlement runs the real BFT quorum (`pouw.quorum`), then `settle()`:
 
 **Confirmed (useful work):**
+- the proposer's spun silk is restored (`SILK_PER_BOND` back — so at a
+  confirming table the silk counter nets zero; only *rejected* work costs silk);
 - the proposer receives the whole staked pot **plus** a protocol reward
   `PROPOSER_BASE_REWARD = 2` + `usefulness_bonus(confirms)`;
 - `usefulness_bonus` is the capped exponential
@@ -57,6 +59,15 @@ floats anywhere — day is an integer, values are integer µPLS.
    confirming voter.
 2. **Failed work mints nothing** — stakes come back, no reward-bank transfer.
 3. **Integer-exact settlement** — no floats anywhere on a value path.
+
+### Level-ups refill the loom
+
+Every level gained (levels derive deterministically from woven count,
+`progression.level_for`) grants `LEVEL_SILK_GRANT = 5` fresh silk. The highest
+already-rewarded level persists per device wallet (registry `level_grant`
+table), so restarts and re-joins never double-grant. Together with the
+confirmed-knit silk restore this closes the play loop: weave → level → silk →
+keep weaving.
 
 ## 3. Spirals — escalating stakes, contagion silk
 

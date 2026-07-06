@@ -100,6 +100,7 @@ class Session:
     bot: bool = False                          # an NPC table-mate (so solo humans get votes)
     device: str | None = None                  # the device id this session's wallet is bound to
     last_seen: float = 0.0                     # heartbeat timestamp; bots are never reaped
+    silk_level: int = 1                        # highest level already silk-rewarded (level-up grants)
 
 
 @dataclass
@@ -574,6 +575,9 @@ class Bar:
                 self.world.weave_links(prop.links, prop.by_name, s.woven_fiber_cid, s.result.confirms)
             else:
                 self.world.weave_knit(prop.parsed, prop.by_name, s.woven_fiber_cid, s.result.confirms)
+            # level-ups refill the loom — counted AFTER the weave so the persistent
+            # world already contains this knit
+            self._grant_level_silk(prop.by)
 
     def web_view(self) -> dict:
         """The shared web's current state + its OriginTrail provenance anchor."""
@@ -733,6 +737,29 @@ class Bar:
         for s in self.sessions.values():
             if s.device and not s.bot:
                 self.registry.save_balance(s.device, s.player.pulses, s.player.silk)
+
+    def _grant_level_silk(self, sid: str) -> None:
+        """Level-ups refill the loom: +game.LEVEL_SILK_GRANT silk per level gained (#owner).
+
+        Level derives deterministically from the player's woven count, and the highest
+        already-rewarded level persists (registry for device wallets, session for guests),
+        so a restart or re-join never double-grants."""
+        from . import progression
+        sess = self.sessions.get(sid)
+        if sess is None or sess.bot:
+            return
+        # count from the PERSISTENT world (by player name, like quests do) so levels —
+        # and therefore grants — survive server restarts instead of resetting with the
+        # in-memory proposals dict.
+        woven = sum(1 for i in self.world.items if i.by == sess.name)
+        level = progression.level_for(woven * progression.XP_PER_WOVEN)
+        granted = (self.registry.get_granted_level(sess.device)
+                   if (self.registry and sess.device) else sess.silk_level)
+        if level > granted:
+            sess.player.silk += game.LEVEL_SILK_GRANT * (level - granted)
+            sess.silk_level = level
+            if self.registry and sess.device:
+                self.registry.set_granted_level(sess.device, level)
 
     def _require(self, sid: str) -> Session:
         self.reap_stale()
