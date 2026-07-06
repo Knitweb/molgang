@@ -340,17 +340,33 @@ let sid=null, selected=null;
 const toast = (t)=>{ const el=$("#toast"); el.textContent=t; el.classList.add("show");
   setTimeout(()=>el.classList.remove("show"), 2200); };
 
+// Stable device id (same localStorage key as app.js) so the wallet + PLS balance
+// persist across reloads AND server restarts (knitweb/molgang#225).
+function deviceId(){
+  let d = localStorage.getItem("molgang_device");
+  if(!d){ d = crypto.randomUUID(); localStorage.setItem("molgang_device", d); }
+  return d;
+}
+
+async function rejoin(){
+  const name = localStorage.getItem("molgang_name")
+    || "Chemist "+Math.floor(Math.random()*900+100);
+  localStorage.setItem("molgang_name", name);
+  const j = await api("/api/join","POST",{name, avatar:"🧪", device: deviceId()});
+  sid = j.sid;
+  const st = await api("/api/state?sid="+sid);
+  const table = st.tables[0].id;
+  await api("/api/sit","POST",{sid, table});
+  return st;
+}
+
 async function boot(){
   [ELEM, MOLS] = await Promise.all([
     fetch(API+"/data/elements-cpk.json").then(r=>r.json()),
     fetch(API+"/data/molecules-3d.json").then(r=>r.json())
   ]);
   buildShelf();
-  const j = await api("/api/join","POST",{name:"Chemist "+Math.floor(Math.random()*900+100), avatar:"🧪"});
-  sid = j.sid;
-  const st = await api("/api/state?sid="+sid);
-  const table = st.tables[0].id;
-  await api("/api/sit","POST",{sid, table});
+  await rejoin();
   await refresh();
 }
 
@@ -498,20 +514,45 @@ function applyWallet(you, opts={}){
   prevLevel = you.level;
 }
 
-$("#cert").onclick = async ()=>{
+async function mintCertificate(retried=false){
+  let r;
   try{
-    const r = await fetch(API+"/api/certificate",{method:"POST",
+    r = await fetch(API+"/api/certificate",{method:"POST",
       headers:{"content-type":"application/json"}, body:JSON.stringify({sid})});
-    if(!r.ok){ toast("Certificate: "+r.status); return; }
-    const blob = await r.blob();
-    const u = URL.createObjectURL(blob);
-    const a=document.createElement("a"); a.href=u; a.download="molgang-pouw-certificate.pdf"; a.click();
-    URL.revokeObjectURL(u);
-    toast("🏅 Certificate downloaded");
-  }catch(e){ toast("Certificate failed: "+e.message); }
-};
+  }catch(e){
+    // network-level failure — the server is down/unreachable, not an app error
+    toast("⚠ Server niet bereikbaar — draait `molgang serve` nog?");
+    return;
+  }
+  if(r.status===400 && !retried){
+    // stale session (e.g. the server restarted) — re-join with the same device
+    // wallet and retry once, instead of surfacing a cryptic 400
+    try{ await rejoin(); await refresh(); }catch(e){ toast("Re-join failed: "+e.message); return; }
+    return mintCertificate(true);
+  }
+  if(!r.ok){ toast("Certificate: HTTP "+r.status); return; }
+  const blob = await r.blob();
+  const u = URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=u; a.download="molgang-pouw-certificate.pdf"; a.click();
+  URL.revokeObjectURL(u);
+  toast("🏅 Certificate downloaded");
+}
+$("#cert").onclick = ()=>mintCertificate();
 
-async function refresh(){ const st=await api("/api/state?sid="+sid); applyWallet(st.you); }
+async function refresh(){
+  try{
+    let st = await api("/api/state?sid="+sid);
+    if(!st.you){
+      // stale sid: /api/state answers 200 with you:null after a server restart —
+      // transparently re-join with the same device wallet instead of freezing
+      st = await rejoin();
+      toast("Sessie hersteld na server-herstart");
+    }
+    applyWallet(st.you);
+  }catch(e){
+    toast("⚠ Verbinding weg — opnieuw verbinden…");
+  }
+}
 
 boot().catch(e=>{ $("#hud").textContent="⚠ "+e.message+" — is `molgang serve` running?"; });
 </script>
