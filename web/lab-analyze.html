@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MOLGANG — Analytical Lab</title>
+<meta name="description" content="A real 3D analytical-chemistry lab: borosilicate glassware, RVS316 stainless, a handheld XRF analyzer and an ICP-OES — assay steel slag, ferrovanadium, brass and ore.">
+<style>
+  /* self-contained design tokens (mirrors lab-3d.html; no external stylesheet) */
+  :root{
+    --bg:#0a0e13; --panel:#18222b; --panel-2:#1b242b;
+    --line:#243342; --line2:#2f4356; --ink:#eaf2f5; --dim:#8ea3b0;
+    --accent:#6cf; --teal:#37c79a; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:-apple-system,"Segoe UI",system-ui,sans-serif;
+    --amber:#ffb454; --pls:#7cf6c8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 700px at 70% -10%,#0f2130 0%,var(--bg) 60%);
+    color:var(--ink);font-family:var(--sans,system-ui,sans-serif);overflow:hidden}
+  header{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;gap:12px;
+    padding:0 16px;z-index:20;border-bottom:1px solid var(--line);background:rgba(10,14,19,.62);backdrop-filter:blur(9px)}
+  header .brand{font-weight:700;letter-spacing:.02em}
+  header .dim{color:var(--dim);font-size:.85em}
+  .grow{flex:1}
+  a.ghost,button.ghost{background:transparent;border:1px solid var(--line2,#2a3742);color:var(--dim);
+    border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer;text-decoration:none;font-size:.9em}
+  a.ghost:hover,button.ghost:hover{color:var(--ink);border-color:var(--accent,#6cf)}
+  canvas#c{position:fixed;inset:0;width:100vw;height:100vh;display:block}
+  /* ---- HUD panels ---- */
+  .hud{position:fixed;z-index:15;background:rgba(14,20,27,.82);border:1px solid var(--line);
+    border-radius:14px;backdrop-filter:blur(10px);padding:14px 15px}
+  #samples{left:16px;top:66px;width:250px;max-height:calc(100vh - 84px);overflow:auto}
+  #tools{right:16px;top:66px;width:290px}
+  #readout{right:16px;top:330px;width:290px;max-height:calc(100vh - 350px);overflow:auto;display:none}
+  .hud h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--dim);margin:0 0 10px}
+  .samp{display:flex;gap:9px;align-items:flex-start;padding:8px;border:1px solid transparent;border-radius:10px;cursor:pointer}
+  .samp:hover{background:rgba(255,255,255,.04)}
+  .samp.sel{border-color:var(--accent,#6cf);background:rgba(108,204,255,.08)}
+  .samp .sw{width:22px;height:22px;border-radius:6px;flex:none;margin-top:2px;border:1px solid rgba(255,255,255,.15)}
+  .samp .nm{font-weight:600;font-size:.9em;line-height:1.2}
+  .samp .mx{color:var(--dim);font-size:.76em}
+  .tool{display:flex;gap:10px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:11px;margin-bottom:9px;cursor:pointer}
+  .tool.active{border-color:var(--amber);box-shadow:0 0 0 1px var(--amber) inset}
+  .tool .ic{font-size:1.5em}
+  .tool .t{font-weight:600}
+  .tool .d{color:var(--dim);font-size:.78em;margin-top:1px}
+  .cta{width:100%;border:0;border-radius:11px;padding:12px;font:inherit;font-weight:700;cursor:pointer;
+    background:linear-gradient(180deg,#ffce7a,#f2a63d);color:#241704}
+  .cta:disabled{filter:grayscale(.7) brightness(.7);cursor:default}
+  .cta.icp{background:linear-gradient(180deg,#7cf6c8,#37c79a);color:#04231a}
+  .bars{margin-top:6px}
+  .barrow{display:grid;grid-template-columns:34px 1fr 62px;gap:8px;align-items:center;margin:4px 0;font-size:.82em}
+  .barrow .el{font-family:var(--mono,monospace);font-weight:700}
+  .barrow .tr{height:9px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden}
+  .barrow .tr i{display:block;height:100%;border-radius:5px}
+  .barrow .pc{text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
+  .note{color:var(--dim);font-size:.8em;line-height:1.4;margin-top:10px;border-top:1px solid var(--line);padding-top:9px}
+  .spec{width:100%;height:120px;display:block;background:#06090d;border:1px solid var(--line);border-radius:9px;margin-top:4px}
+  .badge{display:inline-block;font-size:.7em;padding:2px 7px;border-radius:99px;border:1px solid var(--line2);color:var(--dim);margin-left:6px}
+  .undetect{color:#ff9a9a}
+  .status{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:16;
+    background:rgba(14,20,27,.9);border:1px solid var(--line);border-radius:10px;padding:9px 16px;font-size:.9em;color:var(--dim);display:none}
+  kbd{font-family:var(--mono,monospace);background:var(--panel,#18222b);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:1px 5px;font-size:.85em}
+</style>
+</head>
+<body>
+<header>
+  <span class="brand">🧪 MOLGANG</span><span class="dim">· Analytical Lab</span>
+  <span class="grow"></span>
+  <button id="xr" class="ghost" style="display:none">🥽 VR</button>
+  <a class="ghost" href="lab-3d.html">🧬 Molecule Lab</a>
+  <a class="ghost" href="index.html">← the bar</a>
+</header>
+
+<canvas id="c"></canvas>
+
+<section id="samples" class="hud">
+  <h2>Bench samples</h2>
+  <div id="samp-list"></div>
+  <p class="note">Pick a sample, choose an instrument, then <b>aim &amp; analyse</b>. Real assays — an XRF gun is blind to light elements; ICP‑OES sees them.</p>
+</section>
+
+<section id="tools" class="hud">
+  <h2>Instruments</h2>
+  <div class="tool active" data-tool="xrf">
+    <span class="ic">🔫</span><div><div class="t">Handheld XRF</div><div class="d">Point &amp; shoot · surface elements · fast sort</div></div>
+  </div>
+  <div class="tool" data-tool="icp">
+    <span class="ic">🌡️</span><div><div class="t">ICP‑OES</div><div class="d">Argon plasma · emission spectrum · trace‑quantitative</div></div>
+  </div>
+  <button id="run" class="cta">Aim &amp; analyse ▸</button>
+  <p class="note" id="tool-note">XRF fires X‑rays and reads the fluorescence — great for metals, but it cannot see H·C·N·O·F·Na·Mg. Aim at the highlighted sample and pull the trigger.</p>
+</section>
+
+<section id="readout" class="hud">
+  <h2 id="ro-title">Result</h2>
+  <div id="ro-body"></div>
+</section>
+
+<div id="status" class="status"></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const API = (window.MOLGANG_API ?? "");
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------------- data ---------------- */
+let DATA = null, ELEMENTS = {}, CPK = {};
+async function loadData(){
+  const [samples, cpk] = await Promise.all([
+    fetch(API+"/data/lab-samples.json").then(r=>r.json()),
+    fetch(API+"/data/elements-cpk.json").then(r=>r.json()).catch(()=>({})),
+  ]);
+  DATA = samples; CPK = cpk;
+}
+
+/* ---------------- scene ---------------- */
+const canvas = $("#c");
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.02;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.xr.enabled = true;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b141c);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environment = envTex;
+
+const camera = new THREE.PerspectiveCamera(46, 1, 0.05, 200);
+camera.position.set(0, 3.2, 9.2);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.target.set(0, 1.1, 0);
+controls.minDistance = 3.5; controls.maxDistance = 18;
+controls.maxPolarAngle = Math.PI*0.52;
+
+const key = new THREE.DirectionalLight(0xffffff, 2.0);
+key.position.set(5, 9, 6); key.castShadow = true;
+key.shadow.mapSize.set(2048,2048);
+key.shadow.camera.near = 1; key.shadow.camera.far = 40;
+key.shadow.camera.left=-12; key.shadow.camera.right=12; key.shadow.camera.top=12; key.shadow.camera.bottom=-12;
+key.shadow.bias = -0.0002;
+scene.add(key);
+scene.add(new THREE.HemisphereLight(0x9fd0ff, 0x0a1016, 0.55));
+
+/* ---------------- materials (from the verified art brief) ---------------- */
+function brushedRoughnessMap(){
+  const c = document.createElement('canvas'); c.width=8; c.height=256;
+  const g = c.getContext('2d'); g.fillStyle='#888'; g.fillRect(0,0,8,256);
+  for(let y=0;y<256;y++){ const a=(Math.sin(y*12.9898)*43758.5453)%1; // deterministic hash → jitter
+    g.fillStyle=`rgba(${a>0?255:0},${a>0?255:0},${a>0?255:0},${Math.abs(a)*0.10})`; g.fillRect(0,y,8,1); }
+  const t=new THREE.CanvasTexture(c);
+  t.wrapS=THREE.RepeatWrapping; t.wrapT=THREE.RepeatWrapping; t.repeat.set(1,40); return t;
+}
+const steelRough = brushedRoughnessMap();
+function steel316({roughness=0.34, color=0xb8bcc0}={}){
+  return new THREE.MeshStandardMaterial({ color, metalness:1.0, roughness, roughnessMap:steelRough, envMapIntensity:1.0 });
+}
+const glassMat = new THREE.MeshPhysicalMaterial({
+  color:0xffffff, metalness:0, roughness:0.03, transmission:1, thickness:0.6, ior:1.5,
+  transparent:true, clearcoat:1, clearcoatRoughness:0.04, attenuationColor:new THREE.Color(0xeaf6ff),
+  attenuationDistance:4, envMapIntensity:1.4, side:THREE.DoubleSide, depthWrite:false });
+function liquidMat(hex){
+  return new THREE.MeshPhysicalMaterial({ color:0xffffff, metalness:0, roughness:0.02, transmission:0.9,
+    ior:1.33, thickness:1.2, transparent:true, attenuationColor:new THREE.Color(hex),
+    attenuationDistance:0.9, envMapIntensity:1.2, side:THREE.DoubleSide, depthWrite:false });
+}
+const plasticMat = (hex)=> new THREE.MeshStandardMaterial({color:hex, metalness:0.1, roughness:0.55});
+
+/* ---------------- room: RVS316 fume hood + bench ---------------- */
+const room = new THREE.Group(); scene.add(room);
+// bench top (brushed steel)
+const bench = new THREE.Mesh(new THREE.BoxGeometry(16, 0.35, 7), steel316({roughness:0.40}));
+bench.position.set(0, 0, 0); bench.receiveShadow = true; bench.castShadow = true; room.add(bench);
+// bench front skirt
+const skirt = new THREE.Mesh(new THREE.BoxGeometry(16, 2.6, 0.2), steel316({roughness:0.42, color:0xaeb2b6}));
+skirt.position.set(0, -1.45, 3.4); room.add(skirt);
+// fume hood shell behind the bench
+const hood = new THREE.Group(); hood.position.set(0, 0, -2.6); room.add(hood);
+const hoodMat = steel316({roughness:0.38, color:0xb4b8bc});
+const back = new THREE.Mesh(new THREE.BoxGeometry(12, 7.5, 0.2), hoodMat); back.position.set(0,3.6,-1.1); back.receiveShadow=true; hood.add(back);
+const top = new THREE.Mesh(new THREE.BoxGeometry(12, 0.5, 3), hoodMat); top.position.set(0,7.1,0.3); hood.add(top);
+for(const x of [-6,6]){ const side=new THREE.Mesh(new THREE.BoxGeometry(0.25,7.5,3), hoodMat); side.position.set(x,3.6,0.3); hood.add(side); }
+// sash glass (the fume-hood window)
+const sash = new THREE.Mesh(new THREE.PlaneGeometry(11.4, 4.4), glassMat); sash.position.set(0,4.6,1.7); hood.add(sash);
+// backsplash strip light
+const strip = new THREE.Mesh(new THREE.BoxGeometry(11, 0.18, 0.1), new THREE.MeshBasicMaterial({color:0xdfeeff}));
+strip.position.set(0,6.7,0.3); hood.add(strip);
+
+/* ---------------- glassware via LatheGeometry ---------------- */
+function lathe(profile, seg=64){
+  const pts = profile.map(p=>new THREE.Vector2(p[0], p[1]));
+  return new THREE.LatheGeometry(pts, seg);
+}
+const PROFILES = {
+  beaker:[[0.001,0],[2.4,0],[2.5,0.15],[2.5,6.0],[2.66,6.35]],
+  erlen:[[0.001,0],[3.2,0],[3.3,0.2],[3.2,0.4],[2.4,2.2],[1.4,4.6],[1.0,6.0],[0.9,6.1],[0.9,7.6],[1.02,7.75]],
+  cyl:[[0.001,0],[2.2,0],[2.3,0.3],[1.4,0.6],[0.9,0.62],[0.9,12.0],[1.02,12.2]],
+  vial:[[0.001,0],[0.7,0],[0.75,0.1],[0.75,2.2],[0.55,2.5],[0.5,2.6],[0.5,3.0],[0.62,3.12]],
+};
+function beakerWithLiquid(profile, fill, hex, scale=0.16){
+  const g = new THREE.Group();
+  const glass = new THREE.Mesh(lathe(profile), glassMat); glass.castShadow=true; g.add(glass);
+  if(fill>0){
+    const top = profile[profile.length-2][1]*fill;
+    const inner = profile.filter(p=>p[1]<=top).map(p=>[Math.max(0.001,p[0]*0.92),p[1]]);
+    inner.push([Math.max(0.001, (profile.find(p=>p[1]>=top)?.[0]??profile[1][0])*0.9), top]);
+    inner.push([0.001, top]);
+    const liq = new THREE.Mesh(lathe(inner), liquidMat(hex)); g.add(liq);
+  }
+  g.scale.setScalar(scale);
+  return g;
+}
+// a little glassware set dressing the bench
+const glassware = new THREE.Group(); room.add(glassware);
+const dress = [
+  {p:'beaker', x:-3.4, fill:0.55, hex:0x66d1ff},
+  {p:'erlen',  x:-1.7, fill:0.5,  hex:0xffd34d},
+  {p:'cyl',    x:4.6,  fill:0.7,  hex:0x9ff0e0, s:0.13},
+];
+for(const d of dress){
+  const m = beakerWithLiquid(PROFILES[d.p], d.fill, d.hex, d.s??0.16);
+  m.position.set(d.x, 0.18, 1.4); glassware.add(m);
+}
+
+/* ---------------- sample pucks on the bench ---------------- */
+const sampleGroup = new THREE.Group(); room.add(sampleGroup);
+const puckMeshes = [];
+function sampleColor(s){
+  // colour a puck by its matrix family
+  const mx = s.matrix.toLowerCase();
+  if(mx.includes('brass')||s.composition.find(c=>c.symbol==='Cu'&&c.wt_pct>40)) return 0xcaa15a;
+  if(mx.includes('zn')||s.id==='S8') return 0x9fb0bd;
+  if(mx.includes('slag')||mx.includes('oxide')) return 0x5c5346;
+  if(mx.includes('metal')) return 0xbfc4c9;
+  if(mx.includes('ore')||mx.includes('rock')||mx.includes('carbonate')) return 0xb9a684;
+  return 0x8a8f95;
+}
+function makePucks(){
+  const n = DATA.samples.length;
+  DATA.samples.forEach((s,i)=>{
+    const col = sampleColor(s);
+    const puck = new THREE.Mesh(new THREE.CylinderGeometry(0.42,0.46,0.32,40),
+      new THREE.MeshStandardMaterial({color:col, metalness: s.matrix.includes('metal')?0.85:0.15, roughness: s.matrix.includes('metal')?0.35:0.8}));
+    puck.castShadow = true; puck.receiveShadow = true;
+    const x = (i-(n-1)/2)*1.4;
+    puck.position.set(x, 0.34, 2.15);
+    puck.userData = {sample:s, idx:i, base:0.34};
+    sampleGroup.add(puck); puckMeshes.push(puck);
+    // ring highlight (hidden until selected)
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.6,0.03,12,48),
+      new THREE.MeshBasicMaterial({color:0x6cf, transparent:true, opacity:0}));
+    ring.rotation.x = Math.PI/2; ring.position.set(x, 0.2, 2.15); ring.userData={ring:true};
+    sampleGroup.add(ring); puck.userData.ring = ring;
+  });
+}
+
+/* ---------------- XRF handgun (built from primitives) ---------------- */
+const xrf = new THREE.Group();
+{
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.9,1.5), plasticMat(0xf2b024)); body.castShadow=true; xrf.add(body);
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.45,1.1,0.55), plasticMat(0x21252b));
+  grip.position.set(0,-0.85,0.35); grip.rotation.x=0.25; xrf.add(grip);
+  const nose = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.2,0.5,24), steel316({roughness:0.3}));
+  nose.rotation.x=Math.PI/2; nose.position.set(0,0.05,-0.95); xrf.add(nose);
+  const win = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.1,0.06,20), new THREE.MeshBasicMaterial({color:0x111}));
+  win.rotation.x=Math.PI/2; win.position.set(0,0.05,-1.2); xrf.add(win);
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.42,0.5), new THREE.MeshBasicMaterial({color:0x0a3d2e}));
+  screen.position.set(0,0.2,0.77); screen.rotation.x=-0.2; xrf.add(screen);
+  const trig = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.22,0.1), plasticMat(0x33383f));
+  trig.position.set(0,-0.45,-0.1); xrf.add(trig);
+  xrf.userData.nose = nose;
+}
+xrf.scale.setScalar(0.9); xrf.position.set(3.0, 1.9, 3.2); xrf.rotation.set(0.3,-0.5,0); room.add(xrf);
+
+/* ---------------- ICP-OES bench instrument ---------------- */
+const icp = new THREE.Group(); icp.position.set(-4.7, 0.18, 0.2); room.add(icp);
+{
+  const box = new THREE.Mesh(new THREE.BoxGeometry(3.4,2.6,2.4), steel316({roughness:0.33, color:0xc0c4c8}));
+  box.position.y=1.3; box.castShadow=true; box.receiveShadow=true; icp.add(box);
+  const panel = new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.9), new THREE.MeshBasicMaterial({color:0x0a1f2c}));
+  panel.position.set(0.0,1.7,1.21); icp.add(panel);
+  const label = new THREE.Mesh(new THREE.PlaneGeometry(1.2,0.2), new THREE.MeshBasicMaterial({color:0x1a2732}));
+  label.position.set(0,0.6,1.21); icp.add(label);
+  // torch chimney on top
+  const chim = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.32,0.9,28), steel316({roughness:0.3}));
+  chim.position.set(0,3.05,0); icp.add(chim);
+  icp.userData.torchAt = new THREE.Vector3(-4.7, 3.9, 0.2);
+}
+// plasma torch (additive cones + halo) — hidden until an ICP run
+const plasma = new THREE.Group(); plasma.visible=false; plasma.position.copy(icp.userData.torchAt); scene.add(plasma);
+function cone(r,h,color,op){ const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,32,1,true),
+  new THREE.MeshBasicMaterial({color, transparent:true, opacity:op, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide})); return m; }
+const pCore = cone(0.12,0.5,0xcfe4ff,0.9); pCore.position.y=0.25;
+const pMid  = cone(0.2,0.72,0x9ff0e0,0.5); pMid.position.y=0.4;
+const pTail = cone(0.29,1.0,0x66e0c8,0.3); pTail.position.y=0.6;
+plasma.add(pTail,pMid,pCore);
+function haloTex(){ const c=document.createElement('canvas'); c.width=c.height=128; const g=c.getContext('2d');
+  const gr=g.createRadialGradient(64,64,0,64,64,64); gr.addColorStop(0,'rgba(207,228,255,1)');
+  gr.addColorStop(0.5,'rgba(120,235,210,.5)'); gr.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=gr; g.fillRect(0,0,128,128); return new THREE.CanvasTexture(c); }
+const halo = new THREE.Sprite(new THREE.SpriteMaterial({map:haloTex(), color:0xbfeaff, transparent:true,
+  opacity:0.8, blending:THREE.AdditiveBlending, depthWrite:false})); halo.scale.setScalar(1.6); halo.position.y=0.45; plasma.add(halo);
+const plasmaLight = new THREE.PointLight(0xbfe4ff, 0, 5, 2); plasmaLight.position.copy(icp.userData.torchAt); plasmaLight.position.y+=0.4; scene.add(plasmaLight);
+
+/* ---------------- beam (XRF) ---------------- */
+const beamMat = new THREE.MeshBasicMaterial({color:0x8fe6ff, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false});
+const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,1,10), beamMat); beam.visible=false; scene.add(beam);
+
+/* ---------------- post ---------------- */
+let composer, bloom;
+function buildComposer(){
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight), 0.9, 0.5, 0.85);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+}
+
+/* ---------------- interaction ---------------- */
+let tool='xrf', selected=0, busy=false;
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+function selectSample(i){
+  selected = i;
+  puckMeshes.forEach((p,k)=>{ p.userData.ring.material.opacity = k===i?0.9:0.0; });
+  $$('#samp-list .samp').forEach((el,k)=>el.classList.toggle('sel',k===i));
+}
+canvas.addEventListener('pointerdown', e=>{
+  ptr.x=(e.clientX/innerWidth)*2-1; ptr.y=-(e.clientY/innerHeight)*2+1;
+  ray.setFromCamera(ptr,camera);
+  const hit = ray.intersectObjects(puckMeshes,false)[0];
+  if(hit){ selectSample(hit.object.userData.idx); }
+});
+function setTool(t){
+  tool=t; $$('.tool').forEach(el=>el.classList.toggle('active',el.dataset.tool===t));
+  $('#run').className = 'cta'+(t==='icp'?' icp':'');
+  $('#run').innerHTML = t==='xrf' ? 'Aim &amp; analyse ▸' : 'Ignite plasma &amp; analyse ▸';
+  $('#tool-note').innerHTML = t==='xrf'
+    ? "XRF fires X‑rays and reads the fluorescence — great for metals, but it cannot see H·C·N·O·F·Na·Mg. Aim at the highlighted sample and pull the trigger."
+    : "ICP‑OES aspirates a dissolved sample into a 10&nbsp;000&nbsp;K argon plasma; each element emits characteristic wavelengths that the spectrometer counts down to trace ppm — light elements included.";
+}
+$$('.tool').forEach(el=>el.addEventListener('click',()=>setTool(el.dataset.tool)));
+
+function status(msg){ const s=$('#status'); if(!msg){s.style.display='none';return;} s.textContent=msg; s.style.display='block'; }
+
+async function run(){
+  if(busy || !DATA) return; busy=true; $('#run').disabled=true;
+  const s = DATA.samples[selected];
+  const puck = puckMeshes[selected];
+  if(tool==='xrf') await runXRF(s, puck); else await runICP(s, puck);
+  busy=false; $('#run').disabled=false;
+}
+$('#run').addEventListener('click', run);
+
+/* aim the gun at the puck + fire a beam */
+async function runXRF(s, puck){
+  status('Aiming XRF…');
+  // point the gun at the puck
+  const from = xrf.position.clone();
+  const to = puck.position.clone();
+  xrf.lookAt(to.x, to.y, to.z); xrf.rotateX(Math.PI/2);
+  await sleep(350);
+  // beam
+  const mid = from.clone().lerp(to,0.5); const len = from.distanceTo(to);
+  beam.position.copy(mid); beam.scale.set(1,len,1);
+  beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), to.clone().sub(from).normalize());
+  beam.visible=true;
+  status('Acquiring spectrum… (X-ray fluorescence)');
+  const t0=performance.now();
+  await new Promise(res=>{ (function tick(){ const k=clamp((performance.now()-t0)/1400,0,1);
+    beamMat.opacity = 0.5*Math.sin(k*Math.PI); puck.position.y = puck.userData.base + Math.sin(k*30)*0.01;
+    if(k<1) requestAnimationFrame(tick); else res(); })(); });
+  beam.visible=false; beamMat.opacity=0; puck.position.y=puck.userData.base;
+  status('');
+  showXRF(s);
+}
+
+async function runICP(s, puck){
+  status('Aspirating sample into the plasma…');
+  plasma.visible=true; plasmaLight.intensity=0;
+  const t0=performance.now();
+  await new Promise(res=>{ (function tick(){ const k=clamp((performance.now()-t0)/1500,0,1);
+    const flick = 1+0.05*(Math.sin(k*60)+Math.sin(k*113))*0.5;
+    plasma.scale.set(flick, 1+0.08*Math.sin(k*44), flick);
+    plasmaLight.intensity = 3.2*k*flick;
+    if(k<1) requestAnimationFrame(tick); else res(); })(); });
+  status('Reading emission lines…'); await sleep(500);
+  showICP(s);
+  // let the plasma linger a moment, then dim
+  setTimeout(()=>{ const t1=performance.now(); (function d(){ const k=clamp((performance.now()-t1)/900,0,1);
+    plasmaLight.intensity=3.2*(1-k); if(k<1) requestAnimationFrame(d); else {plasma.visible=false; plasmaLight.intensity=0;} })(); }, 2500);
+  status('');
+}
+
+/* ---------------- readouts ---------------- */
+function elName(sym){ return (CPK[sym]?.name) || sym; }
+function elColor(sym){ return (CPK[sym]?.color) || '#8fd0ff'; }
+
+function showXRF(s){
+  const lines = DATA.lines;
+  const undetect = new Set(DATA.xrf_undetectable);
+  // XRF sees only detectable elements; renormalise the visible ones to what the gun "reports"
+  const seen = s.composition.filter(c=>c.symbol!=='other' && lines[c.symbol]?.xrf && !undetect.has(c.symbol));
+  const missed = s.composition.filter(c=>c.symbol==='other' || undetect.has(c.symbol) || lines[c.symbol]?.xrf===false);
+  const tot = seen.reduce((a,c)=>a+c.wt_pct,0) || 1;
+  const rows = seen.sort((a,b)=>b.wt_pct-a.wt_pct).map(c=>{
+    const pc = c.wt_pct/tot*100;
+    return `<div class="barrow"><span class="el" style="color:${elColor(c.symbol)}">${c.symbol}</span>
+      <span class="tr"><i style="width:${clamp(pc,1,100)}%;background:${elColor(c.symbol)}"></i></span>
+      <span class="pc">${pc.toFixed(pc<1?2:1)}%</span></div>`;
+  }).join('');
+  const missTxt = missed.length ? `Not seen by XRF: <span class="undetect">${missed.map(c=>c.symbol==='other'?'other (Ni/Mo…)':c.symbol).join(' · ')}</span> — light elements &amp; the balance need ICP-OES / combustion.` : '';
+  $('#readout').style.display='block';
+  $('#ro-title').innerHTML = `🔫 XRF · ${s.name} <span class="badge">normalised to detected</span>`;
+  $('#ro-body').innerHTML = `<div class="bars">${rows||'<p class="note">No XRF-detectable elements in this sample.</p>'}</div>
+    <p class="note">${missTxt}</p><p class="note">${s.note}</p>`;
+}
+
+function showICP(s){
+  const lines = DATA.lines;
+  // quantitative: report every element (light ones too), ppm-style, sorted
+  const comp = s.composition.filter(c=>c.symbol!=='other').sort((a,b)=>b.wt_pct-a.wt_pct);
+  const rows = comp.map(c=>{
+    const ppm = c.wt_pct*1e4;
+    const nm = lines[c.symbol]?.nm?.[0];
+    return `<div class="barrow"><span class="el" style="color:${elColor(c.symbol)}">${c.symbol}</span>
+      <span class="tr"><i style="width:${clamp(c.wt_pct,0.5,100)}%;background:${elColor(c.symbol)}"></i></span>
+      <span class="pc">${c.wt_pct.toFixed(c.wt_pct<1?3:1)}%${nm?` · ${nm}nm`:''}</span></div>`;
+  }).join('');
+  $('#readout').style.display='block';
+  $('#ro-title').innerHTML = `🌡️ ICP‑OES · ${s.name} <span class="badge">trace‑quantitative</span>`;
+  $('#ro-body').innerHTML = `<canvas id="spec" class="spec" width="560" height="240"></canvas>
+    <div class="bars">${rows}</div>
+    <p class="note">Peaks are the strongest analytical emission lines (nm). ICP-OES is calibrated against standards, so light elements &amp; trace levels the XRF misses are quantified here. ${s.note}</p>`;
+  drawSpectrum(s);
+}
+
+function drawSpectrum(s){
+  const cv=$('#spec'); if(!cv) return; const g=cv.getContext('2d'); const W=cv.width,H=cv.height;
+  g.fillStyle='#06090d'; g.fillRect(0,0,W,H);
+  const lo=120, hi=800; const X=nm=>((nm-lo)/(hi-lo))*W;
+  // wavelength axis ticks
+  g.strokeStyle='rgba(255,255,255,.08)'; g.fillStyle='rgba(255,255,255,.35)'; g.font='9px monospace';
+  for(let nm=200;nm<=800;nm+=100){ const x=X(nm); g.beginPath(); g.moveTo(x,0); g.lineTo(x,H); g.stroke(); g.fillText(nm+'',x+2,H-3); }
+  const maxw = Math.max(...s.composition.filter(c=>c.symbol!=='other').map(c=>c.wt_pct));
+  for(const c of s.composition){
+    if(c.symbol==='other') continue;
+    const info = DATA.lines[c.symbol]; if(!info) continue;
+    const h = clamp(Math.log10(c.wt_pct*1e4+1)/Math.log10(1e6), 0.06, 1) * (H-24);
+    const col = elColor(c.symbol);
+    for(const nm of info.nm){ const x=X(nm);
+      g.strokeStyle=col; g.globalAlpha=0.9; g.lineWidth=1.5; g.beginPath(); g.moveTo(x,H-14); g.lineTo(x,H-14-h); g.stroke();
+      g.globalAlpha=1; g.fillStyle=col; g.font='8px monospace'; g.save(); g.translate(x, H-16-h); g.rotate(-Math.PI/2); g.fillText(c.symbol, 2, 3); g.restore();
+    }
+  }
+  g.globalAlpha=1;
+}
+
+/* ---------------- sample list UI ---------------- */
+function buildSampleList(){
+  $('#samp-list').innerHTML = DATA.samples.map((s,i)=>{
+    const col = '#'+sampleColor(s).toString(16).padStart(6,'0');
+    return `<div class="samp${i===0?' sel':''}" data-i="${i}">
+      <span class="sw" style="background:${col}"></span>
+      <span><span class="nm">${s.name}</span><br><span class="mx">${s.matrix}</span></span></div>`;
+  }).join('');
+  $$('#samp-list .samp').forEach(el=>el.addEventListener('click',()=>selectSample(+el.dataset.i)));
+}
+
+/* ---------------- resize + loop ---------------- */
+function resize(){ const w=innerWidth,h=innerHeight; renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix();
+  composer?.setSize(w,h); }
+addEventListener('resize', resize);
+
+let t=0;
+function frame(){ t+=0.016; controls.update();
+  // idle plasma shimmer already handled during a run; gentle glassware nothing.
+  if(plasma.visible){ const f=1+0.04*(Math.sin(t*11)+Math.sin(t*23))*0.5; pCore.scale.y=f; halo.material.rotation+=0.002; }
+  (composer||renderer).render(scene,camera);
+}
+
+async function main(){
+  try{ await loadData(); }
+  catch(e){ status('Could not load lab data — is the site serving /data/lab-samples.json?'); }
+  if(DATA){ makePucks(); buildSampleList(); selectSample(0); }
+  buildComposer(); resize();
+  // VR
+  try{ if(navigator.xr && await navigator.xr.isSessionSupported?.('immersive-vr')){
+    const b=$('#xr'); b.style.display='inline-block';
+    document.body.appendChild(VRButton.createButton(renderer)); } }catch{}
+  renderer.setAnimationLoop(frame);
+}
+main();
+</script>
+</body>
+</html>
