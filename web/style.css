@@ -344,3 +344,6 @@ h2,h3{letter-spacing:.2px}
   background: var(--bg2, #0b1020); border: 1px solid var(--accent, #8b5cff);
   border-radius: 10px; padding: 10px 12px; box-shadow: 0 8px 28px rgba(0,0,0,.5); }
 .settings-pop label { display: block; font-size: 12px; color: #8a93b2; margin-bottom: 4px; }
+/* #139 age/consent gate on the walk-in card */
+.agegate{display:flex;align-items:flex-start;gap:8px;margin:14px 0 4px;font-size:13px;color:var(--dim);cursor:pointer}
+.agegate input{width:auto;flex:0 0 auto;margin-top:2px}

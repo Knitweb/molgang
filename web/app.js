@@ -1124,6 +1124,19 @@ if ("serviceWorker" in navigator) {
       if (localStorage.getItem("molgang_lang_seen")) retire();   // returning player: gear only
     }
     if (gear && pop) gear.onclick = () => pop.classList.toggle("hidden");
+    // #139 COPPA/GDPR-K age/consent gate: the faucet/join (#go) stays disabled
+    // until the player acknowledges 13+/guardian permission. Persisted per device.
+    const ageBox = document.getElementById("age-ok");
+    const goBtn = document.getElementById("go");
+    if (ageBox && goBtn) {
+      const already = localStorage.getItem("molgang_age_ok") === "1";
+      ageBox.checked = already;
+      goBtn.disabled = !already;
+      ageBox.addEventListener("change", () => {
+        goBtn.disabled = !ageBox.checked;
+        localStorage.setItem("molgang_age_ok", ageBox.checked ? "1" : "0");
+      });
+    }
   }
   boot();
 })();
