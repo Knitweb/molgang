@@ -139,6 +139,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { SAOPass } from 'three/addons/postprocessing/SAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const API = (window.MOLGANG_API ?? "");
 const $ = s => document.querySelector(s);
@@ -189,11 +194,13 @@ const sphereGeo = new THREE.SphereGeometry(1, 48, 32);
 const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 20);
 const matCache = {};
 function atomMaterial(color){
-  if(!matCache[color]) matCache[color] = new THREE.MeshStandardMaterial(
-    {color, metalness:0.15, roughness:0.28, envMapIntensity:1.1});
+  if(!matCache[color]) matCache[color] = new THREE.MeshPhysicalMaterial(
+    {color, metalness:0.0, roughness:0.22, clearcoat:1.0, clearcoatRoughness:0.14,
+     sheen:0.4, sheenColor:new THREE.Color(color), envMapIntensity:1.25});
   return matCache[color];
 }
-const bondMat = new THREE.MeshStandardMaterial({color:0xbcd0dc, metalness:0.4, roughness:0.35});
+const bondMat = new THREE.MeshPhysicalMaterial(
+  {color:0xc3d4de, metalness:0.55, roughness:0.28, clearcoat:0.6, envMapIntensity:1.1});
 const ionicMat = new THREE.MeshStandardMaterial({color:0x3fb6a8, emissive:0x1c5f57, roughness:0.5, transparent:true, opacity:0.5});
 
 const up = new THREE.Vector3(0,1,0);
@@ -210,23 +217,30 @@ function bondMesh(a, b, order){
   for(let k=0;k<n;k++){
     const m = new THREE.Mesh(cylGeo, order===0?ionicMat:bondMat);
     const off = (k-(n-1)/2)*0.13;
-    m.scale.set(order===0?0.035:0.06, len, order===0?0.035:0.06);
-    m.position.copy(mid).add(offax.clone().multiplyScalar(off));
+    const rad = order===0?0.035:0.06;
+    const midK = mid.clone().add(offax.clone().multiplyScalar(off));
+    const aK = va.clone().add(offax.clone().multiplyScalar(off));
+    m.scale.set(rad, len, rad);
+    m.position.copy(midK);
     m.quaternion.copy(quat); m.castShadow=true;
+    m.userData = {len, a:aK, mid:midK, rad};    // for animated growth
     g.add(m);
   }
+  g.userData.grow = true;
   return g;
 }
 
 let ELEM = {}, MOLS = {};
 function renderMolecule(m){
   molGroup.clear();
+  assembly = 0;   // restart the grow-in animation
   const s = 1.15; // scene scale (Å → units)
   m.atoms.forEach(a=>{
     const e = ELEM[a.el] || {color:"#cccccc", radius:0.7};
     const mesh = new THREE.Mesh(sphereGeo, atomMaterial(e.color));
     const r = 0.28 + e.radius*0.22;
-    mesh.scale.setScalar(r);
+    mesh.scale.setScalar(0.001);
+    mesh.userData = {target:r};       // grown by tickAssembly
     mesh.position.set(a.x*s, a.y*s, a.z*s);
     mesh.castShadow = true;
     molGroup.add(mesh);
@@ -242,12 +256,49 @@ function renderMolecule(m){
   molGroup.position.sub(c).setY(molGroup.position.y - c.y + 0.2);
 }
 
+// Tier-1 post-processing: SAO ambient occlusion + subtle bloom.
+// Bypassed while presenting in WebXR (post-processing and the XR framebuffer
+// don't compose) — VR falls back to a direct render, which is correct.
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const sao = new SAOPass(scene, camera);
+sao.params.saoBias = 0.5; sao.params.saoIntensity = 0.006;
+sao.params.saoScale = 8; sao.params.saoKernelRadius = 40;
+composer.addPass(sao);
+const bloom = new UnrealBloomPass(new THREE.Vector2(1,1), 0.16, 0.6, 0.96);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
 function resize(){
   const w = canvas.clientWidth, h = canvas.clientHeight;
   if(canvas.width!==w||canvas.height!==h){ renderer.setSize(w,h,false);
+    composer.setSize(w,h);
     camera.aspect=w/h; camera.updateProjectionMatrix(); }
 }
-renderer.setAnimationLoop(()=>{ resize(); controls.update(); renderer.render(scene,camera); });
+
+// animated assembly: atoms grow from the centre, bonds extend, on select
+let assembly = 1;   // 0 → 1 progress
+function tickAssembly(dt){
+  if(assembly>=1) return;
+  assembly = Math.min(1, assembly + dt*2.2);
+  const e = 1 - Math.pow(1-assembly, 3);      // easeOutCubic
+  molGroup.children.forEach(o=>{
+    if(o.userData.target!=null){               // atom: scale in
+      o.scale.setScalar(o.userData.target*e);
+    } else if(o.userData.grow){                 // bond group: extend from A
+      o.children.forEach(c=>{ c.scale.y = c.userData.len*e; c.position.copy(
+        c.userData.a.clone().lerp(c.userData.mid, e)); });
+    }
+  });
+}
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(()=>{
+  const dt = Math.min(clock.getDelta(), 0.05);
+  resize(); controls.update(); tickAssembly(dt);
+  if(renderer.xr.isPresenting) renderer.render(scene,camera);
+  else composer.render();
+});
 
 // WebXR (capability-gated, like knitweb-graph-3d.html)
 if(navigator.xr){
