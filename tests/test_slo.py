@@ -43,6 +43,10 @@ def _metrics_after_a_game(tmp):
 
 
 def test_in_process_flow_is_within_budget(tmp_path):
+    # /metrics reads the process-global registry, so isolate this flow's counters
+    from molgang import metrics
+    metrics.REGISTRY._counters.clear()
+    metrics.REGISTRY._hist.clear()
     text = _metrics_after_a_game(tmp_path)
     assert slo.check_budgets(text) == []          # the fast in-process path is healthy
     assert slo.p99_seconds(text, "/api/propose") is not None
