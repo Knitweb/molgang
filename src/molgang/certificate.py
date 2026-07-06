@@ -108,6 +108,7 @@ def make_pouw_certificate(
     out_path: str,
     holder: str | None = None,
     issued: str | None = None,
+    pls_balance: int | None = None,
 ) -> str:
     """Render a PoUW certificate PDF for one wallet and return ``out_path``.
 
@@ -124,6 +125,9 @@ def make_pouw_certificate(
         out_path:     where to write the PDF.
         holder:       optional display name for the wallet holder.
         issued:       optional ISO date string (defaults to today, UTC).
+        pls_balance:  optional live wallet balance. Proposer rewards mean a peer can hold a
+                      large PLS balance with 0 staked votes, so when given the headline panel
+                      shows BOTH figures — never a lone misleading "0 PLS".
 
     Returns:
         ``out_path``.
@@ -151,19 +155,34 @@ def make_pouw_certificate(
     pdf.ln(2)
     _rule(pdf)
 
-    # ── PULSES USED — the headline PoUW figure ────────────────────────────
+    # ── Headline figures — PoUW stake, and the live balance when known ────
     pdf.set_fill_color(*_PULSE_BG)
     panel_y = pdf.get_y()
-    pdf.rect(pdf.l_margin, panel_y, pdf.w - pdf.l_margin - pdf.r_margin, 22, style="F")
+    panel_w = pdf.w - pdf.l_margin - pdf.r_margin
+    pdf.rect(pdf.l_margin, panel_y, panel_w, 22, style="F")
     pdf.ln(2)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*_MUTED)
-    pdf.cell(0, 5, _latin("PULSES USED  (proof-of-useful-work metric)"),
-             align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", "B", 26)
-    pdf.set_text_color(*_ACCENT)
-    pdf.cell(0, 11, _latin(f"{pulses_used:,} PLS"), align="C",
-             new_x="LMARGIN", new_y="NEXT")
+    if pls_balance is None:
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(*_MUTED)
+        pdf.cell(0, 5, _latin("PULSES USED  (proof-of-useful-work metric)"),
+                 align="C", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "B", 26)
+        pdf.set_text_color(*_ACCENT)
+        pdf.cell(0, 11, _latin(f"{pulses_used:,} PLS"), align="C",
+                 new_x="LMARGIN", new_y="NEXT")
+    else:
+        # two columns: wallet balance (what the player sees in the game) + staked votes
+        half = panel_w / 2
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_text_color(*_MUTED)
+        pdf.cell(half, 5, _latin("PLS BALANCE  (earned through play)"), align="C")
+        pdf.cell(half, 5, _latin("PULSES STAKED  (PoUW votes)"), align="C",
+                 new_x="LMARGIN", new_y="NEXT")
+        pdf.set_font("Helvetica", "B", 24)
+        pdf.set_text_color(*_ACCENT)
+        pdf.cell(half, 11, _latin(f"{max(0, int(pls_balance)):,} PLS"), align="C")
+        pdf.cell(half, 11, _latin(f"{pulses_used:,} PLS"), align="C",
+                 new_x="LMARGIN", new_y="NEXT")
     pdf.ln(5)
 
     # ── Useful-work summary table ─────────────────────────────────────────

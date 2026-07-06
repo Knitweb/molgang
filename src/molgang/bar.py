@@ -642,6 +642,10 @@ class Bar:
             "address": player.node.address,
             "public_key": player.node.pub,
             "pulses_used": pulses_used,
+            # the live wallet balance the player sees in the game — proposer rewards mean a
+            # peer can hold a large PLS balance while having 0 staked votes, so the
+            # certificate carries both figures instead of implying "0 PLS" (lab-3d bug)
+            "pls_balance": player.pulses,
             "work_summary": work_summary,
             "provenance": self.web_view().get("anchor"),
         }

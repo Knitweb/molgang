@@ -290,3 +290,52 @@ def test_api_certificate_endpoint_returns_pdf(tmp_path):
         txt = _pdf_text(out[idx:])
         assert "PUBLIC MODE: private key redacted for safe distribution" in txt
         assert me.player.node.priv not in txt
+
+
+def test_certificate_shows_live_pls_balance_for_a_pure_proposer(tmp_path):
+    """lab-3d bug: a proposer whose knits the bots vote on has 0 staked votes but a large
+    earned balance — the certificate must show that balance, never a lone '0 PLS'."""
+    bar = Bar(str(tmp_path / "world.json"))
+    me = bar.join("Builder", "laser-maxi", "periodic", device="dev-test-003")
+    a = bar.propose(me.sid, "H2O")          # bots settle it; player casts no votes
+    assert a.woven
+
+    d = bar.certificate_data(me.sid)
+    assert d["pls_balance"] == me.player.pulses
+    assert d["pls_balance"] > 0              # faucet + proposer reward
+    assert d["pulses_used"] == 0             # no votes staked — the old headline was 0
+
+    out = str(tmp_path / "builder.pdf")
+    make_pouw_certificate(
+        address=d["address"], public_key=d["public_key"], private_key="",
+        include_private_key=False, pulses_used=d["pulses_used"],
+        pls_balance=d["pls_balance"], work_summary=d["work_summary"],
+        provenance=d["provenance"], holder=d["holder"], out_path=out)
+    txt = _text(out)
+    assert "PLS BALANCE" in txt and "PULSES STAKED" in txt
+    assert f"{d['pls_balance']:,} PLS" in txt
+    # single-figure mode stays exactly as before when no balance is given
+    out2 = str(tmp_path / "legacy.pdf")
+    make_pouw_certificate(
+        address=d["address"], public_key=d["public_key"], private_key="",
+        include_private_key=False, pulses_used=7, work_summary={}, out_path=out2)
+    txt2 = _text(out2)
+    assert "PULSES USED" in txt2 and "PLS BALANCE" not in txt2
+
+
+def test_registry_keeps_the_tracked_certificate_list(tmp_path):
+    """Every issued certificate lands in the registry's tracked list (public data only)."""
+    from molgang.registry import Registry
+    reg = Registry(str(tmp_path / "reg.db"))
+    rec = reg.log_certificate(address="pls1abc", holder="Builder", pulses_used=0,
+                              pls_balance=1250, work={"knits_woven": 3}, sha256="ab" * 32)
+    assert rec["id"] == 1 and rec["pls_balance"] == 1250
+    reg.log_certificate(address="pls1def", holder="Second", pulses_used=4,
+                        pls_balance=None, work=None, sha256="cd" * 32)
+    certs = reg.list_certificates()
+    assert len(certs) == 2
+    assert certs[0]["address"] == "pls1def"          # newest first
+    assert certs[1]["holder"] == "Builder"
+    assert certs[1]["work"] == {"knits_woven": 3}
+    assert certs[1]["sha256"] == "ab" * 32
+    assert all("private" not in str(c).lower() for c in certs)
