@@ -1095,8 +1095,35 @@ if ("serviceWorker" in navigator) {
   if (window.I18N) {
     await I18N.ready;
     I18N.apply();
+    // Language switcher UX: visible inline until the player has used it once,
+    // then it retires into a background settings (⚙) popover — the choice is
+    // made, the chrome gets the space back.
     const sw = document.getElementById("lang-switch");
-    if (sw) sw.onchange = async () => { await I18N.setLocale(sw.value); };
+    const inline = document.getElementById("lang-inline");
+    const gear = document.getElementById("settings-gear");
+    const pop = document.getElementById("settings-pop");
+    const retire = () => {
+      if (!inline || !gear || !pop) return;
+      const label = document.createElement("label");
+      label.textContent = "Language / Taal";
+      pop.innerHTML = "";
+      pop.appendChild(label);
+      pop.appendChild(sw);                       // move the SAME select into the popover
+      inline.classList.add("hidden");
+      gear.classList.remove("hidden");
+    };
+    if (sw) {
+      sw.onchange = async () => {
+        await I18N.setLocale(sw.value);
+        if (!localStorage.getItem("molgang_lang_seen")) {
+          localStorage.setItem("molgang_lang_seen", "1");
+          retire();
+          if (pop) pop.classList.add("hidden");
+        }
+      };
+      if (localStorage.getItem("molgang_lang_seen")) retire();   // returning player: gear only
+    }
+    if (gear && pop) gear.onclick = () => pop.classList.toggle("hidden");
   }
   boot();
 })();

@@ -18,10 +18,64 @@ window.I18N = (() => {
   let dict = {};
   let en = {};
 
-  function pick() {
+  // Initial-locale detection cascade (explicit choice always wins):
+  //   1. device data — navigator.languages (OS/browser setting) and, as a
+  //      device-location hint, the Intl timezone (Europe/Amsterdam → nl);
+  //   2. ISP location — one bounded (1.5s, fail-silent, session-cached) geo
+  //      lookup of the connection's country, only consulted when the device
+  //      signal is generic English;
+  //   3. referring website — a .nl/.be referrer nudges Dutch;
+  //   default: en.
+  const NL_TZ = ["Europe/Amsterdam", "Europe/Brussels"];
+  const NL_CC = ["NL", "BE"];
+
+  function deviceLocale() {
+    const langs = (navigator.languages && navigator.languages.length)
+      ? navigator.languages : [navigator.language || "en"];
+    for (const raw of langs) {
+      const l = String(raw).toLowerCase();
+      const hit = SUPPORTED.find((s) => s !== "en" && l.startsWith(s));
+      if (hit) return hit;                       // any explicit non-EN device language wins
+    }
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      if (NL_TZ.includes(tz)) return "nl";       // device clock region as location hint
+    } catch (e) { /* older engines */ }
+    return null;                                 // only generic English — inconclusive
+  }
+
+  async function ispLocale() {
+    const cached = sessionStorage.getItem("molgang_geo_cc");
+    if (cached) return NL_CC.includes(cached) ? "nl" : null;
+    try {
+      const ctl = new AbortController();
+      const timer = setTimeout(() => ctl.abort(), 1500);
+      const r = await fetch("https://ipapi.co/json/", { signal: ctl.signal });
+      clearTimeout(timer);
+      if (!r.ok) return null;
+      const cc = String((await r.json()).country_code || "").toUpperCase();
+      if (cc) sessionStorage.setItem("molgang_geo_cc", cc);
+      return NL_CC.includes(cc) ? "nl" : null;
+    } catch (e) {
+      return null;                               // offline/blocked/slow: never the boot's problem
+    }
+  }
+
+  function referrerLocale() {
+    try {
+      const host = new URL(document.referrer).hostname.toLowerCase();
+      if (host.endsWith(".nl") || host.endsWith(".be")) return "nl";
+    } catch (e) { /* no or opaque referrer */ }
+    return null;
+  }
+
+  async function pick() {
     const saved = (localStorage.getItem("molgang_locale") || "").toLowerCase();
-    const wanted = saved || (navigator.language || "en").toLowerCase();
-    return SUPPORTED.find((l) => wanted.startsWith(l)) || "en";
+    if (SUPPORTED.includes(saved)) return saved; // 0. the player's explicit choice
+    return deviceLocale()                        // 1. device settings + clock region
+      || (await ispLocale())                     // 2. connection country
+      || referrerLocale()                        // 3. linking site
+      || "en";
   }
 
   async function load(l) {
@@ -68,7 +122,7 @@ window.I18N = (() => {
 
   const ready = (async () => {
     en = await load("en");
-    lang = pick();
+    lang = await pick();
     dict = lang === "en" ? en : await load(lang);
     document.documentElement.lang = lang;
   })();
