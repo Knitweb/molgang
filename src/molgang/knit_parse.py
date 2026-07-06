@@ -86,6 +86,44 @@ def _link(subject: str, obj: str, rel: str) -> dict:
             "relation": rel, "label": f"{subject} {rel} {obj}"}
 
 
+# a chemical species: optional stoichiometric coefficient + element groups (V2O5, 2 H2O)
+_SPECIES = re.compile(r"^\d*\s*(?:[A-Z][a-z]?\d*)+$")
+_ARROW = re.compile(r"\s*(?:->|=>|→|⇒|⟶)\s*")
+
+
+def _try_reaction(raw: str) -> dict | None:
+    """Recognise a REACTION knit: ``2H2 + O2 -> 2H2O @ spark`` (#109).
+
+    A knit is a reaction (not a link) only when it has an arrow AND reaction
+    signals — a ``+`` on either side, a stoichiometric coefficient, or an
+    ``@ conditions`` tail — and every species parses as a chemical formula.
+    Plain ``A -> B`` prose stays a link, so nothing existing changes meaning."""
+    body, cond = (raw.split("@", 1) + [""])[:2] if "@" in raw else (raw, "")
+    body, cond = body.strip(), clean(cond) or cond.strip()
+    m = _ARROW.search(body)
+    if not m:
+        return None
+    lhs, rhs = body[:m.start()], body[m.end():]
+    if _ARROW.search(rhs):
+        return None                                   # multi-arrow → not a single reaction
+    def side(s):
+        parts = [clean(x) for x in s.split("+")]
+        return [p for p in parts if p]
+    reactants, products = side(lhs), side(rhs)
+    if not reactants or not products:
+        return None
+    has_signal = ("+" in body) or ("@" in raw) or any(
+        re.match(r"^\d+\s*\S", sp) for sp in reactants + products)
+    if not has_signal:
+        return None                                   # bare A -> B stays a link
+    if not all(_SPECIES.match(sp) for sp in reactants + products):
+        return None                                   # prose sides → link/term path
+    equation = " + ".join(reactants) + " -> " + " + ".join(products)
+    label = equation + (f" @ {cond}" if cond else "")
+    return {"kind": "reaction", "equation": equation, "conditions": cond,
+            "reactants": reactants, "products": products, "term": label, "label": label}
+
+
 def parse_knit(text: str) -> dict | list[dict]:
     """Parse a typed knit.
 
@@ -93,6 +131,9 @@ def parse_knit(text: str) -> dict | list[dict]:
     back-compat), or a **list** of link dicts for a one-to-many object enumeration
     (`X has A, B and C` → three link dicts sharing subject + relation)."""
     raw = (text or "").strip()
+    reaction = _try_reaction(raw)
+    if reaction is not None:
+        return reaction
     for pattern, rel in _CONNECTORS:
         m = re.search(pattern, raw)
         if m:

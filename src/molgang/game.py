@@ -253,6 +253,17 @@ def honest_verdict(bond: Bond) -> quorum.Verdict:
     return quorum.Verdict.CONFIRM if chemistry.is_correct(bond) else quorum.Verdict.MISMATCH
 
 
+def honest_reaction_verdict(equation: str) -> quorum.Verdict:
+    """Ground truth for a REACTION knit (#109): CONFIRM iff the equation parses,
+    every species is real chemistry, and atoms are conserved across the arrow."""
+    try:
+        reaction = chemistry.parse_equation(equation)
+        balanced = chemistry.reaction_is_balanced(reaction)
+    except ValueError:
+        return quorum.Verdict.MISMATCH
+    return quorum.Verdict.CONFIRM if balanced else quorum.Verdict.MISMATCH
+
+
 def propose(proposer: Player, formula: str, name: str) -> Round:
     """Spin silk into a proposed chemistry bond and open a validation round."""
     if proposer.silk < SILK_PER_BOND:
