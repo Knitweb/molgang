@@ -33,6 +33,22 @@ The only genuinely new code is **one transport** — `molgang/webnode/peer.py`'s
 slots into the documented **HOLE-PUNCH SEAM** in `knitweb.p2p.transport` with **zero edits**
 to `node.py` / `base_node.py`.
 
+
+## Build the engine wheel the dapp boots from
+
+The shell installs ONE wheel — `web/engine/molgang_engine-0.0.0-py3-none-any.whl`
+— containing the unchanged pure-Python `molgang` + `knitweb`. Regenerate it from
+the live sources with:
+
+```sh
+KNITWEB_SRC=/path/to/pulse/src python3 serverless/build_engine.py
+```
+
+The committed wheel is that build; re-run it (in CI or before a deploy) whenever
+the engine changes so the live dapp never runs a stale engine. `cryptography`
+(secp256k1/SHA-256) is NOT in the wheel — the shell installs it separately via
+micropip in Pyodide.
+
 ## Files
 
 ```
