@@ -1,0 +1,616 @@
+{
+  "_doc": "Analytical-lab reference data for MOLGANG. samples: realistic bulk assays (element wt%, oxides converted to element basis). lines: strongest ICP-OES emission lines (nm) + handheld-XRF detectability. Verified by an adversarial chemistry pass (see Admin/claude/fable).",
+  "xrf_undetectable": [
+    "H",
+    "He",
+    "Li",
+    "B",
+    "C",
+    "N",
+    "O",
+    "F",
+    "Ne",
+    "Na",
+    "Mg"
+  ],
+  "samples": [
+    {
+      "id": "S1",
+      "name": "LD/BOF steel slag (converter slag)",
+      "matrix": "slag/oxide",
+      "description": "Basic-oxygen-furnace / Linz-Donawitz converter slag, the primary feedstock for Ca and V valorisation. Element basis converted from oxide assay (CaO ~44%, Fe-oxides ~22%, SiO2 ~12%, MgO ~7%, MnO ~4%, V2O5 ~1.4%). High basicity (CaO/SiO2 ~3.5), contains free lime.",
+      "composition": [
+        {
+          "symbol": "O",
+          "wt_pct": 34.5
+        },
+        {
+          "symbol": "Ca",
+          "wt_pct": 31.5
+        },
+        {
+          "symbol": "Fe",
+          "wt_pct": 17
+        },
+        {
+          "symbol": "Si",
+          "wt_pct": 5.5
+        },
+        {
+          "symbol": "Mg",
+          "wt_pct": 4
+        },
+        {
+          "symbol": "Mn",
+          "wt_pct": 3
+        },
+        {
+          "symbol": "Al",
+          "wt_pct": 1.2
+        },
+        {
+          "symbol": "P",
+          "wt_pct": 0.9
+        },
+        {
+          "symbol": "V",
+          "wt_pct": 0.8
+        },
+        {
+          "symbol": "Ti",
+          "wt_pct": 0.4
+        },
+        {
+          "symbol": "Cr",
+          "wt_pct": 0.25
+        },
+        {
+          "symbol": "S",
+          "wt_pct": 0.1
+        }
+      ],
+      "note": "Handheld XRF cannot quantify O or distinguish free-CaO from Ca-silicate/Ca-ferrite speciation, which governs Ca leachability; V ~0.8% sits near the gun's LOD in a heavy Fe/Ca matrix, so confirm the V-recovery grade by fusion + ICP-OES."
+    },
+    {
+      "id": "S2",
+      "name": "Stainless steel 316L (RVS316L)",
+      "matrix": "metal alloy",
+      "description": "Austenitic 316L (EN 1.4404) low-carbon Mo-bearing stainless. Fe balance with 16-18% Cr and (excluded here) Ni/Mo. Representative of tanks/piping in the leaching circuit; also a slag contaminant source.",
+      "composition": [
+        {
+          "symbol": "Fe",
+          "wt_pct": 65.5
+        },
+        {
+          "symbol": "Cr",
+          "wt_pct": 17
+        },
+        {
+          "symbol": "other",
+          "wt_pct": 14.79
+        },
+        {
+          "symbol": "Mn",
+          "wt_pct": 1.6
+        },
+        {
+          "symbol": "Si",
+          "wt_pct": 0.6
+        },
+        {
+          "symbol": "Cu",
+          "wt_pct": 0.4
+        },
+        {
+          "symbol": "N",
+          "wt_pct": 0.05
+        },
+        {
+          "symbol": "P",
+          "wt_pct": 0.03
+        },
+        {
+          "symbol": "C",
+          "wt_pct": 0.02
+        },
+        {
+          "symbol": "S",
+          "wt_pct": 0.005
+        }
+      ],
+      "note": "Sum corrected from 100.005 to 99.995 by trimming 'other' 14.80->14.79. The ~14.8% 'other' balance is Ni (~12.5%) + Mo (~2.3%), the diagnostic alloying elements for 316L but outside the allowed symbol set here; XRF sees them fine, but the 0.02% C (the L / low-carbon spec) is below XRF LOD and needs combustion (LECO) to confirm 316L vs 316."
+    },
+    {
+      "id": "S3",
+      "name": "Ferrovanadium FeV80",
+      "matrix": "metal alloy (ferroalloy)",
+      "description": "Ferrovanadium master alloy, ~80% V, the target refined product of the vanadium-recovery chain. Fe balance with minor Al/Si from the aluminothermic/silicothermic reduction.",
+      "composition": [
+        {
+          "symbol": "V",
+          "wt_pct": 80
+        },
+        {
+          "symbol": "Fe",
+          "wt_pct": 16
+        },
+        {
+          "symbol": "Al",
+          "wt_pct": 1.5
+        },
+        {
+          "symbol": "Si",
+          "wt_pct": 1.3
+        },
+        {
+          "symbol": "C",
+          "wt_pct": 0.3
+        },
+        {
+          "symbol": "Mn",
+          "wt_pct": 0.3
+        },
+        {
+          "symbol": "P",
+          "wt_pct": 0.05
+        },
+        {
+          "symbol": "S",
+          "wt_pct": 0.05
+        }
+      ],
+      "note": "At 80% V the XRF matrix/inter-element correction is severe and calibration drifts against low-V slag standards; C, P and S (the penalty elements for FeV grade) need combustion/ICP, so treat XRF here as sorting-only and certify by fusion-ICP-OES."
+    },
+    {
+      "id": "S4",
+      "name": "Leaded free-cutting brass (CuZn39Pb3)",
+      "matrix": "metal alloy",
+      "description": "Machining brass, ~59% Cu / ~38% Zn with ~3% Pb added for chip-breaking. Common valve/fitting scrap and a Zn/Cu reference for the gun.",
+      "composition": [
+        {
+          "symbol": "Cu",
+          "wt_pct": 59
+        },
+        {
+          "symbol": "Zn",
+          "wt_pct": 37.5
+        },
+        {
+          "symbol": "Pb",
+          "wt_pct": 2.8
+        },
+        {
+          "symbol": "other",
+          "wt_pct": 0.4
+        },
+        {
+          "symbol": "Fe",
+          "wt_pct": 0.3
+        }
+      ],
+      "note": "'other' is mainly Sn plus trace Ni not represented here; Pb is present as discrete insoluble globules so a small XRF spot over-/under-reads it depending on where it lands, and a dezincified surface layer biases the Zn:Cu ratio unless you abrade before shooting."
+    },
+    {
+      "id": "S5",
+      "name": "Granite (silicate ore reference)",
+      "matrix": "silicate ore/rock",
+      "description": "Felsic granite, ~72% SiO2 with feldspar-hosted Al, K, Na. Serves as a high-silica geological matrix / grinding-media and gangue reference against the basic slag.",
+      "composition": [
+        {
+          "symbol": "O",
+          "wt_pct": 48.5
+        },
+        {
+          "symbol": "Si",
+          "wt_pct": 33.5
+        },
+        {
+          "symbol": "Al",
+          "wt_pct": 7.4
+        },
+        {
+          "symbol": "K",
+          "wt_pct": 3.7
+        },
+        {
+          "symbol": "Na",
+          "wt_pct": 2.6
+        },
+        {
+          "symbol": "Fe",
+          "wt_pct": 2
+        },
+        {
+          "symbol": "Ca",
+          "wt_pct": 1
+        },
+        {
+          "symbol": "Mg",
+          "wt_pct": 0.3
+        },
+        {
+          "symbol": "Ti",
+          "wt_pct": 0.2
+        },
+        {
+          "symbol": "Mn",
+          "wt_pct": 0.04
+        }
+      ],
+      "note": "Na (and to a lesser extent Mg/Al) have very poor fluorescence yield, so a handheld XRF systematically under-reports the feldspar alkali content; for reliable majors run a fused-bead WD-XRF or ICP-OES after lithium-borate fusion."
+    },
+    {
+      "id": "S6",
+      "name": "Gibbsitic bauxite",
+      "matrix": "ore (hydrated oxide)",
+      "description": "Aluminium ore, ~50% Al2O3 with ~18% Fe2O3 and ~25% loss-on-ignition as structural water (gibbsite). Included as an Al/Fe/Ti oxide ore end-member and an alternative Al source.",
+      "composition": [
+        {
+          "symbol": "O",
+          "wt_pct": 53
+        },
+        {
+          "symbol": "Al",
+          "wt_pct": 26.5
+        },
+        {
+          "symbol": "Fe",
+          "wt_pct": 12.6
+        },
+        {
+          "symbol": "H",
+          "wt_pct": 2.5
+        },
+        {
+          "symbol": "Si",
+          "wt_pct": 2.3
+        },
+        {
+          "symbol": "Ti",
+          "wt_pct": 1.8
+        },
+        {
+          "symbol": "Ca",
+          "wt_pct": 0.2
+        },
+        {
+          "symbol": "V",
+          "wt_pct": 0.05
+        },
+        {
+          "symbol": "Cr",
+          "wt_pct": 0.03
+        }
+      ],
+      "note": "The ~25 wt% loss-on-ignition (bound water, seen here as H + associated O) is invisible to XRF, so an oxide sum on the gun will not close and Al is over-reported on an as-received basis; dry/ignite and re-run, or use fusion-ICP, and note V/Cr ride along with the Fe phase."
+    },
+    {
+      "id": "S7",
+      "name": "High-calcium limestone (CaCO3)",
+      "matrix": "ore/mineral (carbonate)",
+      "description": "~95% pure calcite limestone, the flux/neutralisation and CaCO3 precipitation reference for the Ca-recovery product. Element basis from CaCO3 stoichiometry plus minor silicate/dolomite impurity.",
+      "composition": [
+        {
+          "symbol": "O",
+          "wt_pct": 47.5
+        },
+        {
+          "symbol": "Ca",
+          "wt_pct": 38
+        },
+        {
+          "symbol": "C",
+          "wt_pct": 11.4
+        },
+        {
+          "symbol": "Mg",
+          "wt_pct": 0.6
+        },
+        {
+          "symbol": "Si",
+          "wt_pct": 0.6
+        },
+        {
+          "symbol": "Fe",
+          "wt_pct": 0.2
+        },
+        {
+          "symbol": "Al",
+          "wt_pct": 0.15
+        },
+        {
+          "symbol": "S",
+          "wt_pct": 0.05
+        },
+        {
+          "symbol": "Mn",
+          "wt_pct": 0.02
+        }
+      ],
+      "note": "XRF is blind to the C and O that make up ~59% of the mass, so purity is reported as CaCO3-by-difference / LOI rather than measured directly; the small Mg reading is the key handle on dolomite content, which matters for distinguishing recovered calcite from raw limestone."
+    },
+    {
+      "id": "S8",
+      "name": "Hot-dip galvanising bottom dross (Zn-Fe, Pb-bearing)",
+      "matrix": "metal alloy (Zn intermetallic)",
+      "description": "Skimmed bottom dross from a hot-dip galvanising bath: Zn-rich with a Zn-Fe intermetallic (hard zinc) plus Pb and Al bath additives. The Zn/Pb end-member of the sample suite.",
+      "composition": [
+        {
+          "symbol": "Zn",
+          "wt_pct": 94
+        },
+        {
+          "symbol": "Fe",
+          "wt_pct": 3.2
+        },
+        {
+          "symbol": "Pb",
+          "wt_pct": 1.3
+        },
+        {
+          "symbol": "other",
+          "wt_pct": 0.7
+        },
+        {
+          "symbol": "Al",
+          "wt_pct": 0.4
+        },
+        {
+          "symbol": "Cu",
+          "wt_pct": 0.1
+        }
+      ],
+      "note": "'other' hides Cd and Sn, which are RoHS/recycling-relevant but not representable here; the Fe is locked in a Zn-Fe intermetallic (heterogeneous, so grind and homogenise before shooting), and any oxidised skimming carries O the gun won't report, biasing the Zn total high."
+    }
+  ],
+  "lines": {
+    "H": {
+      "nm": [
+        656.279,
+        486.133
+      ],
+      "xrf": false,
+      "note": "Balmer H-alpha 656.279 strongest; H-beta 486.133; Z=1, not a routine ICP-OES analyte"
+    },
+    "He": {
+      "nm": [
+        587.562,
+        388.865
+      ],
+      "xrf": false,
+      "note": "He I D3 587.562; 388.865; noble gas, Z=2, not quantified by ICP-OES"
+    },
+    "Li": {
+      "nm": [
+        670.784,
+        610.362
+      ],
+      "xrf": false,
+      "note": "Li I 670.784 resonance doublet very strong; 610.362; Z=3"
+    },
+    "B": {
+      "nm": [
+        249.773,
+        249.678
+      ],
+      "xrf": false,
+      "note": "B I close doublet 249.678/249.773; 208.959 alternate; Z=5"
+    },
+    "C": {
+      "nm": [
+        193.091,
+        247.856
+      ],
+      "xrf": false,
+      "note": "C I 193.091 (vacuum-UV, purge needed); 247.856 alternate; Z=6"
+    },
+    "N": {
+      "nm": [
+        174.272,
+        149.262
+      ],
+      "xrf": false,
+      "note": "vacuum-UV N I 174.272/149.262; not routine (Ar plasma/entrainment interference); Z=7"
+    },
+    "O": {
+      "nm": [
+        777.194,
+        130.217
+      ],
+      "xrf": false,
+      "note": "O I 777.194 triplet; 130.217 vacuum-UV; not a routine analyte; Z=8"
+    },
+    "F": {
+      "nm": [
+        685.603,
+        690.246
+      ],
+      "xrf": false,
+      "note": "F I 685.603 weak, high excitation; 690.246; poor sensitivity; Z=9"
+    },
+    "Ne": {
+      "nm": [
+        585.249,
+        640.225
+      ],
+      "xrf": false,
+      "note": "Ne I 585.249/640.225; noble gas, Z=10, not quantified by ICP-OES"
+    },
+    "Na": {
+      "nm": [
+        588.995,
+        589.592
+      ],
+      "xrf": false,
+      "note": "Na D resonance doublet 588.995/589.592; XRF marginal (low-Z, Z=11)"
+    },
+    "Mg": {
+      "nm": [
+        279.553,
+        285.213
+      ],
+      "xrf": false,
+      "note": "Mg II 279.553 strongest; Mg I 285.213; Z=12 boundary case, handheld XRF quantification marginal/unreliable so treated as undetectable"
+    },
+    "Al": {
+      "nm": [
+        396.152,
+        167.079
+      ],
+      "xrf": true,
+      "note": "Al I 396.152; Al II 167.079 vacuum-UV most sensitive; Z=13"
+    },
+    "Si": {
+      "nm": [
+        251.611,
+        288.158
+      ],
+      "xrf": true,
+      "note": "Si I 251.611 primary; 288.158; 212.412 alternate"
+    },
+    "P": {
+      "nm": [
+        213.618,
+        214.914
+      ],
+      "xrf": true,
+      "note": "P I 213.618/214.914; 177.495/178.284 vacuum-UV more sensitive"
+    },
+    "S": {
+      "nm": [
+        180.731,
+        182.034
+      ],
+      "xrf": true,
+      "note": "S I vacuum-UV lines; 180.731 primary, purge required; 182.034"
+    },
+    "Cl": {
+      "nm": [
+        134.724,
+        725.67
+      ],
+      "xrf": true,
+      "note": "Cl I 134.724 vacuum-UV; 725.67; poor ICP-OES sensitivity"
+    },
+    "K": {
+      "nm": [
+        766.49,
+        769.896
+      ],
+      "xrf": true,
+      "note": "K I resonance doublet in far-red 766.49/769.896"
+    },
+    "Ca": {
+      "nm": [
+        393.366,
+        396.847
+      ],
+      "xrf": true,
+      "note": "Ca II H&K 393.366/396.847 very strong; Ca I 422.673 alt"
+    },
+    "Ti": {
+      "nm": [
+        334.941,
+        336.121
+      ],
+      "xrf": true,
+      "note": "Ti II 334.941/336.121; 337.280 alternate"
+    },
+    "V": {
+      "nm": [
+        292.402,
+        310.23
+      ],
+      "xrf": true,
+      "note": "V II 292.402 primary; 309.311/310.23/311.071 alternates"
+    },
+    "Cr": {
+      "nm": [
+        267.716,
+        283.563
+      ],
+      "xrf": true,
+      "note": "Cr II 267.716 primary; 205.560/206.149 alternates"
+    },
+    "Mn": {
+      "nm": [
+        257.61,
+        259.373
+      ],
+      "xrf": true,
+      "note": "Mn II 257.610 most sensitive; 259.373; 260.569 alt"
+    },
+    "Fe": {
+      "nm": [
+        238.204,
+        259.94
+      ],
+      "xrf": true,
+      "note": "Fe II 238.204/259.940 strongest; 234.349 alt"
+    },
+    "Cu": {
+      "nm": [
+        324.754,
+        327.396
+      ],
+      "xrf": true,
+      "note": "Cu I resonance doublet 324.754/327.396; 224.700 alternate"
+    },
+    "Zn": {
+      "nm": [
+        213.856,
+        206.2
+      ],
+      "xrf": true,
+      "note": "Zn I 213.856 primary; Zn II 206.200 alt; 202.548"
+    },
+    "Br": {
+      "nm": [
+        154.065,
+        148.845
+      ],
+      "xrf": true,
+      "note": "Br I vacuum-UV 154.065/148.845; poor ICP-OES sensitivity"
+    },
+    "Ag": {
+      "nm": [
+        328.068,
+        338.289
+      ],
+      "xrf": true,
+      "note": "Ag I 328.068 primary; 338.289 alternate"
+    },
+    "I": {
+      "nm": [
+        178.276,
+        183.038
+      ],
+      "xrf": true,
+      "note": "I I vacuum-UV lines 178.276/183.038; 206.238 alternate"
+    },
+    "Ba": {
+      "nm": [
+        455.403,
+        493.409
+      ],
+      "xrf": true,
+      "note": "Ba II 455.403 strongest; 493.409 alt; 233.527"
+    },
+    "Pb": {
+      "nm": [
+        220.353,
+        217
+      ],
+      "xrf": true,
+      "note": "Pb II 220.353 primary; Pb I 217.000/283.306 alt"
+    },
+    "Ar": {
+      "nm": [
+        763.511,
+        750.387
+      ],
+      "xrf": true,
+      "note": "plasma support gas, not a solid-sample analyte"
+    }
+  }
+}
