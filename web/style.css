@@ -50,6 +50,10 @@ button.cert-btn:hover{box-shadow:0 10px 22px -8px #e0564a}
 input{background:rgba(8,11,20,.72);border:1px solid var(--line);border-radius:13px;color:var(--ink);
   padding:12px 14px;width:100%;transition:.18s;backdrop-filter:blur(4px)}
 input:focus{outline:0;border-color:var(--accent2);box-shadow:0 0 0 3px rgba(34,227,255,.16),var(--glow) rgba(34,227,255,.25)}
+textarea{background:rgba(8,11,20,.72);border:1px solid var(--line);border-radius:13px;color:var(--ink);
+  padding:12px 14px;width:100%;font:inherit;transition:.18s;backdrop-filter:blur(4px);resize:vertical}
+textarea:focus{outline:0;border-color:var(--accent2);box-shadow:0 0 0 3px rgba(34,227,255,.16),var(--glow) rgba(34,227,255,.25)}
+
 
 /* glass header with neon underline */
 header{display:flex;align-items:center;gap:16px;padding:14px 24px;position:sticky;top:0;z-index:5;flex-wrap:wrap;
@@ -268,6 +272,44 @@ h2,h3{letter-spacing:.2px}
   button{padding:12px 15px}input{font-size:16px}
   #gx-a,#gx-b{max-width:100%!important}
 }
+
+/* ── #118 mobile-first upgrades (≤600px) ────────────────────────────────── */
+@media (max-width:600px){
+  /* thumb-reachable bottom tab bar — the ONE consistent mobile nav choice */
+  .tabs:not(.hidden){position:fixed;left:0;right:0;bottom:0;z-index:30;margin:0;
+    padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));
+    background:linear-gradient(0deg,rgba(10,14,24,.96),rgba(10,14,24,.82));
+    backdrop-filter:blur(14px) saturate(1.3);border-top:1px solid var(--line2);
+    box-shadow:0 -14px 30px -22px #000}
+  .tabs button{min-height:44px}
+  /* keep content clear of the fixed bar */
+  main,section{padding-bottom:96px}
+  footer{padding-bottom:96px}
+  /* ≥44px tap targets for every primary action (walk in/seat/knit/vote/spiral) */
+  button{min-height:44px}
+  .help-btn,#lang-switch{min-height:38px}
+  .chip{padding:8px 14px;min-height:36px}
+  /* compact balance cluster: one scrollable chip row instead of tall wrapping */
+  .me{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;
+    scrollbar-width:none}
+  .me::-webkit-scrollbar{display:none}
+  .bal{flex:0 0 auto}
+  /* walk-in card + spiral modal fit a 360px viewport, dismiss stays reachable */
+  .overlay{padding:10px;align-items:flex-start;overflow-y:auto}
+  .overlay .card{max-width:100%;margin:12px 0}
+  #spiral-links{font-size:16px;min-height:120px}
+  .spiral-x{min-width:44px;min-height:44px}
+  /* settings popover hugs the small screen */
+  .settings-pop{left:12px;right:12px;top:auto}
+}
+/* very narrow phones (≤380px): tighten paddings without hiding anything */
+@media (max-width:380px){
+  header{padding:8px 9px;gap:6px}
+  .brand{font-size:14px}
+  .pulse-host{display:none}
+  main,section{padding:12px 9px 96px}
+}
+
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important}
   .table-card,.seat,.ecol,.overlay .card{transform:none!important;transition:none!important}
