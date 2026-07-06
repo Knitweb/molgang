@@ -396,8 +396,18 @@ function setActiveTab() {
 }
 
 // ---- render ----
+let offlineToastShown = false;
 async function refresh() {
-  const s = await api("/api/state?sid=" + encodeURIComponent(sid));
+  let s;
+  try {
+    s = await api("/api/state?sid=" + encodeURIComponent(sid));
+  } catch (e) {
+    // network blip: show ONE non-blocking reconnecting toast, keep the last
+    // rendered state on screen, and let the poll interval retry cleanly (#116)
+    if (!offlineToastShown) { offlineToastShown = true; showToast("⚠ Reconnecting…"); }
+    return;
+  }
+  if (offlineToastShown) { offlineToastShown = false; showToast("✓ Reconnected"); }
   return renderState(s);
 }
 
@@ -1128,5 +1138,11 @@ window.addEventListener("appinstalled", () => {
   const b = document.getElementById("pwa-install");
   if (b) b.remove();
 });
+
+// ── offline-first service worker (#116) ────────────────────────────────────
+if ("serviceWorker" in navigator) {
+  // relative registration → correct scope at / AND under a subpath like /molgang/
+  navigator.serviceWorker.register("sw.js").catch(() => {/* http/unsupported: fine */});
+}
 
 boot();
