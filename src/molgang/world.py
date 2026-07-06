@@ -72,6 +72,7 @@ class World:
         self._mtime = 0.0
         self.web = Web()
         self.items: list[WovenItem] = []
+        self.tombstones: set[str] = set()      # #140 redacted fiber CIDs (append-only-safe)
         self.open_spirals: dict[str, dict] = {}
         self._term_cid: dict[str, str] = {}
         self._beat = 0
@@ -124,6 +125,7 @@ class World:
         with open(self.path, encoding="utf-8") as fh:
             data = json.load(fh)
         self.web, self.items, self._term_cid = Web(), [], {}
+        self.tombstones = set(data.get("tombstones", []))
         raw_spirals = data.get("open_spirals", {})
         if isinstance(raw_spirals, list):
             self.open_spirals = {str(s.get("cid")): s for s in raw_spirals if s.get("cid")}
@@ -140,6 +142,7 @@ class World:
         directory = os.path.dirname(target) or "."
         os.makedirs(directory, exist_ok=True)
         payload = {"items": [asdict(i) for i in self.items],
+                   "tombstones": sorted(self.tombstones),
                    "open_spirals": list(self.open_spirals.values())}
         fd, tmp = tempfile.mkstemp(
             prefix=f".{os.path.basename(target)}.",
@@ -268,14 +271,30 @@ class World:
     def graph(self, limit: int = 50) -> dict:
         self._sync()
         nodes, edges = self.web.size
-        recent = [{"kind": i.kind, "label": i.label, "by": i.by,
-                   "confirmations": i.confirmations, "fiber": i.fiber_cid}
+        from .moderation import REDACTED_LABEL
+        def _lbl(i):
+            return REDACTED_LABEL if i.fiber_cid in self.tombstones else i.label
+        recent = [{"kind": i.kind, "label": _lbl(i), "by": i.by,
+                   "confirmations": i.confirmations, "fiber": i.fiber_cid,
+                   "redacted": i.fiber_cid in self.tombstones}
                   for i in self.items[-limit:][::-1]]
         links = [{"subject": i.subject, "relation": i.relation, "object": i.object, "by": i.by}
-                 for i in self.items if i.kind == "link"]
+                 for i in self.items if i.kind == "link" and i.fiber_cid not in self.tombstones]
         terms = sorted(self._term_cid)  # the woven vocabulary (case-folded keys)
         return {"nodes": nodes, "edges": edges, "state_root": web_state_root(self.web),
                 "recent": recent, "links": links[-limit:][::-1], "terms": terms}
+
+    def tombstone(self, fiber_cid: str) -> bool:
+        """Redact a woven Fiber by CID (#140 takedown). The item stays in the
+        append-only log so the state root is unchanged; graph/display redact it.
+        Returns whether it newly tombstoned."""
+        self._sync()
+        if fiber_cid in self.tombstones:
+            return False
+        self.tombstones.add(fiber_cid)
+        if self.path:
+            self._save()
+        return True
 
     def explore(self, *, term: str | None = None, frm: str | None = None,
                 to: str | None = None) -> dict:

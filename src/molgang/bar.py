@@ -156,6 +156,8 @@ class Bar:
         self.sessions: dict[str, Session] = {}
         self.proposals: dict[str, Proposal] = {}
         self.spirals: dict[str, SpiralView] = {}         # auxiliary/capture spirals by id
+        self._mod_reports: list = []                     # #140 open content reports
+        self._mod_audit: list = []                       # #140 takedown audit log
         self.spiral_record: dict[str, int] = {}          # longest captured spiral per table
         self.woven: list[dict] = []                      # this instance's woven terms
         self._pid = itertools.count(1)
@@ -165,6 +167,7 @@ class Bar:
         self._seed_bots(seed_all=True)                      # NPC table-mates so a solo human can reach quorum
 
     _BOT_NAMES = ["Bea", "Cy", "Dex", "Vala", "Mo", "Pim"]
+    MAX_REPORTS_PER_PLAYER = 20        # #140 anti-abuse cap on the report channel
 
     def _now(self) -> float:
         return float(self._clock())
@@ -507,6 +510,10 @@ class Bar:
         sess = self._require(sid)
         if not sess.table_id:
             raise RuntimeError("take a seat at a table first")
+        from . import moderation
+        ok, reason = moderation.screen(term)              # #140: block PII/abuse BEFORE weaving
+        if not ok:
+            raise moderation.ModerationError(f"term blocked by content filter: {reason}")
         parsed = parse_knit(term)                         # term, link, or list of links
         # a one-to-many knit ("X has A, B and C") parses to a list of link dicts — treat it
         # as a mini-spiral: a synthesized headline label, the full link list woven on settle.
@@ -613,6 +620,41 @@ class Bar:
         return rows
 
     # -- views -------------------------------------------------------------
+    # -- content moderation: report -> takedown -> tombstone (#140) ---------
+    def report_term(self, sid: str, fiber_cid: str, reason: str = "") -> dict:
+        """A player reports a woven Fiber. Rate-limited per reporter to curb abuse;
+        appended to the reports store for a moderator to action."""
+        self._require(sid)
+        recent = [r for r in self._mod_reports if r["by"] == sid]
+        if len(recent) >= self.MAX_REPORTS_PER_PLAYER:
+            raise RuntimeError("report limit reached — try later")
+        rec = {"cid": fiber_cid, "by": sid, "reason": str(reason)[:200]}
+        self._mod_reports.append(rec)
+        return {"reported": fiber_cid, "total_reports": sum(1 for r in self._mod_reports
+                                                            if r["cid"] == fiber_cid)}
+
+    def reports(self) -> list:
+        """The open report queue (for a moderator UI)."""
+        return list(self._mod_reports)
+
+    def takedown(self, fiber_cid: str, *, moderator: str) -> dict:
+        """Moderator action: tombstone (redact) a Fiber + write an audit entry.
+
+        The Fiber stays in the append-only log (state root unchanged); it is
+        redacted from the graph/display. The audit log records who, what, when."""
+        if not moderator:
+            raise RuntimeError("takedown requires a moderator id")
+        newly = self.world.tombstone(fiber_cid)
+        entry = {"action": "takedown", "cid": fiber_cid, "moderator": str(moderator),
+                 "at": int(self._now()), "newly": newly}
+        self._mod_audit.append(entry)
+        # clear actioned reports for this cid
+        self._mod_reports = [r for r in self._mod_reports if r["cid"] != fiber_cid]
+        return entry
+
+    def moderation_audit(self) -> list:
+        return list(self._mod_audit)
+
     def _woven_by(self, sid: str) -> int:
         return sum(1 for p in self.proposals.values() if p.by == sid and p.woven)
 
