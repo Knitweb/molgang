@@ -522,6 +522,8 @@ class Bar:
             topic = (parsed.get("subject") or parsed.get("term") or label).strip().lower()
             head = parsed
         rnd = game.propose_term(sess.player, label)        # spends 1 silk
+        from . import metrics as _metrics
+        _metrics.knit_proposed()
         pid = f"p{next(self._pid)}"
         prop = Proposal(pid=pid, table_id=sess.table_id, by=sid, by_name=sess.name,
                         term=label, round=rnd, parsed=head, links=links, topic=topic)
@@ -541,6 +543,8 @@ class Bar:
             raise RuntimeError("you already voted")
         v = quorum.Verdict(verdict)                      # 'confirm' | 'mismatch' | 'abstain'
         game.cast_vote(prop.round, sess.player, v)       # stakes a real PLS Knit into escrow
+        from . import metrics as _metrics
+        _metrics.vote_cast(v.value)
         prop.voters.add(sid)
         # auto-settle once every other seated player has weighed in (min 1 vote)
         others = self._seated_count(prop.table_id) - 1
@@ -556,6 +560,8 @@ class Bar:
         prop.woven = s.woven
         prop.fiber_cid = s.woven_fiber_cid
         if s.woven:
+            from . import metrics as _metrics
+            _metrics.knit_woven()
             self.woven.append({
                 "term": prop.term, "by": prop.by_name, "table": prop.table_id,
                 "fiber_cid": s.woven_fiber_cid, "confirmations": s.result.confirms,
