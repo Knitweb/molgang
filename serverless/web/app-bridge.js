@@ -70,9 +70,12 @@ function installFetchBridge() {
       });
     } catch (err) {
       // Engine-level failure (worker gone, bridge exception): non-2xx JSON so
-      // every `if (r.error) showToast(...)` call site surfaces it.
+      // every `if (r.error) showToast(...)` call site surfaces it. Only the
+      // message's first line crosses the boundary — never a stack trace.
+      const msg = String((err && err.message) || err).split("\n", 1)[0].slice(0, 200);
+      console.error("engine api error:", err);
       return new Response(
-        JSON.stringify({ error: String((err && err.message) || err) }),
+        JSON.stringify({ error: msg }),
         { status: 500, headers: { "Content-Type": "application/json" } });
     }
   };
