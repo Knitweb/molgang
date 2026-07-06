@@ -69,6 +69,7 @@
   "err.tooMany": "Too many actions. Try again soon.",
   "err.tooManyRetry": "Too many actions. Try again in {s}s.",
   "err.failed": "Request failed ({status})",
+  "err.offline": "⚠ Can't reach the server — is `molgang serve` running? Try again in a moment.",
   "tutorial.replay": "🎓 Tutorial",
   "tutorial.replayTitle": "Replay tutorial",
   "tutorial.step": "Step",

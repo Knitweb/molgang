@@ -1,0 +1,188 @@
+{
+  "H": {
+    "name": "Hydrogen",
+    "z": 1,
+    "color": "#ffffff",
+    "radius": 0.31
+  },
+  "C": {
+    "name": "Carbon",
+    "z": 6,
+    "color": "#2b2b2b",
+    "radius": 0.76
+  },
+  "N": {
+    "name": "Nitrogen",
+    "z": 7,
+    "color": "#3050f8",
+    "radius": 0.71
+  },
+  "O": {
+    "name": "Oxygen",
+    "z": 8,
+    "color": "#ff0d0d",
+    "radius": 0.66
+  },
+  "Na": {
+    "name": "Sodium",
+    "z": 11,
+    "color": "#ab5cf2",
+    "radius": 1.66
+  },
+  "Cl": {
+    "name": "Chlorine",
+    "z": 17,
+    "color": "#1ff01f",
+    "radius": 1.02
+  },
+  "S": {
+    "name": "Sulfur",
+    "z": 16,
+    "color": "#ffff30",
+    "radius": 1.05
+  },
+  "Ca": {
+    "name": "Calcium",
+    "z": 20,
+    "color": "#3dff00",
+    "radius": 1.76
+  },
+  "Fe": {
+    "name": "Iron",
+    "z": 26,
+    "color": "#e06633",
+    "radius": 1.32
+  },
+  "He": {
+    "name": "Helium",
+    "z": 2,
+    "color": "#d9ffff",
+    "radius": 0.28
+  },
+  "Mg": {
+    "name": "Magnesium",
+    "z": 12,
+    "color": "#8aff00",
+    "radius": 1.41
+  },
+  "Al": {
+    "name": "Aluminium",
+    "z": 13,
+    "color": "#bfa6a6",
+    "radius": 1.21
+  },
+  "P": {
+    "name": "Phosphorus",
+    "z": 15,
+    "color": "#ff8000",
+    "radius": 1.07
+  },
+  "K": {
+    "name": "Potassium",
+    "z": 19,
+    "color": "#8f40d4",
+    "radius": 2.03
+  },
+  "F": {
+    "name": "Fluorine",
+    "z": 9,
+    "color": "#90e050",
+    "radius": 0.57
+  },
+  "Si": {
+    "name": "Silicon",
+    "z": 14,
+    "color": "#f0c8a0",
+    "radius": 1.11
+  },
+  "Zn": {
+    "name": "Zinc",
+    "z": 30,
+    "color": "#7d80b0",
+    "radius": 1.22
+  },
+  "Br": {
+    "name": "Bromine",
+    "z": 35,
+    "color": "#a62929",
+    "radius": 1.2
+  },
+  "I": {
+    "name": "Iodine",
+    "z": 53,
+    "color": "#940094",
+    "radius": 1.39
+  },
+  "Ti": {
+    "name": "Titanium",
+    "z": 22,
+    "color": "#bfc2c7",
+    "radius": 1.6
+  },
+  "V": {
+    "name": "Vanadium",
+    "z": 23,
+    "color": "#a6a6ab",
+    "radius": 1.53
+  },
+  "Cr": {
+    "name": "Chromium",
+    "z": 24,
+    "color": "#8a99c7",
+    "radius": 1.39
+  },
+  "Mn": {
+    "name": "Manganese",
+    "z": 25,
+    "color": "#9c7ac7",
+    "radius": 1.39
+  },
+  "Li": {
+    "name": "Lithium",
+    "z": 3,
+    "color": "#cc80ff",
+    "radius": 1.28
+  },
+  "B": {
+    "name": "Boron",
+    "z": 5,
+    "color": "#ffb5b5",
+    "radius": 0.84
+  },
+  "Ne": {
+    "name": "Neon",
+    "z": 10,
+    "color": "#b3e3f5",
+    "radius": 0.58
+  },
+  "Ar": {
+    "name": "Argon",
+    "z": 18,
+    "color": "#80d1e3",
+    "radius": 1.06
+  },
+  "Cu": {
+    "name": "Copper",
+    "z": 29,
+    "color": "#c88033",
+    "radius": 1.32
+  },
+  "Ag": {
+    "name": "Silver",
+    "z": 47,
+    "color": "#c0c0c0",
+    "radius": 1.45
+  },
+  "Ba": {
+    "name": "Barium",
+    "z": 56,
+    "color": "#00c900",
+    "radius": 2.15
+  },
+  "Pb": {
+    "name": "Lead",
+    "z": 82,
+    "color": "#575961",
+    "radius": 1.46
+  }
+}

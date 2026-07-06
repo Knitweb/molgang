@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MOLGANG — How it works</title>
+<style>
+  :root{
+    --bg:#0a0e13; --bg2:#0e141b; --panel:#141c25; --panel2:#18222d;
+    --line:#243342; --line2:#2f4356; --ink:#eaf2f5;
+    --dim:#89a0b0; --teal:#3fb6a8; --amber:#f4b41a; --violet:#a855f7;
+    --slag:#c98a3a; --good:#38d39f; --bad:#ff6b6b;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:radial-gradient(1000px 600px at 80% -5%,#14202b 0%,var(--bg) 55%);
+    color:var(--ink);font:16px/1.65 -apple-system,"Segoe UI",system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  a{color:var(--teal);text-decoration:none}
+  a:hover{text-decoration:underline}
+  header{display:flex;align-items:center;gap:14px;padding:14px 22px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:rgba(10,14,19,.82);backdrop-filter:blur(10px);z-index:10}
+  .brand{font-weight:700}.brand .dim{color:var(--dim);font-weight:400}
+  header .spacer{flex:1}
+  .btn{border:1px solid var(--line2);color:var(--ink);border-radius:9px;padding:8px 14px;
+    font-size:.9em;background:var(--panel)}
+  .btn.solid{background:linear-gradient(135deg,var(--teal),#2d9488);color:#04120f;border:0;font-weight:700}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px;display:grid;grid-template-columns:210px 1fr;gap:38px}
+  nav.toc{position:sticky;top:70px;align-self:start;padding-top:38px;font-size:.9em}
+  nav.toc a{display:block;color:var(--dim);padding:5px 0;border-left:2px solid transparent;padding-left:12px}
+  nav.toc a:hover{color:var(--ink);text-decoration:none;border-color:var(--line2)}
+  nav.toc .grp{text-transform:uppercase;letter-spacing:.08em;font-size:.72em;color:var(--dim);
+    margin:16px 0 4px;font-weight:600}
+  main{padding:38px 0 90px;min-width:0}
+  .hero h1{font-size:2.3em;line-height:1.1;text-wrap:balance;margin-bottom:.3em}
+  .hero p{color:var(--dim);font-size:1.15em;max-width:60ch}
+  section{margin-top:52px;scroll-margin-top:80px}
+  section h2{font-size:1.5em;margin-bottom:.5em;text-wrap:balance}
+  section h3{font-size:1.05em;margin:1.3em 0 .4em}
+  section p{margin:.6em 0;max-width:66ch}
+  .lede{color:var(--dim)}
+  code,.k{font-family:var(--mono);font-size:.9em;background:var(--panel2);border:1px solid var(--line);
+    border-radius:5px;padding:1px 6px;color:var(--ink)}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:16px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card h4{font-size:1em;margin-bottom:.35em;display:flex;align-items:center;gap:8px}
+  .card p{color:var(--dim);font-size:.95em;margin:.3em 0 0}
+  .tok{font-family:var(--mono);font-weight:700}
+  .pls{color:var(--amber)}.silk{color:var(--teal)}
+  .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:18px 0;font-size:.92em}
+  .step{background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:10px 14px;flex:1;min-width:130px}
+  .step b{display:block;font-size:.78em;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin-bottom:3px}
+  .arrow{color:var(--line2);font-size:1.4em}
+  .ledger{width:100%;border-collapse:collapse;margin:14px 0;font-size:.93em}
+  .ledger th,.ledger td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}
+  .ledger th{color:var(--dim);font-weight:600;text-transform:uppercase;font-size:.72em;letter-spacing:.06em}
+  .ledger td.n{font-family:var(--mono);text-align:right}
+  .ledger tr:last-child td{border-bottom:0}
+  .ledger tfoot td{font-weight:700;border-top:2px solid var(--line2)}
+  .note{border-left:3px solid var(--teal);background:var(--panel2);border-radius:0 10px 10px 0;
+    padding:12px 16px;margin:16px 0;color:var(--dim);font-size:.95em}
+  .note.slag{border-color:var(--slag)}
+  .pill{display:inline-block;font-family:var(--mono);font-size:.8em;border:1px solid var(--line2);
+    border-radius:20px;padding:2px 10px;margin:2px 3px 2px 0}
+  .pill.slag{border-color:var(--slag);color:var(--slag)}
+  .levels{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:14px 0}
+  .lv{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px}
+  .lv .n{font-family:var(--mono);color:var(--teal);font-size:.8em}
+  .lv b{display:block;margin:2px 0}
+  .lv small{color:var(--dim);font-size:.82em}
+  footer{border-top:1px solid var(--line);color:var(--dim);font-size:.9em;padding:26px 22px;text-align:center;margin-top:40px}
+  @media(max-width:820px){.wrap{grid-template-columns:1fr}nav.toc{display:none}.grid,.levels{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">🧪 <b>MOLGANG</b> <span class="dim">· how it works</span></div>
+  <div class="spacer"></div>
+  <a class="btn" href="index.html">The bar</a>
+  <a class="btn solid" href="lab-3d.html">Open the 3D Lab →</a>
+</header>
+
+<div class="wrap">
+  <nav class="toc">
+    <div class="grp">Basics</div>
+    <a href="#idea">The idea</a>
+    <a href="#knits">Knits &amp; Fibers</a>
+    <div class="grp">Economy</div>
+    <a href="#pulses">Pulses &amp; Silk</a>
+    <a href="#staking">Staking via PoUW votes</a>
+    <a href="#rewards">Rewards &amp; levels</a>
+    <div class="grp">Tracks</div>
+    <a href="#slag">The Steel Slag track</a>
+    <a href="#certificate">Certificate &amp; wallet</a>
+  </nav>
+
+  <main>
+    <div class="hero">
+      <h1>Play chemistry on a real crypto web</h1>
+      <p class="lede">In MOLGANG the game <em>is</em> the protocol. Every bond you build is a real
+        <b>Knit</b>, every molecule a <b>Fiber</b>, and your classmates validate your chemistry by
+        <b>staking pulses</b> to vote. Nothing here is bought or sold — what you earn is verified
+        knowledge and reputation.</p>
+    </div>
+
+    <section id="idea">
+      <h2>The idea</h2>
+      <p>A player proposes a chemical <b>bond</b> — a claim like “water is <code>H2O</code>”. The peers
+        at your table who know their chemistry vote on it. When they reach a Byzantine-fault-tolerant
+        <b>quorum</b>, the bond is <em>woven</em> into the shared web as a permanent, content-addressed
+        record. Wrong chemistry gets caught by peers who know the material — assessment is built into
+        play.</p>
+      <div class="note">No tokens, no NFTs. XP, levels, quests, badges and the certificate are
+        <b>reputation and woven knowledge only</b> — never a tradable or monetary asset.</div>
+    </section>
+
+    <section id="knits">
+      <h2>Knits &amp; Fibers</h2>
+      <div class="grid">
+        <div class="card"><h4>🪢 Knit</h4><p>A single validated claim — one bond, settled on the
+          ledger. Forming a bond writes a real Knit.</p></div>
+        <div class="card"><h4>🧬 Fiber</h4><p>A confirmed molecule woven into your Braid: an immutable
+          account-state commitment with its own content ID (CID).</p></div>
+        <div class="card"><h4>🌐 The Web</h4><p>Everyone’s Fibers together form the shared Knitweb —
+          a peer-to-peer graph of voted chemical facts.</p></div>
+        <div class="card"><h4>🕸 Peers</h4><p>Other players (and, when you’re solo, seeded table-mates)
+          who stake pulses to validate your work.</p></div>
+      </div>
+    </section>
+
+    <section id="pulses">
+      <h2>Pulses &amp; Silk — the two resources</h2>
+      <p>Your wallet shows two numbers. They do different jobs:</p>
+      <div class="grid">
+        <div class="card"><h4><span class="tok pls">⚡ PLS</span> — pulses</h4>
+          <p>Your real on-ledger balance. Pulses are the <b>stake</b>: a peer puts PLS on the line to
+            vote (see below). New players get a faucet grant to start. Integer-only — 1 PLS is
+            indivisible in play.</p></div>
+        <div class="card"><h4><span class="tok silk">🧵 silk</span> — the thread</h4>
+          <p>Local “thread” fuel you spin into a proposal. <b>Each bond you propose costs 1 silk</b>
+            (<code>SILK_PER_BOND</code>). It’s the destination for that <span class="silk">🧵</span>
+            counter: silk is what lets you <em>make</em> a claim. When your bond is confirmed the
+            silk is returned — good chemistry is free; only unproven proposing drains the spool.</p></div>
+      </div>
+      <div class="note"><b>So the <span class="silk">🧵 10</span> next to your PLS is your proposing
+        fuel.</b> Spend it to propose; earn it back when peers confirm you. Run low and you must get
+        bonds confirmed (or wait for the faucet) before proposing more — which keeps the web full of
+        claims people actually stand behind.</div>
+    </section>
+
+    <section id="staking">
+      <h2>Staking pulses via PoUW votes</h2>
+      <p class="lede">This is the heart of the protocol. A vote isn’t a click — it’s a <b>stake</b>.
+        Proof-of-Useful-Work means peers put pulses on the line to back their judgement.</p>
+
+      <div class="flow">
+        <div class="step"><b>1 · Propose</b>You spin 🧵1 into a bond claim.</div>
+        <span class="arrow">→</span>
+        <div class="step"><b>2 · Stake to vote</b>Each peer stakes <span class="pls">⚡1 PLS</span>
+          into escrow to cast <code>confirm</code> or <code>mismatch</code>.</div>
+        <span class="arrow">→</span>
+        <div class="step"><b>3 · Quorum</b>The real BFT tally decides: enough confirms → the bond is
+          woven.</div>
+        <span class="arrow">→</span>
+        <div class="step"><b>4 · Settle</b>Stakes return; correct work is paid.</div>
+      </div>
+
+      <h3>Where the pulses go — a confirmed bond with 3 staking peers</h3>
+      <table class="ledger">
+        <thead><tr><th>Movement</th><th>Rule</th><th class="n">PLS</th></tr></thead>
+        <tbody>
+          <tr><td>3 peers each stake 1 PLS into escrow</td><td><code>VOTE_COST</code> = 1</td><td class="n">pot = 3</td></tr>
+          <tr><td>Quorum confirms → escrow pot to proposer</td><td>pot released</td><td class="n">+3</td></tr>
+          <tr><td>Proposer base reward</td><td><code>PROPOSER_BASE_REWARD</code></td><td class="n">+2</td></tr>
+          <tr><td>Usefulness bonus (2<sup>confirms</sup>−1)</td><td>3 confirms → 2³−1</td><td class="n">+7</td></tr>
+          <tr><td>Each confirming peer: stake back + reward</td><td><code>+VOTE_COST+VOTER_CONFIRM_REWARD</code></td><td class="n">+2 ea</td></tr>
+        </tbody>
+        <tfoot><tr><td>Proposer nets</td><td>pot 3 + base 2 + bonus 7</td><td class="n">+12 PLS</td></tr></tfoot>
+      </table>
+      <p>If the quorum <b>doesn’t</b> confirm — wrong chemistry, or not enough peers — every staked
+        pulse is refunded and no reward is paid. Staking makes an honest vote the profitable one:
+        back real chemistry and you get your pulse back plus a reward; rubber-stamp nonsense and the
+        quorum leaves you out.</p>
+    </section>
+
+    <section id="rewards">
+      <h2>Rewards &amp; levels</h2>
+      <p>Every woven bond is 100 XP. XP climbs an eight-step ladder of titles — each unlocks a perk,
+        all reputation, nothing tradable:</p>
+      <div class="levels">
+        <div class="lv"><span class="n">L1</span><b>Apprentice</b><small>Faucet access</small></div>
+        <div class="lv"><span class="n">L2</span><b>Student</b><small>Mint your certificate</small></div>
+        <div class="lv"><span class="n">L3</span><b>Lab Assistant</b><small>—</small></div>
+        <div class="lv"><span class="n">L4</span><b>Chemist</b><small>—</small></div>
+        <div class="lv"><span class="n">L5</span><b>Synthesist</b><small>—</small></div>
+        <div class="lv"><span class="n">L6</span><b>Catalyst</b><small>Reputation-weighted quorum</small></div>
+        <div class="lv"><span class="n">L7</span><b>Alchemist</b><small>—</small></div>
+        <div class="lv"><span class="n">L8</span><b>Laureate</b><small>Top of the ladder</small></div>
+      </div>
+      <p>Content is graded in three tiers — <span class="pill">elementary</span>
+        <span class="pill">middle</span> <span class="pill">high</span> — from the air we breathe up
+        to acids, bases, oxides and an organic first contact (glucose).</p>
+    </section>
+
+    <section id="slag">
+      <h2>The Steel Slag track ⛏</h2>
+      <p class="lede">A mission layer on top of the tiers, tied to real materials recovery.</p>
+      <p>When steel is made in a basic-oxygen furnace, what’s left over — <b>BOF steel slag</b> — is
+        mostly four oxides: <span class="pill slag">CaO</span> <span class="pill slag">SiO₂</span>
+        <span class="pill slag">MgO</span> <span class="pill slag">Al₂O₃</span>, fluxed with
+        <span class="pill slag">CaCO₃</span> limestone. Millions of tonnes are stockpiled — and they
+        hold recoverable value (vanadium, iron, minerals for soil).</p>
+      <p>The Steel Slag track asks you to build that oxide matrix. Each slag oxide you get confirmed
+        <b>refines the slag</b> a step further; complete the matrix and you’ve modelled the exact
+        composition a real recovery process starts from. It’s the same chemistry the
+        <a href="https://chemfield.github.io" target="_blank" rel="noopener">ChemField</a> /
+        SmartSlag work turns into measured, signed data — the game teaches the matrix; the field
+        recovers the value.</p>
+      <p>The track runs in two stages: <b>map the oxide matrix</b> (CaO, SiO₂, MgO, Al₂O₃), then
+        <b>add the flux</b> (CaCO₃). Complete both and you earn the <span class="pill slag">⛏ Slag
+        Refiner</span> badge — a reputation mark that you’ve modelled a real recovery feedstock.</p>
+      <div class="note slag"><b>Why it matters:</b> learning <code>CaO·SiO₂·MgO·Al₂O₃</code> is the
+        first step to reasoning about leaching and enrichment — “what’s in the slag, and what can we
+        get out?” Open the Steel Slag track in the lab to build the matrix.</div>
+    </section>
+
+    <section id="certificate">
+      <h2>Certificate &amp; wallet</h2>
+      <p>At Level 2 you can mint a <b>Proof-of-Useful-Work certificate</b> — a PDF that states your
+        wallet address, the pulses you spent doing useful validation, and a summary of what you wove,
+        anchored to OriginTrail for provenance. The public copy <b>redacts your private key</b>; a
+        bearer export exists only on the command line, behind an explicit flag. Your wallet’s
+        “evaluation” is simply that proof-of-useful-work: not what you hold, but what you did.</p>
+      <p style="margin-top:22px"><a class="btn solid" href="lab-3d.html">Open the 3D Lab →</a></p>
+    </section>
+  </main>
+</div>
+
+<footer>MOLGANG · a peer-to-peer chemistry game on the Knitweb · reputation, not tokens</footer>
+</body>
+</html>

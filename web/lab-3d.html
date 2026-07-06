@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MOLGANG — 3D Lab</title>
+<style>
+  :root{
+    --bg:#0a0e13; --bg2:#0e141b; --panel:#141c25; --panel2:#18222d;
+    --line:#243342; --line2:#2f4356; --ink:#eaf2f5;
+    --dim:#89a0b0; --teal:#3fb6a8; --amber:#f4b41a; --violet:#a855f7;
+    --good:#38d39f; --bad:#ff6b6b; --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 70% -10%,#122230 0%,var(--bg) 60%);
+    color:var(--ink);font:15px/1.5 -apple-system,"Segoe UI",system-ui,sans-serif;overflow:hidden}
+  a{color:var(--teal);text-decoration:none}
+  header{display:flex;align-items:center;gap:14px;padding:12px 18px;
+    border-bottom:1px solid var(--line);background:rgba(10,14,19,.7);backdrop-filter:blur(8px);
+    position:relative;z-index:5}
+  .brand{font-weight:700;letter-spacing:.02em}
+  .brand .dim{color:var(--dim);font-weight:400}
+  header .spacer{flex:1}
+  .chip{font-family:var(--mono);font-size:.82em;background:var(--panel);border:1px solid var(--line2);
+    border-radius:20px;padding:4px 12px;display:inline-flex;gap:6px;align-items:center}
+  .chip b{color:var(--amber)}
+  .ghost{background:transparent;border:1px solid var(--line2);color:var(--dim);border-radius:8px;
+    padding:6px 12px;cursor:pointer;font-size:.9em}
+  .ghost:hover{color:var(--ink);border-color:var(--teal)}
+  #enter-vr:disabled{opacity:.4;cursor:default}
+  main{display:grid;grid-template-columns:210px 1fr 300px;height:calc(100% - 53px)}
+  aside{overflow-y:auto;padding:14px;background:var(--bg2);border-right:1px solid var(--line)}
+  aside.right{border-right:0;border-left:1px solid var(--line)}
+  .lbl{text-transform:uppercase;letter-spacing:.09em;font-size:.7em;color:var(--dim);
+    margin:14px 0 8px;font-weight:600}
+  .lbl:first-child{margin-top:0}
+  .shelf button{display:block;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);
+    color:var(--ink);border-radius:9px;padding:8px 10px;margin-bottom:6px;cursor:pointer;transition:.12s}
+  .shelf button:hover{border-color:var(--teal);transform:translateX(2px)}
+  .shelf button.sel{border-color:var(--teal);background:var(--panel2);box-shadow:inset 3px 0 0 var(--teal)}
+  .shelf .f{font-family:var(--mono);font-size:.9em}
+  .shelf .n{color:var(--dim);font-size:.8em}
+  .tier-el::before{content:"●";color:var(--good);margin-right:6px;font-size:.7em}
+  .tier-mid::before{content:"●";color:var(--amber);margin-right:6px;font-size:.7em}
+  .tier-hi::before{content:"●";color:var(--violet);margin-right:6px;font-size:.7em}
+  #stage{position:relative}
+  #c{display:block;width:100%;height:100%}
+  .hud{position:absolute;left:16px;bottom:16px;font-family:var(--mono);font-size:.82em;color:var(--dim);
+    background:rgba(10,14,19,.6);border:1px solid var(--line);border-radius:8px;padding:8px 12px;pointer-events:none}
+  .hud b{color:var(--ink)}
+  .toast{position:absolute;left:50%;top:22px;transform:translateX(-50%);background:var(--panel2);
+    border:1px solid var(--teal);border-radius:10px;padding:10px 18px;font-weight:600;opacity:0;
+    transition:.35s;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(4px)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+  .card h3{font-size:.95em;margin-bottom:8px}
+  .big{font-family:var(--mono);font-size:1.5em;font-weight:700}
+  .row{display:flex;justify-content:space-between;align-items:baseline;margin:5px 0;font-size:.9em}
+  .row .k{color:var(--dim)}
+  .row .v{font-family:var(--mono)}
+  .cta{width:100%;border:0;border-radius:10px;padding:11px;font-weight:700;font-size:.95em;cursor:pointer;
+    background:linear-gradient(135deg,var(--teal),#2d9488);color:#04120f}
+  .cta:hover{filter:brightness(1.08)}
+  .cta:disabled{background:var(--panel2);color:var(--dim);cursor:not-allowed;filter:none}
+  .cta.amber{background:linear-gradient(135deg,var(--amber),#d69410);color:#1a1400}
+  .bar{height:8px;border-radius:6px;background:var(--line);overflow:hidden;margin:6px 0}
+  .bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--teal),var(--amber));width:0;transition:.6s}
+  .cid{font-family:var(--mono);font-size:.75em;color:var(--teal);word-break:break-all}
+  .votes{display:flex;gap:8px;font-family:var(--mono);font-size:.8em;margin-top:6px}
+  .votes .c{color:var(--good)}.votes .m{color:var(--bad)}.votes .a{color:var(--dim)}
+  .pls{color:var(--amber)}.silk{color:var(--teal)}
+  .slagtrack{background:linear-gradient(160deg,#1c1710,#141c25);border:1px solid #3a2f1e;
+    border-radius:12px;padding:12px;margin-bottom:14px}
+  .slagtrack .bar>i{background:linear-gradient(90deg,#c98a3a,#f4b41a)}
+  .slagchips{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+  .slagchips button{font-family:var(--mono);font-size:.8em;background:var(--panel);border:1px solid #3a2f1e;
+    color:var(--ink);border-radius:7px;padding:4px 8px;cursor:pointer}
+  .slagchips button:hover{border-color:var(--slag)}
+  .slagchips button.done{border-color:var(--slag);color:var(--slag);background:#1c1710}
+  :root{--slag:#c98a3a}
+  .badge-slag{border-color:var(--slag)!important;color:var(--slag)!important;background:#1c1710!important;font-weight:600}
+  .slagtrack.complete{border-color:var(--slag);box-shadow:0 0 0 1px var(--slag) inset,0 0 22px -8px var(--slag)}
+  .slag-stage{font-size:.76em;color:var(--dim);margin-top:6px;display:flex;justify-content:space-between}
+  .slag-stage b{color:var(--slag)}
+  .slag-done{color:var(--slag);font-weight:600;font-size:.9em;margin-top:4px}
+  .perk{font-size:.8em;color:var(--dim);padding:2px 0}
+  .modes{display:flex;gap:6px;margin-bottom:10px}
+  .mode{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--dim);
+    border-radius:8px;padding:6px;cursor:pointer;font-size:.85em}
+  .mode.on{border-color:var(--teal);color:var(--ink);background:var(--panel)}
+  .tray{margin:4px 0 10px}
+  #tray-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .achip{font-family:var(--mono);background:var(--panel2);border:1px solid var(--line2);
+    color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:.9em;transition:.1s}
+  .achip:hover:not(:disabled){border-color:var(--teal);transform:translateY(-1px)}
+  .achip:disabled{opacity:.4;cursor:default}
+  .achip .el{font-weight:700}.achip .ct{color:var(--dim);font-size:.85em;margin-left:4px}
+  .achip.full{border-color:var(--good);color:var(--good)}
+  .hidden{display:none}
+  .lvl{display:inline-block;background:var(--panel2);border:1px solid var(--line2);border-radius:6px;
+    padding:2px 8px;font-family:var(--mono);font-size:.85em}
+  .locked{opacity:.55}
+  #vrbtn{position:absolute;right:16px;bottom:16px}
+  @media (max-width:900px){main{grid-template-columns:1fr}aside{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">🧪 <b>MOLGANG</b> <span class="dim">· 3D Lab</span></div>
+  <a class="ghost" href="index.html">← the bar</a>
+  <a class="ghost" href="learn.html">📖 How it works</a>
+  <div class="spacer"></div>
+  <span class="chip" id="wallet">⚡ <b id="w-pls">–</b> PLS · 🧵 <span id="w-silk">–</span></span>
+  <span class="chip">🏅 <span id="w-title">–</span> <span class="lvl" id="w-lvl">L1</span></span>
+  <span class="chip badge-slag hidden" id="slag-badge" title="Steel Slag mission complete — the BOF-slag oxide matrix refined">⛏ Slag Refiner</span>
+  <button class="ghost" id="enter-vr" disabled>VR…</button>
+</header>
+
+<main>
+  <aside class="left">
+    <div class="slagtrack" id="slagtrack">
+      <div class="lbl" style="margin-top:0">⛏ Steel Slag track</div>
+      <div class="dim" style="font-size:.8em;margin:-4px 0 8px;color:var(--dim)">Refine the BOF-slag oxide matrix</div>
+      <div class="bar"><i id="slag-bar"></i></div>
+      <div class="row" style="font-size:.82em;margin-top:4px"><span class="k">Refined</span><span class="v" id="slag-count">0 / 5</span></div>
+      <div id="slag-chips" class="slagchips"></div>
+      <a href="learn.html#slag" style="font-size:.76em;color:var(--dim)">the mission →</a>
+    </div>
+    <div class="lbl">All molecules</div>
+    <div class="shelf" id="shelf"></div>
+  </aside>
+
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div class="toast" id="toast"></div>
+    <div class="hud" id="hud">pick a molecule →</div>
+    <div id="vrbtn"></div>
+  </div>
+
+  <aside class="right">
+    <div class="card">
+      <div class="modes">
+        <button id="m-explore" class="mode on">🔬 Explore</button>
+        <button id="m-build" class="mode">🧪 Build</button>
+      </div>
+      <h3 id="sel-name">No molecule selected</h3>
+      <div class="row"><span class="k">Formula</span><span class="v" id="sel-formula">–</span></div>
+      <div class="row"><span class="k">Atoms · bonds</span><span class="v" id="sel-counts">–</span></div>
+      <div id="tray" class="tray hidden">
+        <div class="lbl" style="margin:2px 0 6px">Add atoms to assemble it</div>
+        <div id="tray-chips"></div>
+        <div class="row"><span class="k">Placed</span><span class="v" id="tray-count">0 / 0</span></div>
+        <button class="ghost" id="tray-reset" style="width:100%;margin-top:4px">↺ Reset build</button>
+      </div>
+      <button class="cta" id="propose" disabled>Propose bond · 🧵1</button>
+      <div class="row" style="margin-top:6px;font-size:.82em"><span class="k">Silk is your proposing fuel</span>
+        <a class="v" href="learn.html#pulses" style="color:var(--dim)">what's this?</a></div>
+      <div id="result" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+      <h3>Wallet evaluation <span class="dim" style="font-weight:400;font-size:.8em">· PoUW</span></h3>
+      <div class="row"><span class="k">PLS balance</span><span class="v" id="e-pls">–</span></div>
+      <div class="row"><span class="k">Pulses used (work)</span><span class="v" id="e-used">–</span></div>
+      <div class="row"><span class="k">Bonds woven</span><span class="v" id="e-woven">–</span></div>
+      <div class="row"><span class="k">Level</span><span class="v"><span id="e-title">Apprentice</span> · <span class="lvl" id="e-lvl">L1</span></span></div>
+      <div class="bar"><i id="xpbar"></i></div>
+      <div class="row"><span class="k" id="xp-note">XP</span><span class="v" id="e-xp">0</span></div>
+    </div>
+
+    <div class="card" id="cert-card">
+      <h3>🏅 PoUW Certificate</h3>
+      <p class="dim" style="font-size:.85em" id="cert-note">Reach <b>Level 2 — Student</b> to mint your certificate.</p>
+      <button class="cta amber locked" id="cert" disabled>Locked · L2</button>
+      <div class="perk" style="margin-top:8px" id="perks"></div>
+    </div>
+  </aside>
+</main>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { SAOPass } from 'three/addons/postprocessing/SAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const API = (window.MOLGANG_API ?? "");
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+// api() retries once on 429 (respecting Retry-After) and surfaces the server's
+// error message so callers can tell a lost session from a real failure.
+const api = async (path, method="GET", body=null, _retry=true) => {
+  const r = await fetch(API + path, {
+    method, headers: body ? {"content-type":"application/json"} : {},
+    body: body ? JSON.stringify(body) : null });
+  if(r.status===429 && _retry){
+    const wait = (parseFloat(r.headers.get("Retry-After"))||1)*1000;
+    await sleep(Math.min(wait, 4000));
+    return api(path, method, body, false);
+  }
+  if(!r.ok){
+    let msg="";
+    try{ msg=(await r.json()).error||""; }catch{}
+    const e = new Error(msg || (path+" "+r.status)); e.status=r.status; throw e;
+  }
+  return r.json();
+};
+const isSessionLost = e =>
+  e && (/session|seat|take a seat|unknown/i.test(e.message||"") || e.status===404);
+
+/* ---------- 3D scene ---------- */
+const canvas = $("#c");
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.xr.enabled = true;
+
+const scene = new THREE.Scene();
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+camera.position.set(0, 1.6, 6);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.autoRotate = true; controls.autoRotateSpeed = 0.9;
+
+const key = new THREE.DirectionalLight(0xffffff, 2.2);
+key.position.set(4, 7, 5); key.castShadow = true;
+key.shadow.mapSize.set(1024,1024); key.shadow.camera.near = 1; key.shadow.camera.far = 20;
+scene.add(key);
+scene.add(new THREE.HemisphereLight(0x9fd0ff, 0x141c25, 0.6));
+
+// contact-shadow ground
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(6, 48),
+  new THREE.ShadowMaterial({opacity:0.28}));
+ground.rotation.x = -Math.PI/2; ground.position.y = -1.6; ground.receiveShadow = true;
+scene.add(ground);
+
+const molGroup = new THREE.Group();
+scene.add(molGroup);
+
+const sphereGeo = new THREE.SphereGeometry(1, 48, 32);
+const cylGeo = new THREE.CylinderGeometry(1, 1, 1, 20);
+const matCache = {};
+function atomMaterial(color){
+  if(!matCache[color]) matCache[color] = new THREE.MeshPhysicalMaterial(
+    {color, metalness:0.0, roughness:0.22, clearcoat:1.0, clearcoatRoughness:0.14,
+     sheen:0.4, sheenColor:new THREE.Color(color), envMapIntensity:1.25});
+  return matCache[color];
+}
+const bondMat = new THREE.MeshPhysicalMaterial(
+  {color:0xc3d4de, metalness:0.55, roughness:0.28, clearcoat:0.6, envMapIntensity:1.1});
+const ionicMat = new THREE.MeshStandardMaterial({color:0x3fb6a8, emissive:0x1c5f57, roughness:0.5, transparent:true, opacity:0.5});
+
+const up = new THREE.Vector3(0,1,0);
+function bondMesh(a, b, order){
+  const g = new THREE.Group();
+  const va = new THREE.Vector3(a.x,a.y,a.z), vb = new THREE.Vector3(b.x,b.y,b.z);
+  const mid = va.clone().add(vb).multiplyScalar(0.5);
+  const len = va.distanceTo(vb);
+  const dir = vb.clone().sub(va).normalize();
+  const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
+  const n = order===0 ? 1 : order;
+  const offax = new THREE.Vector3().crossVectors(dir, up).normalize();
+  if(offax.length()<0.1) offax.set(1,0,0);
+  for(let k=0;k<n;k++){
+    const m = new THREE.Mesh(cylGeo, order===0?ionicMat:bondMat);
+    const off = (k-(n-1)/2)*0.13;
+    const rad = order===0?0.035:0.06;
+    const midK = mid.clone().add(offax.clone().multiplyScalar(off));
+    const aK = va.clone().add(offax.clone().multiplyScalar(off));
+    m.scale.set(rad, len, rad);
+    m.position.copy(midK);
+    m.quaternion.copy(quat); m.castShadow=true;
+    m.userData = {len, a:aK, mid:midK, rad};    // for animated growth
+    g.add(m);
+  }
+  g.userData.grow = true;
+  return g;
+}
+
+let ELEM = {}, MOLS = {};
+const SCALE = 1.15;                       // Å → scene units
+// Render a molecule, optionally revealing only a subset of atom indices
+// (Build mode). Geometry is pre-centred on the origin by the generator, so we
+// frame once against the FULL molecule and keep the camera steady as atoms
+// pop in — no jumpy re-centring per partial state.
+function renderMolecule(m, revealed=null){
+  molGroup.clear();
+  assembly = 0;   // restart the grow-in animation
+  const show = i => revealed===null || revealed.has(i);
+  m.atoms.forEach((a,i)=>{
+    if(!show(i)) return;
+    const e = ELEM[a.el] || {color:"#cccccc", radius:0.7};
+    const mesh = new THREE.Mesh(sphereGeo, atomMaterial(e.color));
+    const r = 0.28 + e.radius*0.22;
+    mesh.scale.setScalar(0.001);
+    mesh.userData = {target:r};       // grown by tickAssembly
+    mesh.position.set(a.x*SCALE, a.y*SCALE, a.z*SCALE);
+    mesh.castShadow = true;
+    molGroup.add(mesh);
+  });
+  m.bonds.forEach(([i,j,o])=>{
+    if(!show(i) || !show(j)) return;   // only bonds between placed atoms
+    const A={x:m.atoms[i].x*SCALE,y:m.atoms[i].y*SCALE,z:m.atoms[i].z*SCALE};
+    const B={x:m.atoms[j].x*SCALE,y:m.atoms[j].y*SCALE,z:m.atoms[j].z*SCALE};
+    molGroup.add(bondMesh(A,B,o));
+  });
+  molGroup.position.set(0, 0.2, 0);
+}
+
+// Tier-1 post-processing: SAO ambient occlusion + subtle bloom.
+// Bypassed while presenting in WebXR (post-processing and the XR framebuffer
+// don't compose) — VR falls back to a direct render, which is correct.
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const sao = new SAOPass(scene, camera);
+sao.params.saoBias = 0.5; sao.params.saoIntensity = 0.006;
+sao.params.saoScale = 8; sao.params.saoKernelRadius = 40;
+composer.addPass(sao);
+const bloom = new UnrealBloomPass(new THREE.Vector2(1,1), 0.16, 0.6, 0.96);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+function resize(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if(canvas.width!==w||canvas.height!==h){ renderer.setSize(w,h,false);
+    composer.setSize(w,h);
+    camera.aspect=w/h; camera.updateProjectionMatrix(); }
+}
+
+// animated assembly: atoms grow from the centre, bonds extend, on select
+let assembly = 1;   // 0 → 1 progress
+function tickAssembly(dt){
+  if(assembly>=1) return;
+  assembly = Math.min(1, assembly + dt*2.2);
+  const e = 1 - Math.pow(1-assembly, 3);      // easeOutCubic
+  molGroup.children.forEach(o=>{
+    if(o.userData.target!=null){               // atom: scale in
+      o.scale.setScalar(o.userData.target*e);
+    } else if(o.userData.grow){                 // bond group: extend from A
+      o.children.forEach(c=>{ c.scale.y = c.userData.len*e; c.position.copy(
+        c.userData.a.clone().lerp(c.userData.mid, e)); });
+    }
+  });
+}
+
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(()=>{
+  const dt = Math.min(clock.getDelta(), 0.05);
+  resize(); controls.update(); tickAssembly(dt);
+  if(renderer.xr.isPresenting) renderer.render(scene,camera);
+  else composer.render();
+});
+
+// WebXR (capability-gated, like knitweb-graph-3d.html)
+if(navigator.xr){
+  navigator.xr.isSessionSupported('immersive-vr').then(ok=>{
+    if(ok){ const b=VRButton.createButton(renderer); b.id="enter-vr";
+      $("#vrbtn").innerHTML=""; $("#vrbtn").appendChild(b); $("#enter-vr").remove(); }
+  }).catch(()=>{});
+}
+
+/* ---------- game state ---------- */
+let sid=null, selected=null;
+const toast = (t)=>{ const el=$("#toast"); el.textContent=t; el.classList.add("show");
+  setTimeout(()=>el.classList.remove("show"), 2200); };
+
+// Stable device id (same localStorage key as app.js) so the wallet + PLS balance
+// persist across reloads AND server restarts (knitweb/molgang#225).
+function deviceId(){
+  let d = localStorage.getItem("molgang_device");
+  if(!d){ d = crypto.randomUUID(); localStorage.setItem("molgang_device", d); }
+  return d;
+}
+
+async function rejoin(){
+  const name = localStorage.getItem("molgang_name")
+    || "Chemist "+Math.floor(Math.random()*900+100);
+  localStorage.setItem("molgang_name", name);
+  const j = await api("/api/join","POST",{name, avatar:"🧪", device: deviceId()});
+  sid = j.sid;
+  const st = await api("/api/state?sid="+sid);
+  const table = st.tables[0].id;
+  await api("/api/sit","POST",{sid, table});
+  return st;
+}
+
+async function boot(){
+  [ELEM, MOLS] = await Promise.all([
+    fetch(API+"/data/elements-cpk.json").then(r=>r.json()),
+    fetch(API+"/data/molecules-3d.json").then(r=>r.json())
+  ]);
+  buildShelf();
+  buildSlagChips();
+  if(slagBadgeEarned()) showSlagBadge();
+  await rejoin();
+  await refresh();
+}
+
+function buildShelf(){
+  const tierClass = {elementary:"tier-el", middle:"tier-mid", high:"tier-hi"};
+  const shelf=$("#shelf"); shelf.innerHTML="";
+  const order={elementary:0,middle:1,high:2};
+  Object.entries(MOLS).sort((a,b)=>(order[a[1].tier]-order[b[1].tier])||a[0].localeCompare(b[0]))
+    .forEach(([f,m])=>{
+      const b=document.createElement("button");
+      b.innerHTML=`<span class="f ${tierClass[m.tier]||''}">${sub(f)}</span> <span class="n">${m.name}</span>`;
+      b.onclick=()=>select(f, b);
+      shelf.appendChild(b);
+    });
+}
+const sub = f => f.replace(/(\d+)/g,'<sub>$1</sub>');
+
+// Steel Slag track — the four BOF-slag oxides + limestone flux. Building this
+// matrix mirrors the ChemField/SmartSlag recovery mission (learn.html#slag).
+const SLAG = ["CaO","SiO2","MgO","Al2O3","CaCO3"];
+let slagWoven = new Set();
+function buildSlagChips(){
+  const box=$("#slag-chips"); box.innerHTML="";
+  SLAG.forEach(f=>{
+    const b=document.createElement("button");
+    b.dataset.f=f; b.innerHTML=sub(f);
+    b.onclick=()=>{ const sb=[...document.querySelectorAll(".shelf button")]
+      .find(x=>x.textContent.replace(/\s/g,'').startsWith(f)); select(f, sb); };
+    box.appendChild(b);
+  });
+}
+const SLAG_MAJORS = ["CaO","SiO2","MgO","Al2O3"];   // the oxide matrix
+const SLAG_FLUX = "CaCO3";                            // limestone flux
+function slagBadgeEarned(){ return localStorage.getItem("molgang_slag_refiner")==="1"; }
+function showSlagBadge(){ $("#slag-badge").classList.remove("hidden"); }
+
+function updateSlag(st){
+  (st?.my_knits?.knits||[]).forEach(k=>{ if(k.woven && SLAG.includes(k.term)) slagWoven.add(k.term); });
+  const n=slagWoven.size;
+  $("#slag-count").textContent=`${n} / ${SLAG.length}`;
+  $("#slag-bar").style.width=Math.round(n/SLAG.length*100)+"%";
+  document.querySelectorAll("#slag-chips button").forEach(b=>
+    b.classList.toggle("done", slagWoven.has(b.dataset.f)));
+
+  // two-stage mission: map the 4-oxide matrix, then add the flux
+  const majors = SLAG_MAJORS.filter(f=>slagWoven.has(f)).length;
+  const fluxed = slagWoven.has(SLAG_FLUX);
+  let stage = $("#slag-stage");
+  if(!stage){ stage=document.createElement("div"); stage.id="slag-stage"; stage.className="slag-stage";
+    $("#slag-count").parentElement.after(stage); }
+  const complete = n===SLAG.length;
+  stage.innerHTML = complete
+    ? `<span class="slag-done">✓ Matrix refined · ⛏ Slag Refiner earned</span>`
+    : `<span>Matrix <b>${majors}/4</b></span><span>Flux ${fluxed?'✓':'—'}</span>`;
+
+  $("#slagtrack").classList.toggle("complete", complete);
+  if(complete){
+    showSlagBadge();
+    if(!slagBadgeEarned()){
+      localStorage.setItem("molgang_slag_refiner","1");
+      toast("⛏ Slag Refiner earned — BOF-slag matrix + flux complete!");
+    }
+  }
+}
+
+let mode = "explore";
+let revealed = new Set();          // atom indices placed in Build mode
+
+function select(f, btn){
+  selected=f;
+  document.querySelectorAll(".shelf button").forEach(b=>b.classList.remove("sel"));
+  if(btn) btn.classList.add("sel");
+  const m=MOLS[f];
+  $("#sel-name").innerHTML = m.name + ` <span class="dim" style="font-size:.8em">· ${m.name_nl}</span>`;
+  $("#sel-formula").innerHTML = sub(f);
+  $("#sel-counts").textContent = `${m.atoms.length} · ${m.bonds.length}`;
+  $("#result").innerHTML="";
+  applyMode();
+}
+
+function setMode(next){
+  mode = next;
+  $("#m-explore").classList.toggle("on", mode==="explore");
+  $("#m-build").classList.toggle("on", mode==="build");
+  $("#tray").classList.toggle("hidden", mode!=="build");
+  if(selected) applyMode(); else renderStub();
+}
+$("#m-explore").onclick=()=>setMode("explore");
+$("#m-build").onclick=()=>setMode("build");
+$("#tray-reset").onclick=()=>{ if(selected){ revealed.clear(); refreshBuild(); } };
+
+function applyMode(){
+  const m=MOLS[selected];
+  if(mode==="explore"){
+    renderMolecule(m);
+    $("#propose").disabled=false;
+    $("#hud").innerHTML = `<b>${sub(selected)}</b> — ${m.atoms.length} atoms · drag to rotate`;
+  } else {
+    revealed = new Set();
+    refreshBuild();
+  }
+}
+
+// build-mode atom counts
+function need(m){ const c={}; m.atoms.forEach(a=>c[a.el]=(c[a.el]||0)+1); return c; }
+function placed(m){ const c={}; [...revealed].forEach(i=>{const e=m.atoms[i].el;c[e]=(c[e]||0)+1;}); return c; }
+
+function addAtom(el){
+  const m=MOLS[selected];
+  const idx = m.atoms.findIndex((a,i)=>a.el===el && !revealed.has(i));
+  if(idx<0){ toast(`No more ${el} needed in ${selected}`); return; }
+  revealed.add(idx);
+  refreshBuild(true);
+}
+
+function refreshBuild(grew){
+  const m=MOLS[selected];
+  renderMolecule(m, revealed);
+  const nd=need(m), pl=placed(m);
+  const chips=$("#tray-chips"); chips.innerHTML="";
+  Object.keys(nd).sort((a,b)=>(ELEM[b]?.z||0)-(ELEM[a]?.z||0)).forEach(el=>{
+    const rem = nd[el]-(pl[el]||0);
+    const b=document.createElement("button");
+    b.className="achip"+(rem===0?" full":"");
+    b.style.borderLeft=`3px solid ${ELEM[el]?.color||'#888'}`;
+    b.innerHTML=`<span class="el">${el}</span><span class="ct">${pl[el]||0}/${nd[el]}</span>`;
+    b.disabled = rem===0;
+    b.onclick=()=>addAtom(el);
+    chips.appendChild(b);
+  });
+  $("#tray-count").textContent=`${revealed.size} / ${m.atoms.length}`;
+  const done = revealed.size===m.atoms.length;
+  $("#propose").disabled = !done;
+  if(done){ $("#hud").innerHTML=`<b>${sub(selected)}</b> — complete! propose it →`;
+    if(grew) toast("✓ Molecule assembled — propose it!"); }
+  else $("#hud").innerHTML=`Build <b>${sub(selected)}</b> — ${m.atoms.length-revealed.size} atoms to go`;
+}
+
+function renderStub(){ molGroup.clear(); }
+
+// Run an action that needs a live seat. If the session was reaped (idle >45s,
+// common in Build mode) the first call fails with a session error — we silently
+// rejoin (same device → same wallet+balance) and retry once.
+async function withSession(fn){
+  try{ return await fn(); }
+  catch(e){
+    if(!isSessionLost(e)) throw e;
+    await rejoin();
+    return await fn();
+  }
+}
+
+$("#propose").onclick = async ()=>{
+  if(!selected) return;
+  const before = lastYou ? {pulses:lastYou.pulses, silk:lastYou.silk} : null;
+  $("#propose").disabled=true; $("#propose").textContent="Staking…";
+  try{
+    const st = await withSession(async ()=>{
+      const p = await api("/api/propose","POST",{sid, term:selected});
+      const s = await api("/api/state?sid="+sid);
+      s._pid = p.pid; return s;
+    });
+    const knit = (st.my_knits.knits||[]).find(k=>k.pid===st._pid) || st.my_knits.knits[0];
+    // measured deltas (null if a mid-flight rejoin reset the wallet)
+    const earned = before ? st.you.pulses - before.pulses : null;
+    showResult(knit, earned);
+    applyWallet(st.you, {flash:true});
+    updateSlag(st);
+  }catch(e){ toast("Propose failed: "+e.message); }
+  $("#propose").textContent="Propose bond · 🧵1"; $("#propose").disabled = mode==="build" && revealed.size!==(MOLS[selected]?.atoms.length||0);
+};
+
+// Keep the seat alive so it isn't reaped mid-build (server reaps idle humans
+// at 45s). Heartbeat well inside that window; rejoin if the seat was already lost.
+setInterval(async ()=>{
+  if(!sid) return;
+  try{ await api("/api/heartbeat","POST",{sid}); }
+  catch(e){ if(isSessionLost(e)){ try{ await rejoin(); await refresh(); }catch{} } }
+}, 20000);
+
+function showResult(k, earned){
+  if(!k){ $("#result").innerHTML=`<span class="dim">No settlement returned.</span>`; return; }
+  const ok = k.woven && k.outcome==="confirmed";
+  const v = k.votes||{confirm:0,mismatch:0,abstain:0};
+  const staked = v.total||0;              // each vote stakes VOTE_COST = 1 PLS
+  $("#result").innerHTML = `
+    <div class="lbl" style="margin:4px 0 6px">⚡ Pulses staked · PoUW votes</div>
+    <div class="row"><span class="k">Peers staked into escrow</span><span class="v pls">${staked} PLS</span></div>
+    <div class="votes"><span class="c">▲ ${v.confirm} confirm</span><span class="m">▼ ${v.mismatch} mismatch</span><span class="a">◦ ${v.abstain}</span></div>
+    <div class="row"><span class="k">BFT quorum</span><span class="v" style="color:${ok?'var(--good)':'var(--bad)'}">
+      ${ok?'✓ CONFIRMED — woven':'✗ '+(k.outcome||'no quorum')}</span></div>
+    ${ok && earned!=null ? `<div class="row"><span class="k">You earned (pot + reward)</span><span class="v pls">+${earned} PLS</span></div>`:''}
+    ${ok ? `<div class="row" style="font-size:.82em"><span class="k">Silk returned</span><span class="v silk">🧵 +1</span></div>`:''}
+    ${ok?`<div class="row" style="margin-top:6px"><span class="k">Fiber CID</span></div><div class="cid">${k.fiber_cid||''}</div>`:
+         `<div class="row" style="font-size:.82em"><span class="k">Stakes refunded to peers</span><span class="v silk">🧵 spent</span></div>`}
+    <div class="row" style="font-size:.78em;margin-top:6px"><span class="k"></span><a href="learn.html#staking" style="color:var(--dim)">how staking works →</a></div>`;
+  if(ok) toast(`🧬 Woven! ${earned!=null?'+'+earned+' PLS':''}`);
+}
+
+let prevLevel=1, lastYou=null;
+function applyWallet(you, opts={}){
+  if(!you) return;
+  lastYou = you;
+  $("#w-pls").textContent = you.pulses;
+  $("#w-silk").textContent = you.silk;
+  $("#w-title").textContent = you.title;
+  $("#w-lvl").textContent = "L"+you.level;
+  $("#e-pls").textContent = you.pulses+" PLS";
+  $("#e-woven").textContent = you.woven;
+  $("#e-title").textContent = you.title;
+  $("#e-lvl").textContent = "L"+you.level;
+  $("#e-xp").textContent = you.xp;
+  // pulses used = faucet(50) - balance  (matches certificate_data work proxy)
+  $("#e-used").textContent = Math.max(0, 50 - you.pulses);
+  // xp progress within level (LEVELS = [0,100,300,600,1000,1500,2500,4000])
+  const L=[0,100,300,600,1000,1500,2500,4000];
+  const lo=L[you.level-1]??0, hi=L[you.level]??(lo+1);
+  const pct = you.level>=8?100:Math.round((you.xp-lo)/(hi-lo)*100);
+  $("#xpbar").style.width = pct+"%";
+  $("#xp-note").textContent = you.level>=8?"XP (max)":`XP → L${you.level+1}`;
+  if(you.perks) $("#perks").textContent = "Perks: "+you.perks.join(" · ");
+  // certificate unlock at level ≥ 2
+  const c=$("#cert");
+  if(you.level>=2){ c.disabled=false; c.classList.remove("locked"); c.textContent="🏅 Mint certificate (PDF)";
+    $("#cert-note").innerHTML="Your proof-of-useful-work is ready — public copy, private key redacted."; }
+  if(opts.flash && you.level>prevLevel){ toast(`⬆ Level ${you.level} — ${you.title}!`); }
+  prevLevel = you.level;
+}
+
+async function mintCertificate(retried=false){
+  let r;
+  try{
+    r = await fetch(API+"/api/certificate",{method:"POST",
+      headers:{"content-type":"application/json"}, body:JSON.stringify({sid})});
+  }catch(e){
+    // network-level failure — the server is down/unreachable, not an app error
+    toast("⚠ Server niet bereikbaar — draait `molgang serve` nog?");
+    return;
+  }
+  if(r.status===400 && !retried){
+    // stale session (e.g. the server restarted) — re-join with the same device
+    // wallet and retry once, instead of surfacing a cryptic 400
+    try{ await rejoin(); await refresh(); }catch(e){ toast("Re-join failed: "+e.message); return; }
+    return mintCertificate(true);
+  }
+  if(!r.ok){ toast("Certificate: HTTP "+r.status); return; }
+  const blob = await r.blob();
+  const u = URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=u; a.download="molgang-pouw-certificate.pdf"; a.click();
+  URL.revokeObjectURL(u);
+  toast("🏅 Certificate downloaded");
+}
+$("#cert").onclick = ()=>mintCertificate();
+
+async function refresh(){
+  try{
+    let st = await api("/api/state?sid="+sid);
+    if(!st.you){
+      // stale sid: /api/state answers 200 with you:null after a server restart —
+      // transparently re-join with the same device wallet instead of freezing
+      st = await rejoin();
+      toast("Sessie hersteld na server-herstart");
+    }
+    applyWallet(st.you);
+    updateSlag(st);
+  }catch(e){
+    toast("⚠ Verbinding weg — opnieuw verbinden…");
+  }
+}
+
+boot().catch(e=>{ $("#hud").textContent="⚠ "+e.message+" — is `molgang serve` running?"; });
+</script>
+</body>
+</html>
