@@ -258,6 +258,86 @@
         "zh": "锰",
         "ar": "منغنيز"
       }
+    },
+    "Li": {
+      "atomic_number": 3,
+      "names": {
+        "en": "Lithium",
+        "nl": "Lithium",
+        "ru": "Литий",
+        "zh": "锂",
+        "ar": "ليثيوم"
+      }
+    },
+    "B": {
+      "atomic_number": 5,
+      "names": {
+        "en": "Boron",
+        "nl": "Boor",
+        "ru": "Бор",
+        "zh": "硼",
+        "ar": "بورون"
+      }
+    },
+    "Ne": {
+      "atomic_number": 10,
+      "names": {
+        "en": "Neon",
+        "nl": "Neon",
+        "ru": "Неон",
+        "zh": "氖",
+        "ar": "نيون"
+      }
+    },
+    "Ar": {
+      "atomic_number": 18,
+      "names": {
+        "en": "Argon",
+        "nl": "Argon",
+        "ru": "Аргон",
+        "zh": "氩",
+        "ar": "أرغون"
+      }
+    },
+    "Cu": {
+      "atomic_number": 29,
+      "names": {
+        "en": "Copper",
+        "nl": "Koper",
+        "ru": "Медь",
+        "zh": "铜",
+        "ar": "نحاس"
+      }
+    },
+    "Ag": {
+      "atomic_number": 47,
+      "names": {
+        "en": "Silver",
+        "nl": "Zilver",
+        "ru": "Серебро",
+        "zh": "银",
+        "ar": "فضة"
+      }
+    },
+    "Ba": {
+      "atomic_number": 56,
+      "names": {
+        "en": "Barium",
+        "nl": "Barium",
+        "ru": "Барий",
+        "zh": "钡",
+        "ar": "باريوم"
+      }
+    },
+    "Pb": {
+      "atomic_number": 82,
+      "names": {
+        "en": "Lead",
+        "nl": "Lood",
+        "ru": "Свинец",
+        "zh": "铅",
+        "ar": "رصاص"
+      }
     }
   },
   "molecules": {
@@ -592,6 +672,78 @@
         "ru": "Оксид ванадия(V)",
         "zh": "五氧化二钒",
         "ar": "خامس أكسيد الفاناديوم"
+      }
+    },
+    "O3": {
+      "names": {
+        "en": "Ozone",
+        "nl": "Ozon",
+        "ru": "Озон",
+        "zh": "臭氧",
+        "ar": "أوزون"
+      }
+    },
+    "NaHCO3": {
+      "names": {
+        "en": "Sodium bicarbonate",
+        "nl": "Natriumbicarbonaat",
+        "ru": "Гидрокарбонат натрия",
+        "zh": "碳酸氢钠",
+        "ar": "بيكربونات الصوديوم"
+      }
+    },
+    "CH3COOH": {
+      "names": {
+        "en": "Acetic acid",
+        "nl": "Azijnzuur",
+        "ru": "Уксусная кислота",
+        "zh": "乙酸",
+        "ar": "حمض الخليك"
+      }
+    },
+    "C2H5OH": {
+      "names": {
+        "en": "Ethanol",
+        "nl": "Ethanol",
+        "ru": "Этанол",
+        "zh": "乙醇",
+        "ar": "إيثانول"
+      }
+    },
+    "CuO": {
+      "names": {
+        "en": "Copper(II) oxide",
+        "nl": "Koper(II)oxide",
+        "ru": "Оксид меди(II)",
+        "zh": "氧化铜",
+        "ar": "أكسيد النحاس الثنائي"
+      }
+    },
+    "CuSO4": {
+      "names": {
+        "en": "Copper(II) sulfate",
+        "nl": "Koper(II)sulfaat",
+        "ru": "Сульфат меди(II)",
+        "zh": "硫酸铜",
+        "ar": "كبريتات النحاس الثنائي"
+      }
+    },
+    "AgNO3": {
+      "names": {
+        "en": "Silver nitrate",
+        "nl": "Zilvernitraat",
+        "ru": "Нитрат серебра",
+        "zh": "硝酸银",
+        "ar": "نترات الفضة"
+      }
+    },
+    "BaSO4": {
+      "names": {
+        "en": "Barium sulfate",
+        "nl": "Bariumsulfaat",
+        "ru": "Сульфат бария",
+        "zh": "硫酸钡",
+        "ar": "كبريتات الباريوم"
       }
     }
   }
