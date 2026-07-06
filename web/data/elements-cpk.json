@@ -136,5 +136,53 @@
     "z": 25,
     "color": "#9c7ac7",
     "radius": 1.39
+  },
+  "Li": {
+    "name": "Lithium",
+    "z": 3,
+    "color": "#cc80ff",
+    "radius": 1.28
+  },
+  "B": {
+    "name": "Boron",
+    "z": 5,
+    "color": "#ffb5b5",
+    "radius": 0.84
+  },
+  "Ne": {
+    "name": "Neon",
+    "z": 10,
+    "color": "#b3e3f5",
+    "radius": 0.58
+  },
+  "Ar": {
+    "name": "Argon",
+    "z": 18,
+    "color": "#80d1e3",
+    "radius": 1.06
+  },
+  "Cu": {
+    "name": "Copper",
+    "z": 29,
+    "color": "#c88033",
+    "radius": 1.32
+  },
+  "Ag": {
+    "name": "Silver",
+    "z": 47,
+    "color": "#c0c0c0",
+    "radius": 1.45
+  },
+  "Ba": {
+    "name": "Barium",
+    "z": 56,
+    "color": "#00c900",
+    "radius": 2.15
+  },
+  "Pb": {
+    "name": "Lead",
+    "z": 82,
+    "color": "#575961",
+    "radius": 1.46
   }
 }

@@ -33,7 +33,7 @@ from molgang.chemistry import ELEMENTS, MOLECULES, parse_formula, tier_of  # noq
 
 # --- CPK colours + covalent radii (Å) ---------------------------------------
 # Standard CPK colours (Jmol) and single-bond covalent radii (Cordero 2008,
-# rounded). Only the 19 elements in ELEMENTS are needed.
+# rounded). Covers every element in ELEMENTS (guarded by test_every_element_has_cpk).
 CPK: dict[str, tuple[str, float]] = {
     "H": ("#ffffff", 0.31), "C": ("#2b2b2b", 0.76), "N": ("#3050f8", 0.71),
     "O": ("#ff0d0d", 0.66), "Na": ("#ab5cf2", 1.66), "Cl": ("#1ff01f", 1.02),
@@ -42,6 +42,10 @@ CPK: dict[str, tuple[str, float]] = {
     "P": ("#ff8000", 1.07), "K": ("#8f40d4", 2.03), "F": ("#90e050", 0.57),
     "Si": ("#f0c8a0", 1.11), "Zn": ("#7d80b0", 1.22), "Br": ("#a62929", 1.20),
     "I": ("#940094", 1.39),
+    "Li": ("#cc80ff", 1.28), "B": ("#ffb5b5", 0.84), "Ne": ("#b3e3f5", 0.58),
+    "Ar": ("#80d1e3", 1.06), "Ti": ("#bfc2c7", 1.60), "V": ("#a6a6ab", 1.53),
+    "Cr": ("#8a99c7", 1.39), "Mn": ("#9c7ac7", 1.39), "Cu": ("#c88033", 1.32),
+    "Ag": ("#c0c0c0", 1.45), "Ba": ("#00c900", 2.15), "Pb": ("#575961", 1.46),
 }
 
 
@@ -121,11 +125,31 @@ SPEC: dict[str, dict] = {
     "CaO":  {"ionic": [("Ca", 2), ("O", -2)]},
     "MgO":  {"ionic": [("Mg", 2), ("O", -2)]},
     "ZnO":  {"ionic": [("Zn", 2), ("O", -2)]},
+    "FeO":  {"ionic": [("Fe", 2), ("O", -2)]},
+    "MnO":  {"ionic": [("Mn", 2), ("O", -2)]},
+    "CuO":  {"ionic": [("Cu", 2), ("O", -2)]},
     "SiO2": {"center": "Si", "shape": "linear", "lig": [("O", 2), ("O", 2)]},
+    "TiO2": {"center": "Ti", "shape": "linear", "lig": [("O", 2), ("O", 2)]},
+    "O3":   {"center": "O", "shape": "bent_120", "lig": [("O", 2), ("O", 1)]},
     "Al2O3": {"lattice": [("Al", 2), ("O", 3)]},
+    "Fe2O3": {"lattice": [("Fe", 2), ("O", 3)]},
+    "Cr2O3": {"lattice": [("Cr", 2), ("O", 3)]},
+    "V2O3":  {"lattice": [("V", 2), ("O", 3)]},
+    "V2O5":  {"lattice": [("V", 2), ("O", 5)]},
     "KCl_guard": {},
     "CaCO3": {"carbonate": True, "cation": "Ca"},
+    # oxoanion salts: cation (with charge) + the anion's VSEPR unit
+    "AgNO3":  {"oxo": ("N", "trigonal", [("O", 2), ("O", 1), ("O", 1)]),
+               "cation": ("Ag", 1)},
+    "CuSO4":  {"oxo": ("S", "tetrahedral", [("O", 2), ("O", 2), ("O", 1), ("O", 1)]),
+               "cation": ("Cu", 2)},
+    "BaSO4":  {"oxo": ("S", "tetrahedral", [("O", 2), ("O", 2), ("O", 1), ("O", 1)]),
+               "cation": ("Ba", 2)},
+    "NaHCO3": {"oxo": ("C", "trigonal", [("O", 2), ("O", 1), ("O", 1)]),
+               "cation": ("Na", 1), "oxo_oh": [2]},
     "C6H12O6": {"glucose": True},
+    "C2H5OH": {"ethanol": True},
+    "CH3COOH": {"acetic": True},
 }
 
 
@@ -178,6 +202,34 @@ def place(formula: str) -> list[dict]:
 
     if spec.get("glucose"):  # simplified open-chain C6 backbone with OH/H
         atoms, bonds = _glucose()
+        return atoms, bonds
+
+    if spec.get("ethanol"):
+        return _ethanol()
+
+    if spec.get("acetic"):
+        return _acetic()
+
+    if "oxo" in spec:  # oxoanion salt: cation + VSEPR anion unit (CaCO3 pattern)
+        center, shape, ligs = spec["oxo"]
+        oh = set(spec.get("oxo_oh", []))
+        atoms.append({"el": center, "x": 0, "y": 0, "z": 0})
+        for k, (lig, order) in enumerate(ligs):
+            v = _norm(_dirs(shape)[k])
+            d = bond_len(center, lig, order)
+            idx = len(atoms)
+            atoms.append({"el": lig, "x": v[0] * d, "y": v[1] * d, "z": v[2] * d})
+            bonds.append([0, idx, order])
+            if k in oh and lig == "O":  # e.g. bicarbonate's O–H
+                dh = bond_len("O", "H")
+                hv = _norm((v[0] + 0.4, v[1] + 0.6, v[2] + 0.3))
+                atoms.append({"el": "H",
+                              "x": atoms[idx]["x"] + hv[0] * dh,
+                              "y": atoms[idx]["y"] + hv[1] * dh,
+                              "z": atoms[idx]["z"] + hv[2] * dh})
+                bonds.append([idx, len(atoms) - 1, 1])
+        cat, charge = spec["cation"]
+        atoms.append({"el": cat, "x": 0, "y": -2.6, "z": 0, "charge": charge})
         return atoms, bonds
 
     # generic VSEPR: central atom + ligands, optional O–H hydroxyls
@@ -240,6 +292,52 @@ def _glucose():
     oi = add("O", 5, 0.0, 0.0, 1.2, 1)
     add("H", oi, 0.3, 0.0, 0.8, 1)
     return atoms, bonds
+
+
+def _chain2(extra):
+    """Two sp3-ish carbons on the x-axis + caller-supplied substituents.
+
+    Shared skeleton for the two-carbon organics (teaching shape, like _glucose):
+    ``extra(add, c0, c1)`` attaches the functional group + hydrogens.
+    """
+    atoms, bonds = [], []
+
+    def add(el, x, y, z, parent=None, order=1):
+        i = len(atoms)
+        atoms.append({"el": el, "x": x, "y": y, "z": z})
+        if parent is not None:
+            bonds.append([parent, i, order])
+        return i
+
+    c0 = add("C", -0.76, 0.0, 0.0)
+    c1 = add("C", 0.76, 0.0, 0.0, c0)
+    # methyl hydrogens on C0 (tetrahedral-ish fan away from C1)
+    add("H", -1.15, 0.55, 0.85, c0)
+    add("H", -1.15, 0.55, -0.85, c0)
+    add("H", -1.15, -1.00, 0.00, c0)
+    extra(add, c0, c1)
+    return atoms, bonds
+
+
+def _ethanol():
+    """CH3–CH2–OH: ethanol as an open chain with a hydroxyl (teaching shape)."""
+    def extra(add, c0, c1):
+        # methylene hydrogens on C1
+        add("H", 1.15, -0.55, 0.85, c1)
+        add("H", 1.15, -0.55, -0.85, c1)
+        # hydroxyl
+        o = add("O", 1.45, 1.20, 0.0, c1)
+        add("H", 2.35, 1.35, 0.30, o)
+    return _chain2(extra)
+
+
+def _acetic():
+    """CH3–COOH: acetic acid — carboxyl C with =O and –OH (teaching shape)."""
+    def extra(add, c0, c1):
+        add("O", 1.35, 1.10, 0.0, c1, 2)      # carbonyl =O
+        o2 = add("O", 1.50, -1.15, 0.0, c1)   # hydroxyl O
+        add("H", 2.45, -1.05, 0.25, o2)
+    return _chain2(extra)
 
 
 def centre(atoms):
