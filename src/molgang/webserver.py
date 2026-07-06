@@ -308,6 +308,11 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return self._json(200, state)
             if path == "/api/version":
                 return self._json(200, api_version_info())
+            if path == "/api/certificates":
+                # the tracked list of issued PoUW certificates (public fields only)
+                if bar.registry is None:
+                    return self._json(200, {"certificates": []})
+                return self._json(200, {"certificates": bar.registry.list_certificates()})
             if path == "/api/pulse":
                 return self._json(200, pulse_host or {})
             if path == "/api/suggested":
@@ -467,6 +472,7 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                         return self._json(400, {"error": "relay not enabled (start with --relay URL)"})
                     return self._json(200, relay.pull())
                 if path == "/api/certificate":
+                    import hashlib
                     import tempfile
 
                     from .certificate import make_pouw_certificate
@@ -476,12 +482,19 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                     make_pouw_certificate(
                         address=d["address"], public_key=d["public_key"],
                         private_key="", include_private_key=False,
-                        pulses_used=d["pulses_used"],
+                        pulses_used=d["pulses_used"], pls_balance=d.get("pls_balance"),
                         work_summary=d["work_summary"], provenance=d["provenance"],
                         holder=d["holder"], out_path=out)
                     with open(out, "rb") as fh:
                         body = fh.read()
                     os.unlink(out)
+                    # append to the tracked certificate list (public data + PDF sha256)
+                    if bar.registry is not None:
+                        bar.registry.log_certificate(
+                            address=d["address"], holder=d["holder"],
+                            pulses_used=d["pulses_used"], pls_balance=d.get("pls_balance"),
+                            work=d["work_summary"],
+                            sha256=hashlib.sha256(body).hexdigest())
                     short = (d["address"] or "wallet")[:12]
                     return self._pdf(body, f"pouw-certificate-{short}.pdf")
                 return self._json(404, {"error": "not found"})

@@ -76,6 +76,7 @@ The matching command-line flags are `--rate-read`, `--rate-read-window`, `--rate
 | `/api/spiral/vote` | `{sid, cid, verdict}` | `{cid, settled, captured, votes}` — co-weave/validate a spiral. |
 | `/api/relay/pull` | — | On-demand drain of the shared web from the relay (`400` if relay disabled). |
 | `/api/certificate` | `{sid}` | A public **PoUW Certificate PDF** (binary). The HTTP/API path is always redacted; bearer/private-key export is local CLI/operator-only via `--private --confirm-private-key-export`. |
+| `GET /api/certificates` | — | The node's tracked list of issued certificates: `{certificates: [{id, address, holder, issued, pulses_used, pls_balance, work, sha256}]}` (public fields only, newest first). The `sha256` verifies a PDF copy. |
 
 `verdict` ∈ `{"confirm", "mismatch"}` (default `confirm`). Honest peers `confirm` correct chemistry.
 

@@ -34,6 +34,13 @@ class Registry:
             "CREATE TABLE IF NOT EXISTS faucet_grant ("
             "  device_id TEXT PRIMARY KEY, source TEXT NOT NULL,"
             "  claimed REAL NOT NULL)")
+        # Tracked list of every PoUW certificate this node has issued (public data only —
+        # holder/address/metrics + the PDF's sha256 so any copy can be verified later).
+        self._db.execute(
+            "CREATE TABLE IF NOT EXISTS certificate ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT, address TEXT NOT NULL, holder TEXT,"
+            "  issued REAL NOT NULL, pulses_used INTEGER NOT NULL, pls_balance INTEGER,"
+            "  work TEXT, sha256 TEXT NOT NULL)")
         self._db.commit()
 
     def register(self, device_id: str, address: str, name: str, *, now: float | None = None) -> dict:
@@ -109,3 +116,29 @@ class Registry:
 
     def count(self) -> int:
         return self._db.execute("SELECT COUNT(*) FROM device").fetchone()[0]
+
+    def log_certificate(self, *, address: str, holder: str | None, pulses_used: int,
+                        pls_balance: int | None, work: dict | None, sha256: str,
+                        now: float | None = None) -> dict:
+        """Append one issued PoUW certificate to the tracked list (public data only)."""
+        import json as _json
+        now = time.time() if now is None else now
+        cur = self._db.execute(
+            "INSERT INTO certificate (address,holder,issued,pulses_used,pls_balance,work,sha256) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (address, holder, now, int(pulses_used),
+             None if pls_balance is None else int(pls_balance),
+             _json.dumps(work or {}, sort_keys=True), sha256))
+        self._db.commit()
+        return {"id": cur.lastrowid, "address": address, "holder": holder, "issued": now,
+                "pulses_used": int(pulses_used), "pls_balance": pls_balance, "sha256": sha256}
+
+    def list_certificates(self, limit: int = 100) -> list[dict]:
+        """The tracked certificate list, newest first (public fields only)."""
+        import json as _json
+        rows = self._db.execute(
+            "SELECT id,address,holder,issued,pulses_used,pls_balance,work,sha256 "
+            "FROM certificate ORDER BY id DESC LIMIT ?", (int(limit),)).fetchall()
+        return [{"id": r[0], "address": r[1], "holder": r[2], "issued": r[3],
+                 "pulses_used": r[4], "pls_balance": r[5],
+                 "work": _json.loads(r[6] or "{}"), "sha256": r[7]} for r in rows]
