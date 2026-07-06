@@ -69,6 +69,16 @@
   .cid{font-family:var(--mono);font-size:.75em;color:var(--teal);word-break:break-all}
   .votes{display:flex;gap:8px;font-family:var(--mono);font-size:.8em;margin-top:6px}
   .votes .c{color:var(--good)}.votes .m{color:var(--bad)}.votes .a{color:var(--dim)}
+  .pls{color:var(--amber)}.silk{color:var(--teal)}
+  .slagtrack{background:linear-gradient(160deg,#1c1710,#141c25);border:1px solid #3a2f1e;
+    border-radius:12px;padding:12px;margin-bottom:14px}
+  .slagtrack .bar>i{background:linear-gradient(90deg,#c98a3a,#f4b41a)}
+  .slagchips{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+  .slagchips button{font-family:var(--mono);font-size:.8em;background:var(--panel);border:1px solid #3a2f1e;
+    color:var(--ink);border-radius:7px;padding:4px 8px;cursor:pointer}
+  .slagchips button:hover{border-color:var(--slag)}
+  .slagchips button.done{border-color:var(--slag);color:var(--slag);background:#1c1710}
+  :root{--slag:#c98a3a}
   .perk{font-size:.8em;color:var(--dim);padding:2px 0}
   .modes{display:flex;gap:6px;margin-bottom:10px}
   .mode{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--dim);
@@ -94,6 +104,7 @@
 <header>
   <div class="brand">🧪 <b>MOLGANG</b> <span class="dim">· 3D Lab</span></div>
   <a class="ghost" href="index.html">← the bar</a>
+  <a class="ghost" href="learn.html">📖 How it works</a>
   <div class="spacer"></div>
   <span class="chip" id="wallet">⚡ <b id="w-pls">–</b> PLS · 🧵 <span id="w-silk">–</span></span>
   <span class="chip">🏅 <span id="w-title">–</span> <span class="lvl" id="w-lvl">L1</span></span>
@@ -102,7 +113,15 @@
 
 <main>
   <aside class="left">
-    <div class="lbl">Build a molecule</div>
+    <div class="slagtrack" id="slagtrack">
+      <div class="lbl" style="margin-top:0">⛏ Steel Slag track</div>
+      <div class="dim" style="font-size:.8em;margin:-4px 0 8px;color:var(--dim)">Refine the BOF-slag oxide matrix</div>
+      <div class="bar"><i id="slag-bar"></i></div>
+      <div class="row" style="font-size:.82em;margin-top:4px"><span class="k">Refined</span><span class="v" id="slag-count">0 / 5</span></div>
+      <div id="slag-chips" class="slagchips"></div>
+      <a href="learn.html#slag" style="font-size:.76em;color:var(--dim)">the mission →</a>
+    </div>
+    <div class="lbl">All molecules</div>
     <div class="shelf" id="shelf"></div>
   </aside>
 
@@ -128,7 +147,9 @@
         <div class="row"><span class="k">Placed</span><span class="v" id="tray-count">0 / 0</span></div>
         <button class="ghost" id="tray-reset" style="width:100%;margin-top:4px">↺ Reset build</button>
       </div>
-      <button class="cta" id="propose" disabled>Propose bond</button>
+      <button class="cta" id="propose" disabled>Propose bond · 🧵1</button>
+      <div class="row" style="margin-top:6px;font-size:.82em"><span class="k">Silk is your proposing fuel</span>
+        <a class="v" href="learn.html#pulses" style="color:var(--dim)">what's this?</a></div>
       <div id="result" style="margin-top:10px"></div>
     </div>
 
@@ -380,6 +401,7 @@ async function boot(){
     fetch(API+"/data/molecules-3d.json").then(r=>r.json())
   ]);
   buildShelf();
+  buildSlagChips();
   await rejoin();
   await refresh();
 }
@@ -397,6 +419,31 @@ function buildShelf(){
     });
 }
 const sub = f => f.replace(/(\d+)/g,'<sub>$1</sub>');
+
+// Steel Slag track — the four BOF-slag oxides + limestone flux. Building this
+// matrix mirrors the ChemField/SmartSlag recovery mission (learn.html#slag).
+const SLAG = ["CaO","SiO2","MgO","Al2O3","CaCO3"];
+let slagWoven = new Set();
+function buildSlagChips(){
+  const box=$("#slag-chips"); box.innerHTML="";
+  SLAG.forEach(f=>{
+    const b=document.createElement("button");
+    b.dataset.f=f; b.innerHTML=sub(f);
+    b.onclick=()=>{ const sb=[...document.querySelectorAll(".shelf button")]
+      .find(x=>x.textContent.replace(/\s/g,'').startsWith(f)); select(f, sb); };
+    box.appendChild(b);
+  });
+}
+function updateSlag(st){
+  (st?.my_knits?.knits||[]).forEach(k=>{ if(k.woven && SLAG.includes(k.term)) slagWoven.add(k.term); });
+  const n=slagWoven.size;
+  $("#slag-count").textContent=`${n} / ${SLAG.length}`;
+  $("#slag-bar").style.width=Math.round(n/SLAG.length*100)+"%";
+  document.querySelectorAll("#slag-chips button").forEach(b=>
+    b.classList.toggle("done", slagWoven.has(b.dataset.f)));
+  if(n===SLAG.length && !updateSlag._done){ updateSlag._done=true;
+    toast("⛏ Slag matrix refined — CaO·SiO₂·MgO·Al₂O₃ complete!"); }
+}
 
 let mode = "explore";
 let revealed = new Set();          // atom indices placed in Build mode
@@ -487,7 +534,8 @@ async function withSession(fn){
 
 $("#propose").onclick = async ()=>{
   if(!selected) return;
-  $("#propose").disabled=true; $("#propose").textContent="Proposing…";
+  const before = lastYou ? {pulses:lastYou.pulses, silk:lastYou.silk} : null;
+  $("#propose").disabled=true; $("#propose").textContent="Staking…";
   try{
     const st = await withSession(async ()=>{
       const p = await api("/api/propose","POST",{sid, term:selected});
@@ -495,10 +543,13 @@ $("#propose").onclick = async ()=>{
       s._pid = p.pid; return s;
     });
     const knit = (st.my_knits.knits||[]).find(k=>k.pid===st._pid) || st.my_knits.knits[0];
-    showResult(knit);
+    // measured deltas (null if a mid-flight rejoin reset the wallet)
+    const earned = before ? st.you.pulses - before.pulses : null;
+    showResult(knit, earned);
     applyWallet(st.you, {flash:true});
+    updateSlag(st);
   }catch(e){ toast("Propose failed: "+e.message); }
-  $("#propose").textContent="Propose bond"; $("#propose").disabled=false;
+  $("#propose").textContent="Propose bond · 🧵1"; $("#propose").disabled = mode==="build" && revealed.size!==(MOLS[selected]?.atoms.length||0);
 };
 
 // Keep the seat alive so it isn't reaped mid-build (server reaps idle humans
@@ -509,21 +560,29 @@ setInterval(async ()=>{
   catch(e){ if(isSessionLost(e)){ try{ await rejoin(); await refresh(); }catch{} } }
 }, 20000);
 
-function showResult(k){
+function showResult(k, earned){
   if(!k){ $("#result").innerHTML=`<span class="dim">No settlement returned.</span>`; return; }
   const ok = k.woven && k.outcome==="confirmed";
   const v = k.votes||{confirm:0,mismatch:0,abstain:0};
+  const staked = v.total||0;              // each vote stakes VOTE_COST = 1 PLS
   $("#result").innerHTML = `
-    <div class="row"><span class="k">Verdict</span><span class="v" style="color:${ok?'var(--good)':'var(--bad)'}">
-      ${ok?'✓ woven — quorum confirmed':'✗ '+(k.outcome||'rejected')}</span></div>
-    <div class="votes"><span class="c">▲ ${v.confirm}</span><span class="m">▼ ${v.mismatch}</span><span class="a">◦ ${v.abstain}</span></div>
-    ${ok?`<div class="row" style="margin-top:6px"><span class="k">Fiber CID</span></div><div class="cid">${k.fiber_cid||''}</div>`:''}`;
-  if(ok) toast("🧬 Woven! Fiber minted");
+    <div class="lbl" style="margin:4px 0 6px">⚡ Pulses staked · PoUW votes</div>
+    <div class="row"><span class="k">Peers staked into escrow</span><span class="v pls">${staked} PLS</span></div>
+    <div class="votes"><span class="c">▲ ${v.confirm} confirm</span><span class="m">▼ ${v.mismatch} mismatch</span><span class="a">◦ ${v.abstain}</span></div>
+    <div class="row"><span class="k">BFT quorum</span><span class="v" style="color:${ok?'var(--good)':'var(--bad)'}">
+      ${ok?'✓ CONFIRMED — woven':'✗ '+(k.outcome||'no quorum')}</span></div>
+    ${ok && earned!=null ? `<div class="row"><span class="k">You earned (pot + reward)</span><span class="v pls">+${earned} PLS</span></div>`:''}
+    ${ok ? `<div class="row" style="font-size:.82em"><span class="k">Silk returned</span><span class="v silk">🧵 +1</span></div>`:''}
+    ${ok?`<div class="row" style="margin-top:6px"><span class="k">Fiber CID</span></div><div class="cid">${k.fiber_cid||''}</div>`:
+         `<div class="row" style="font-size:.82em"><span class="k">Stakes refunded to peers</span><span class="v silk">🧵 spent</span></div>`}
+    <div class="row" style="font-size:.78em;margin-top:6px"><span class="k"></span><a href="learn.html#staking" style="color:var(--dim)">how staking works →</a></div>`;
+  if(ok) toast(`🧬 Woven! ${earned!=null?'+'+earned+' PLS':''}`);
 }
 
-let prevLevel=1;
+let prevLevel=1, lastYou=null;
 function applyWallet(you, opts={}){
   if(!you) return;
+  lastYou = you;
   $("#w-pls").textContent = you.pulses;
   $("#w-silk").textContent = you.silk;
   $("#w-title").textContent = you.title;
@@ -585,6 +644,7 @@ async function refresh(){
       toast("Sessie hersteld na server-herstart");
     }
     applyWallet(st.you);
+    updateSlag(st);
   }catch(e){
     toast("⚠ Verbinding weg — opnieuw verbinden…");
   }
