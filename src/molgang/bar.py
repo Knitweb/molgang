@@ -74,6 +74,7 @@ class Proposal:
     woven: bool = False
     fiber_cid: str | None = None              # the Fiber this knit wove (when confirmed)
     voters: set = field(default_factory=set)   # session ids that have voted
+    created: float = 0.0                       # time.monotonic() at propose — for settle-latency SLO (#125)
 
     @property
     def net(self) -> int:
@@ -527,7 +528,8 @@ class Bar:
         _metrics.knit_proposed()
         pid = f"p{next(self._pid)}"
         prop = Proposal(pid=pid, table_id=sess.table_id, by=sid, by_name=sess.name,
-                        term=label, round=rnd, parsed=head, links=links, topic=topic)
+                        term=label, round=rnd, parsed=head, links=links, topic=topic,
+                        created=time.monotonic())
         self.proposals[pid] = prop
         self._bots_act()                                  # NPC table-mates weigh in immediately
         self._persist_balances()                          # proposer spent silk (+ any settle)
@@ -563,6 +565,8 @@ class Bar:
         if s.woven:
             from . import metrics as _metrics
             _metrics.knit_woven()
+            if prop.created:                          # propose → woven latency (#125 SLO)
+                _metrics.settle_observed(max(0.0, time.monotonic() - prop.created))
             self.woven.append({
                 "term": prop.term, "by": prop.by_name, "table": prop.table_id,
                 "fiber_cid": s.woven_fiber_cid, "confirmations": s.result.confirms,

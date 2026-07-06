@@ -5,6 +5,7 @@ text exposition format 0.0.4. The webserver wraps request dispatch to record
 
     molgang_http_requests_total{path,method,code}     counter
     molgang_http_request_duration_seconds{path}       histogram (1ms..2.5s buckets)
+    molgang_quorum_settle_seconds                      histogram — propose→woven latency (#125)
     molgang_http_inflight                              gauge
 
 and the bar records domain counters at the settle sites
@@ -124,3 +125,8 @@ def knit_woven() -> None:
 
 def vote_cast(verdict: str) -> None:
     REGISTRY.inc("molgang_vote_total", (("verdict", str(verdict)),))
+
+
+def settle_observed(seconds: float) -> None:
+    """Record propose→woven quorum-settle latency (the #125 SLO histogram)."""
+    REGISTRY.observe("molgang_quorum_settle_seconds", float(seconds))

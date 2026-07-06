@@ -1,0 +1,55 @@
+# MOLGANG SLO alert rules (#125). Load into Prometheus via rule_files (see README.md).
+# Thresholds mirror docs/BUDGETS.md — change both together.
+groups:
+  - name: molgang-slo
+    rules:
+      - alert: ApiStateP99Breach
+        expr: >
+          histogram_quantile(0.99,
+            sum(rate(molgang_http_request_duration_seconds_bucket{path="/api/state"}[5m])) by (le)
+          ) > 0.150
+        for: 2m
+        labels: { severity: warning, slo: api_state_p99 }
+        annotations:
+          summary: "/api/state p99 latency over budget (150 ms)"
+          description: "p99 is {{ $value | humanizeDuration }} (budget 150 ms) for 2m."
+
+      - alert: ApiVoteP99Breach
+        expr: >
+          histogram_quantile(0.99,
+            sum(rate(molgang_http_request_duration_seconds_bucket{path="/api/vote"}[5m])) by (le)
+          ) > 0.400
+        for: 2m
+        labels: { severity: warning, slo: api_vote_p99 }
+        annotations:
+          summary: "/api/vote p99 latency over budget (400 ms)"
+          description: "p99 is {{ $value | humanizeDuration }} (budget 400 ms) for 2m."
+
+      - alert: QuorumSettleP99Breach
+        expr: >
+          histogram_quantile(0.99,
+            sum(rate(molgang_quorum_settle_seconds_bucket[5m])) by (le)
+          ) > 2.0
+        for: 2m
+        labels: { severity: warning, slo: quorum_settle_p99 }
+        annotations:
+          summary: "quorum-settle p99 over budget (2 s)"
+          description: "propose→woven p99 is {{ $value | humanizeDuration }} (budget 2 s) for 2m."
+
+      - alert: HttpErrorRateBreach
+        expr: >
+          sum(rate(molgang_http_requests_total{code=~"5.."}[5m]))
+          / clamp_min(sum(rate(molgang_http_requests_total[5m])), 1) > 0.005
+        for: 5m
+        labels: { severity: critical, slo: error_rate }
+        annotations:
+          summary: "5xx error rate over budget (0.5%)"
+          description: "5xx share is {{ $value | humanizePercentage }} (budget 0.5%) for 5m."
+
+      - alert: RelayLagBreach
+        expr: molgang_relay_queue_depth > 500
+        for: 5m
+        labels: { severity: warning, slo: relay_lag }
+        annotations:
+          summary: "relay pull-lag over budget (queue depth 500)"
+          description: "relay queue depth is {{ $value }} (budget 500) for 5m."
