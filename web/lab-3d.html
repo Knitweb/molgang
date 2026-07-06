@@ -79,6 +79,11 @@
   .slagchips button:hover{border-color:var(--slag)}
   .slagchips button.done{border-color:var(--slag);color:var(--slag);background:#1c1710}
   :root{--slag:#c98a3a}
+  .badge-slag{border-color:var(--slag)!important;color:var(--slag)!important;background:#1c1710!important;font-weight:600}
+  .slagtrack.complete{border-color:var(--slag);box-shadow:0 0 0 1px var(--slag) inset,0 0 22px -8px var(--slag)}
+  .slag-stage{font-size:.76em;color:var(--dim);margin-top:6px;display:flex;justify-content:space-between}
+  .slag-stage b{color:var(--slag)}
+  .slag-done{color:var(--slag);font-weight:600;font-size:.9em;margin-top:4px}
   .perk{font-size:.8em;color:var(--dim);padding:2px 0}
   .modes{display:flex;gap:6px;margin-bottom:10px}
   .mode{flex:1;background:var(--panel2);border:1px solid var(--line);color:var(--dim);
@@ -108,6 +113,7 @@
   <div class="spacer"></div>
   <span class="chip" id="wallet">⚡ <b id="w-pls">–</b> PLS · 🧵 <span id="w-silk">–</span></span>
   <span class="chip">🏅 <span id="w-title">–</span> <span class="lvl" id="w-lvl">L1</span></span>
+  <span class="chip badge-slag hidden" id="slag-badge" title="Steel Slag mission complete — the BOF-slag oxide matrix refined">⛏ Slag Refiner</span>
   <button class="ghost" id="enter-vr" disabled>VR…</button>
 </header>
 
@@ -402,6 +408,7 @@ async function boot(){
   ]);
   buildShelf();
   buildSlagChips();
+  if(slagBadgeEarned()) showSlagBadge();
   await rejoin();
   await refresh();
 }
@@ -434,6 +441,11 @@ function buildSlagChips(){
     box.appendChild(b);
   });
 }
+const SLAG_MAJORS = ["CaO","SiO2","MgO","Al2O3"];   // the oxide matrix
+const SLAG_FLUX = "CaCO3";                            // limestone flux
+function slagBadgeEarned(){ return localStorage.getItem("molgang_slag_refiner")==="1"; }
+function showSlagBadge(){ $("#slag-badge").classList.remove("hidden"); }
+
 function updateSlag(st){
   (st?.my_knits?.knits||[]).forEach(k=>{ if(k.woven && SLAG.includes(k.term)) slagWoven.add(k.term); });
   const n=slagWoven.size;
@@ -441,8 +453,26 @@ function updateSlag(st){
   $("#slag-bar").style.width=Math.round(n/SLAG.length*100)+"%";
   document.querySelectorAll("#slag-chips button").forEach(b=>
     b.classList.toggle("done", slagWoven.has(b.dataset.f)));
-  if(n===SLAG.length && !updateSlag._done){ updateSlag._done=true;
-    toast("⛏ Slag matrix refined — CaO·SiO₂·MgO·Al₂O₃ complete!"); }
+
+  // two-stage mission: map the 4-oxide matrix, then add the flux
+  const majors = SLAG_MAJORS.filter(f=>slagWoven.has(f)).length;
+  const fluxed = slagWoven.has(SLAG_FLUX);
+  let stage = $("#slag-stage");
+  if(!stage){ stage=document.createElement("div"); stage.id="slag-stage"; stage.className="slag-stage";
+    $("#slag-count").parentElement.after(stage); }
+  const complete = n===SLAG.length;
+  stage.innerHTML = complete
+    ? `<span class="slag-done">✓ Matrix refined · ⛏ Slag Refiner earned</span>`
+    : `<span>Matrix <b>${majors}/4</b></span><span>Flux ${fluxed?'✓':'—'}</span>`;
+
+  $("#slagtrack").classList.toggle("complete", complete);
+  if(complete){
+    showSlagBadge();
+    if(!slagBadgeEarned()){
+      localStorage.setItem("molgang_slag_refiner","1");
+      toast("⛏ Slag Refiner earned — BOF-slag matrix + flux complete!");
+    }
+  }
 }
 
 let mode = "explore";
