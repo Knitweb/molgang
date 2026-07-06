@@ -381,7 +381,8 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 from urllib.parse import parse_qs, urlparse
                 q = (parse_qs(urlparse(self.path).query).get("q") or [""])[0]
                 return self._json(200, {"query": q, "results": ChemistryLens().react(q)})
-            if path == "/api/export/jsonld":
+            if path in ("/api/export/jsonld", "/api/web/jsonld"):
+                # provenance-linked JSON-LD of the fabric web (#107); both paths serve it
                 return self._json(200, bar.world.to_jsonld())
             if path == "/metrics":
                 return self._metrics()

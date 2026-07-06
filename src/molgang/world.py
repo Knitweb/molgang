@@ -273,7 +273,13 @@ class World:
 
 
     def to_jsonld(self) -> dict:
-        """Export the woven fabric as JSON-LD (schema.org + knitweb vocab)."""
+        """Export the woven fabric as JSON-LD (schema.org + knitweb vocab).
+
+        The export is provenance-linked (#107): it embeds the OriginTrail anchor
+        (UAL + state_root) from :meth:`anchor` so external DKG tooling can verify
+        the fabric offline against the anchored state. Term nodes carry their
+        language + W3C base direction so multilingual webs survive round-trips.
+        """
         self._sync()
         graph = []
         for item in self.items:
@@ -286,6 +292,8 @@ class World:
             }
             if item.kind == "term":
                 node["knitweb:term"] = item.term
+                node["knitweb:lang"] = item.lang
+                node["knitweb:baseDirection"] = "rtl" if item.lang in _RTL_LANGS else "ltr"
             elif item.kind == "link":
                 node["knitweb:subject"] = item.subject
                 node["knitweb:relation"] = item.relation
@@ -293,10 +301,18 @@ class World:
             elif item.kind == "spiral":
                 node["knitweb:links"] = item.links
             graph.append(node)
+        anchor = self.anchor()
         return {
             "@context": {
                 "schema": "https://schema.org/",
                 "knitweb": "https://knitweb.art/vocab#",
+                "prov": "http://www.w3.org/ns/prov#",
+            },
+            "knitweb:provenance": {
+                "@type": "prov:Entity",
+                "knitweb:ual": anchor.get("ual"),
+                "knitweb:stateRoot": anchor.get("state_root"),
+                "knitweb:verified": bool(anchor.get("verified", False)),
             },
             "@graph": graph,
         }

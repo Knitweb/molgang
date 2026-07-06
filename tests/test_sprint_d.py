@@ -228,3 +228,30 @@ def test_metrics_relay_depth_zero_when_no_relay(tmp_path):
     bar = Bar(str(tmp_path / "w.json"))
     resp = _make_metrics_request(bar, relay=None)
     assert "molgang_relay_queue_depth 0" in resp
+
+
+def test_jsonld_embeds_origintrail_provenance(tmp_path):
+    """#107: the JSON-LD export is provenance-linked — UAL + state_root embedded."""
+    from molgang.bar import Bar
+    bar = Bar(str(tmp_path / "world.json"))
+    me = bar.join("Weaver", "laser-maxi", "periodic", device="dev-jsonld-1")
+    bar.propose(me.sid, "H2O")                    # weave something real
+    doc = bar.world.to_jsonld()
+    prov = doc["knitweb:provenance"]
+    assert prov["knitweb:ual"] and prov["knitweb:ual"].startswith("did:dkg:knitweb/")
+    assert prov["knitweb:stateRoot"]
+    assert prov["knitweb:stateRoot"] == bar.world.anchor()["state_root"]
+    assert "prov" in doc["@context"]
+
+
+def test_jsonld_term_nodes_carry_lang_and_base_direction(tmp_path):
+    """#107: term nodes carry lang + W3C base direction for multilingual webs."""
+    world = World(str(tmp_path / "world.json"))
+    world.items.append(WovenItem(
+        kind="term", by="t", fiber_cid="cid-en", confirmations=1, term="water", lang="en"))
+    world.items.append(WovenItem(
+        kind="term", by="t", fiber_cid="cid-ar", confirmations=1, term="ماء", lang="ar"))
+    nodes = {n["@id"]: n for n in world.to_jsonld()["@graph"]}
+    assert nodes["knitweb:fiber/cid-en"]["knitweb:lang"] == "en"
+    assert nodes["knitweb:fiber/cid-en"]["knitweb:baseDirection"] == "ltr"
+    assert nodes["knitweb:fiber/cid-ar"]["knitweb:baseDirection"] == "rtl"

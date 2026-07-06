@@ -49,6 +49,7 @@ The matching command-line flags are `--rate-read`, `--rate-read-window`, `--rate
 | `/api/pulse` | — | The host Pulse identity (`{}` if none). |
 | `/api/suggested` | — | `{"terms": [string]}` — brainstorm suggestions. |
 | `/api/web` | — | `bar.web_view()` — the woven web (knits → Fibers) for the current world. |
+| `/api/web/jsonld` (alias `/api/export/jsonld`) | — | Provenance-linked **JSON-LD** of the fabric web: `@context` (schema/knitweb/prov), `knitweb:provenance` with the OriginTrail **UAL + state_root**, term nodes with `lang` + W3C base direction (#107). |
 | `/api/quests` | `player*` | `{player, active, all, quest_xp}` — tier-graded quest goals derived from woven molecules (#110). Read-only/pure; omit `player` for the whole bar. |
 | `/api/achievements` | `player*` | `{player, achievements, unlocked, count}` — reputation-only milestone badges derived from woven molecules (#111). Read-only/pure; no token value. |
 | `/api/leaderboard` | `season*` | All-time ranking, or `?season=current` for the time-windowed board `{season, since, until, rows}` (#112). Pure view over woven timestamps; all-time board unchanged. |
