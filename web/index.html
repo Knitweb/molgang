@@ -33,21 +33,21 @@
       <span class="bal">🧵 <b id="me-silk">0</b> silk</span>
       <span class="bal">🪢 <b id="me-knits">0</b> knits</span>
       <span class="bal">🏅 <b id="me-level">L1</b> <i id="me-title" class="dim"></i></span>
-      <button id="me-cert" class="cert-btn" data-i18n="header.cert" data-i18n-title="header.cert.title" title="Download a public Proof of Useful Work certificate PDF — private wallet material is redacted">🏅 Request PoUW Certificate</button>
+      <button id="me-cert" class="cert-btn" aria-label="Request PoUW certificate" data-i18n="header.cert" data-i18n-title="header.cert.title" title="Download a public Proof of Useful Work certificate PDF — private wallet material is redacted">🏅 Request PoUW Certificate</button>
     </div>
-    <nav id="tabs" class="tabs hidden">
-      <button data-view="bar" class="active" data-i18n="tab.bar">🍸 Bar</button>
-      <button data-view="ledger" data-i18n="tab.ledger">📒 My knits</button>
-      <button data-view="explorer" data-i18n="tab.explorer">🔭 Explorer</button>
-      <button data-view="web" data-i18n="tab.web">🌐 Web</button>
-      <button data-view="progress" data-i18n="tab.progress">🏅 Progress</button>
-      <button data-view="records" data-i18n="tab.records">🕸 Spirals</button>
-      <button data-view="monitor" data-i18n="tab.monitor">📡 Monitor</button>
+    <nav id="tabs" class="tabs hidden" role="tablist" aria-label="Views">
+      <button data-view="bar" class="active" role="tab" aria-selected="true" data-i18n="tab.bar">🍸 Bar</button>
+      <button data-view="ledger" role="tab" aria-selected="false" data-i18n="tab.ledger">📒 My knits</button>
+      <button data-view="explorer" role="tab" aria-selected="false" data-i18n="tab.explorer">🔭 Explorer</button>
+      <button data-view="web" role="tab" aria-selected="false" data-i18n="tab.web">🌐 Web</button>
+      <button data-view="progress" role="tab" aria-selected="false" data-i18n="tab.progress">🏅 Progress</button>
+      <button data-view="records" role="tab" aria-selected="false" data-i18n="tab.records">🕸 Spirals</button>
+      <button data-view="monitor" role="tab" aria-selected="false" data-i18n="tab.monitor">📡 Monitor</button>
     </nav>
   </header>
 
   <!-- transient capture toast -->
-  <div id="toast" class="toast hidden"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <!-- walk-in overlay -->
   <div id="enter" class="overlay">
@@ -66,7 +66,7 @@
 
   <!-- table view -->
   <section id="table" class="table-view hidden">
-    <button id="leave-table" class="ghost" data-i18n="table.back">← back to the floor</button>
+    <button id="leave-table" class="ghost" aria-label="Back to the floor" data-i18n="table.back">← back to the floor</button>
     <div class="table-title">
       <h2 id="table-name"></h2>
       <button id="rename-table" class="ghost hidden" data-i18n="table.rename">✏️ rename</button>
@@ -227,9 +227,9 @@
   </section>
 
   <!-- start-a-spiral modal -->
-  <div id="spiral-modal" class="overlay hidden">
+  <div id="spiral-modal" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Start a spiral">
     <div class="card">
-      <button id="spiral-close" class="ghost spiral-x" title="close">✕</button>
+      <button id="spiral-close" class="ghost spiral-x" title="close" aria-label="Close">✕</button>
       <h1 data-i18n="spiral.modal.title">🕸 Start a spiral</h1>
       <p class="dim small" data-i18n="spiral.modal.howto">One link per line — each line must be a link A → B or A = B (2–7 links). Costs escalating silk; peers back it by staking pulses per link.</p>
       <textarea id="spiral-links" rows="6" spellcheck="false"

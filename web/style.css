@@ -347,3 +347,8 @@ h2,h3{letter-spacing:.2px}
 /* #139 age/consent gate on the walk-in card */
 .agegate{display:flex;align-items:flex-start;gap:8px;margin:14px 0 4px;font-size:13px;color:var(--dim);cursor:pointer}
 .agegate input{width:auto;flex:0 0 auto;margin-top:2px}
+/* #119 accessibility: a visible focus ring + AA-contrast body text */
+:focus-visible{outline:3px solid var(--accent2);outline-offset:2px;border-radius:8px}
+:root{--dim:#a7b6cf}          /* lift dimmed text contrast on the dark theme (was #93a3bd) */
+[dir="rtl"] .me{margin-left:0;margin-right:auto}
+[dir="rtl"] .tabs{direction:rtl}

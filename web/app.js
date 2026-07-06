@@ -328,8 +328,11 @@ function resetSession() {
 }
 
 function setActiveTab() {
-  document.querySelectorAll("#tabs button").forEach((b) =>
-    b.classList.toggle("active", b.dataset.view === view));
+  document.querySelectorAll("#tabs button").forEach((b) => {
+    const on = b.dataset.view === view;
+    b.classList.toggle("active", on);
+    b.setAttribute("aria-selected", on ? "true" : "false");
+  });
   ["floor", "table", "ledger", "explorer", "web", "progress", "records", "monitor"].forEach((v) => $(v).classList.add("hidden"));
   if (view === "ledger") $("ledger").classList.remove("hidden");
   else if (view === "explorer") $("explorer").classList.remove("hidden");
@@ -1129,6 +1132,24 @@ if ("serviceWorker" in navigator) {
     const ageBox = document.getElementById("age-ok");
     const goBtn = document.getElementById("go");
     if (ageBox && goBtn) {
+      // #119 RTL: mirror the chrome when an RTL UI locale is active (AR is a
+      // first-class content language). Uses the same lang+base-direction W3C
+      // approach as the KG term-nodes.
+      const RTL = new Set(["ar", "he", "fa", "ur"]);
+      const applyDir = () => {
+        const l = (window.I18N && I18N.locale && I18N.locale()) ||
+                  document.documentElement.lang || "en";
+        document.documentElement.dir = RTL.has(String(l).slice(0, 2)) ? "rtl" : "ltr";
+      };
+      applyDir();
+      document.addEventListener("i18n:changed", applyDir);
+      // Esc closes the spiral modal (keyboard operability, #119)
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          const m = document.getElementById("spiral-modal");
+          if (m && !m.classList.contains("hidden")) closeSpiralModal();
+        }
+      });
       const already = localStorage.getItem("molgang_age_ok") === "1";
       ageBox.checked = already;
       goBtn.disabled = !already;
