@@ -20,7 +20,7 @@
 // IndexedDB, owned by the page/worker, not the SW). It only caches static,
 // public, content-addressable assets.
 
-const APP_VERSION = "molgang-serverless-v1";
+const APP_VERSION = "molgang-serverless-v2";
 const PYODIDE_VERSION = "0.26.2";
 
 const SHELL_CACHE = `${APP_VERSION}-shell`;
@@ -34,11 +34,27 @@ const SHELL_ASSETS = [
   "./peer.js",
   "./qr.js",
   "./app-bridge.js",
+  // Classic render layer, vendored from web/ (see serverless/README.md).
+  "./app.js",
+  "./config.js",
+  "./i18n.js",
   "./style.css",
+  "./locales/en.json",
+  "./locales/nl.json",
+  "./avatars/dao-delegate.svg",
+  "./avatars/degen-ape.svg",
+  "./avatars/diamond-hands.svg",
+  "./avatars/faucet-fairy.svg",
+  "./avatars/gas-goblin.svg",
+  "./avatars/hoodie-hacker.svg",
+  "./avatars/laser-maxi.svg",
+  "./avatars/validator-owl.svg",
   "./manifest.webmanifest",
   // The molgang+knitweb engine, shipped as a wheel so the IDENTICAL .py bytes
-  // import inside Pyodide (this is what makes byte-identity free).
+  // import inside Pyodide (this is what makes byte-identity free), plus the
+  // in-tab API bridge the worker runs on top of it.
   "./engine/molgang_engine-0.0.0-py3-none-any.whl",
+  "./engine/serverless_api.py",
 ];
 
 // Host that serves the pinned Pyodide runtime + packages. Cached aggressively
