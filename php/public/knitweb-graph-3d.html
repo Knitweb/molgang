@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Knitweb — 3D kennisgraaf (WebXR)</title>
+<script src="config.js"></script><!-- optional: owner override of P2P nodes / graph endpoints -->
 <style>
 html,body{margin:0;height:100%;background:#0e1117;color:#e8edf4;font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;overflow:hidden}
 .bar{position:fixed;top:10px;left:14px;z-index:10000;display:flex;gap:16px;align-items:center;flex-wrap:wrap;background:#161b22ee;border:1px solid #2a3340;border-radius:12px;padding:8px 14px}
@@ -69,14 +70,21 @@ function showNode(n){if(!n)return;window._lastNode=n;pk.textContent=n.group;pt.t
 function showLink(l){if(!l)return;var a=lc(l.source),b=lc(l.target);pk.textContent='relatie';pt.textContent=a+'  '+(l.rel?'·':'')+'  '+b;pp.innerHTML='<b style="color:#ffd479">'+esc(rl(l.rel))+'</b>'+(l.phrase?' — '+esc(l.phrase):'');}
 function authColor(by){var h=0,s=String(by||'?');for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return 'hsl('+h+',55%,58%)';}
 function setView(v){cur=v;[].forEach.call(document.querySelectorAll('#seg button'),function(b){b.className=b.dataset.v===v?'on':'';});if(Graph&&DATA[v]){Graph.graphData(DATA[v]);setTimeout(function(){try{Graph.zoomToFit(700,55);}catch(e){}},350);}}
-function loadLive(){pp.innerHTML='live chem-field laden…';var cfg=window.MOLGANG_GRAPH_ENDPOINTS;var paths=(Array.isArray(cfg)&&cfg.length?cfg:['explorer-graph.json','molgang/explorer-graph.json','/molgang/explorer-graph.json']).slice();
+// P2P bootstrap: the chem-field is pulled from the first reachable node, then the
+// same-origin snapshot. The peer nodes are OPERATOR-CONFIGURED in config.js
+// (window.MOLGANG_PEERS + window.MOLGANG_GRAPH_ENDPOINTS) — no host is hard-coded here.
+// A molgang-served node sends CORS, so cross-origin retrieval between nodes works.
+var P2P_NODES=(Array.isArray(window.MOLGANG_PEERS)&&window.MOLGANG_PEERS.length)?window.MOLGANG_PEERS:[];
+var P2P_LABEL=P2P_NODES.length?' (P2P: '+P2P_NODES.map(function(n){return esc(n.name);}).join(' · ')+')':'';
+function loadLive(){pp.innerHTML='live chem-field laden…'+P2P_LABEL;var cfg=window.MOLGANG_GRAPH_ENDPOINTS;var paths=(Array.isArray(cfg)&&cfg.length?cfg:['explorer-graph.json','molgang/explorer-graph.json','/molgang/explorer-graph.json']).slice();
  (function tryp(i){if(i>=paths.length){pp.innerHTML='&#9888; geen explorer-graph.json gevonden (live chem-field niet beschikbaar hier)';return;}
   fetch(paths[i]).then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(d){
    var deg={};(d.edges||[]).forEach(function(e){deg[e.s]=(deg[e.s]||0)+1;deg[e.t]=(deg[e.t]||0)+1;});
    var nodes=(d.nodes||[]).map(function(n){return {id:n.id,name:n.lab||n.id,color:authColor(n.by),val:3+Math.min(deg[n.id]||0,9),group:'chem-concept · by '+(n.by||'?'),desc:n.def||'',ml:n.ml};});
    var ids={};nodes.forEach(function(n){ids[n.id]=1;});
    var links=(d.edges||[]).filter(function(e){return ids[e.s]&&ids[e.t];}).map(function(e){return {source:e.s,target:e.t,rel:e.r,color:'#46526a'};});
-   DATA.live={nodes:nodes,links:links};setView('live');pp.innerHTML='live chem-field ✓ — '+nodes.length+' concepten · '+links.length+' links'+(d.name?' ('+esc(d.name)+')':'');
+   var src=paths[i];var via=/^https?:\/\//.test(src)?src.split('/')[2]:'local snapshot';
+   DATA.live={nodes:nodes,links:links};setView('live');pp.innerHTML='live chem-field ✓ — '+nodes.length+' concepten · '+links.length+' links · via <b>'+esc(via)+'</b>'+P2P_LABEL+(d.name?' — '+esc(d.name):'');
    if(window._focusId){setTimeout(function(){var fn=(Graph.graphData().nodes||[]).filter(function(x){return x.id===window._focusId||x.name===window._focusId;})[0];if(fn){var dd=140,r=1+dd/Math.hypot(fn.x||1,fn.y||1,fn.z||1);Graph.cameraPosition({x:(fn.x||0)*r,y:(fn.y||0)*r,z:(fn.z||0)*r||dd},fn,1500);showNode(fn);}},1400);}
   }).catch(function(){tryp(i+1);});})(0);}
 
