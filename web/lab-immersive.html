@@ -72,6 +72,10 @@
     border:0; border-radius:11px; padding:12px 26px; box-shadow:0 8px 30px #37d6a844; }
   #enter:hover { filter:brightness(1.06); }
   #start .alt { pointer-events:auto; color:var(--dim); font-size:12.5px; background:none; border:0; cursor:pointer; text-decoration:underline; }
+  .qsel { margin-top:10px; color:var(--dim); font-size:12px; display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:center; }
+  .qsel #q-tier { color:var(--accent); font-weight:600; text-transform:capitalize; }
+  .qsel button { pointer-events:auto; cursor:pointer; background:#111923; border:1px solid var(--line); color:var(--ink); border-radius:6px; padding:3px 9px; font-size:11.5px; }
+  .qsel button:hover { border-color:var(--accent); } .qsel button.on { background:var(--accent); color:#05221a; border-color:var(--accent); }
   #hint { position:fixed; bottom:70px; left:50%; transform:translateX(-50%); z-index:6; color:var(--dim); font-size:12px; opacity:0; transition:opacity .3s; }
   body.locked #hint { opacity:.7; }
   .fade-out { opacity:0 !important; pointer-events:none !important; transition:opacity .5s; }
@@ -112,6 +116,8 @@
     <div class="keys"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk</span><span><kbd>mouse</kbd> look</span><span><kbd>E</kbd> specimen</span><span><kbd>Esc</kbd> release</span></div>
     <button id="enter">Enter the lab</button>
     <button class="alt" id="orbitBtn">or explore in orbit mode (no pointer lock)</button>
+    <div id="quality" class="qsel">Graphics: <span id="q-tier">auto</span> ·
+      <button data-q="auto">Auto</button><button data-q="low">Low</button><button data-q="medium">Medium</button><button data-q="high">High</button></div>
   </div>
   <div id="err"></div>
 
@@ -140,10 +146,50 @@ const showErr = m => { const e=$('#err'); e.textContent='⚠ '+m; e.style.displa
 
 // ---------- renderer / scene / camera ----------------------------------------
 const canvas = $('#scene');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, powerPreference:'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+// ---------- adaptive quality (like a real dApp webgame) ----------------------
+// Transmission glass + a 5-pass composer at 2× DPR overwhelms integrated GPUs
+// (Apple M-series / Intel) → WebGL context loss → black screen. So we detect the
+// GPU tier and scale: the expensive refraction pass, SAO, bloom, cinematic grain,
+// shadow resolution and pixel ratio all key off the tier. WebGPU is detected for a
+// future high tier; today we ship robust adaptive WebGL. A saved override wins, and
+// a context-loss auto-drops to 'low' and reloads.
+const PRESETS = {
+  low:    { pr:1.0, transmission:false, sao:false, bloom:false, cinematic:false, shadows:false, shadowSize:1024 },
+  medium: { pr:1.5, transmission:false, sao:false, bloom:true,  cinematic:true,  shadows:true,  shadowSize:1024 },
+  high:   { pr:2.0, transmission:true,  sao:true,  bloom:true,  cinematic:true,  shadows:true,  shadowSize:2048 },
+};
+const HAS_WEBGPU = typeof navigator!=='undefined' && !!navigator.gpu;
+function detectTier(gl){
+  const saved = localStorage.getItem('bench_quality');
+  if (saved && PRESETS[saved]) return saved;
+  try {
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+    const r = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
+    const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent||'');
+    const discrete = /NVIDIA|GeForce|Radeon RX|Radeon Pro|AMD/i.test(r);
+    const weak = /Intel|Adreno|Mali|PowerVR|SwiftShader|llvmpipe/i.test(r);
+    if (mobile || weak) return 'low';        // Intel iGPU / mobile → cheapest
+    if (discrete) return 'high';             // dedicated GPU → full effects
+    return 'medium';                         // Apple M-series & unknown → safe middle (no transmission)
+  } catch { return 'low'; }
+}
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, powerPreference:'high-performance', stencil:false });
+let QTIER = detectTier(renderer.getContext());
+let Q = PRESETS[QTIER];
+// Quality selector: Auto (detected) or a forced tier; the choice persists and reloads.
+(function wireQuality(){
+  const saved = localStorage.getItem('bench_quality');
+  const tierEl = $('#q-tier'); if(tierEl) tierEl.textContent = QTIER + (saved?'':' (auto)') + (HAS_WEBGPU?' · WebGPU-ready':'');
+  document.querySelectorAll('.qsel button').forEach(b=>{
+    const q=b.dataset.q; if((q==='auto'&&!saved)||q===saved) b.classList.add('on');
+    b.onclick=()=>{ if(q==='auto') localStorage.removeItem('bench_quality'); else localStorage.setItem('bench_quality',q); location.reload(); };
+  });
+})();
+renderer.setPixelRatio(Math.min(devicePixelRatio, Q.pr));
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = true;
+renderer.shadowMap.enabled = Q.shadows;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;   // filmic response, GTA-ish highlights
 renderer.toneMappingExposure = 0.64;
@@ -186,8 +232,8 @@ ceilingPanel(-1.9, 0); ceilingPanel(1.9, 0);
 // key "window daylight" — the only shadow-caster, kept soft
 const sun = new THREE.DirectionalLight(0xfff3e0, 1.35);
 sun.position.set(-6, 5.5, 5);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.castShadow = Q.shadows;
+sun.shadow.mapSize.set(Q.shadowSize, Q.shadowSize);
 sun.shadow.camera.near = 1; sun.shadow.camera.far = 24;
 sun.shadow.camera.left=-8; sun.shadow.camera.right=8; sun.shadow.camera.top=8; sun.shadow.camera.bottom=-8;
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 4;
@@ -206,8 +252,15 @@ const M = {
   cabinet: () => new THREE.MeshStandardMaterial({ color:0xbcc4cc, metalness:0.05, roughness:0.72 }),
   wall: (c=0x3a434e) => new THREE.MeshStandardMaterial({ color:c, roughness:0.94, metalness:0.0 }),
   floor: () => new THREE.MeshPhysicalMaterial({ color:0x2b3038, roughness:0.16, metalness:0.0, clearcoat:0.6, clearcoatRoughness:0.3, envMapIntensity:0.9 }),
-  glass: () => new THREE.MeshPhysicalMaterial({ color:0xffffff, metalness:0, roughness:0.03, transmission:1.0, ior:1.5, thickness:0.35, transparent:true, opacity:1, envMapIntensity:1.4, clearcoat:1, clearcoatRoughness:0.03 }),
-  liquid: (c) => new THREE.MeshPhysicalMaterial({ color:c, roughness:0.12, metalness:0, transmission:0.55, ior:1.34, thickness:0.6, transparent:true, opacity:0.92, envMapIntensity:1.0 }),
+  // Glass/liquid: real transmission (refraction) ONLY on the high tier — with ~15
+  // transmissive props it's the main cause of context loss on integrated GPUs. On
+  // low/medium a cheap env-reflective translucent material looks close for ~free.
+  glass: () => Q.transmission
+    ? new THREE.MeshPhysicalMaterial({ color:0xffffff, metalness:0, roughness:0.03, transmission:1.0, ior:1.5, thickness:0.35, transparent:true, opacity:1, envMapIntensity:1.4, clearcoat:1, clearcoatRoughness:0.03 })
+    : new THREE.MeshStandardMaterial({ color:0xcfe6ee, metalness:0.1, roughness:0.08, transparent:true, opacity:0.34, envMapIntensity:1.3, side:THREE.DoubleSide }),
+  liquid: (c) => Q.transmission
+    ? new THREE.MeshPhysicalMaterial({ color:c, roughness:0.12, metalness:0, transmission:0.55, ior:1.34, thickness:0.6, transparent:true, opacity:0.92, envMapIntensity:1.0 })
+    : new THREE.MeshStandardMaterial({ color:c, roughness:0.2, metalness:0, transparent:true, opacity:0.9, envMapIntensity:0.8 }),
   plastic: (c) => new THREE.MeshStandardMaterial({ color:c, roughness:0.5, metalness:0.0 }),
   rubber: (c=0x1c1f24) => new THREE.MeshStandardMaterial({ color:c, roughness:0.85 }),
 };
@@ -611,13 +664,9 @@ function clampWalk(){
   p.y=EYE;
 }
 
-// ---------- post-processing: SAO + bloom + cinematic grain/vignette/CA -------
-const composer=new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene,camera));
-const sao=new SAOPass(scene,camera); sao.params.saoIntensity=0.012; sao.params.saoScale=6; sao.params.saoKernelRadius=24; sao.params.saoBlurRadius=8;
-composer.addPass(sao);
-const bloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.26,0.45,0.96);
-composer.addPass(bloom);
+// ---------- post-processing (tier-gated) — SAO + bloom + cinematic -----------
+// On low tier we bypass the composer entirely and render straight to screen: the
+// cheapest, most context-loss-resistant path. Higher tiers layer passes on top.
 const CinematicShader={
   uniforms:{ tDiffuse:{value:null}, time:{value:0}, res:{value:new THREE.Vector2(innerWidth,innerHeight)},
     vignette:{value:1.05}, grain:{value:0.032}, ca:{value:0.6} },
@@ -642,8 +691,17 @@ const CinematicShader={
       gl_FragColor=vec4(col,1.0);
     }`
 };
-const cinePass=new ShaderPass(CinematicShader); composer.addPass(cinePass);
-composer.addPass(new OutputPass());
+const usePost = Q.sao || Q.bloom || Q.cinematic;
+let composer=null, cinePass=null;
+if (usePost) {
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene,camera));
+  if (Q.sao) { const sao=new SAOPass(scene,camera); sao.params.saoIntensity=0.012; sao.params.saoScale=6; sao.params.saoKernelRadius=24; sao.params.saoBlurRadius=8; composer.addPass(sao); }
+  if (Q.bloom) composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),0.26,0.45,0.96));
+  if (Q.cinematic) { cinePass=new ShaderPass(CinematicShader); composer.addPass(cinePass); }
+  composer.addPass(new OutputPass());
+}
+function renderFrame(){ if (composer) composer.render(); else renderer.render(scene, camera); }
 
 // ---------- raycast tooltip --------------------------------------------------
 const ray=new THREE.Raycaster(); const tip=$('#tip');
@@ -659,8 +717,20 @@ function updateTip(){
 
 // ---------- animate ----------------------------------------------------------
 const clock=new THREE.Clock();
+let running=true;
+// Adaptive downgrade: if the frame budget is blown for a stretch, drop a tier so a
+// weak GPU stays smooth instead of hitching toward a context loss.
+let slow=0, downgraded=false;
+function autoDowngrade(dt){
+  if(downgraded || QTIER==='low') return;
+  if(dt>0.045) slow++; else slow=Math.max(0,slow-1);   // >~22fps sustained
+  if(slow>90){ downgraded=true; localStorage.setItem('bench_quality','low');
+    if($('#result')) $('#result').innerHTML='<span class="dim">graphics eased for a smoother framerate — reload to apply fully</span>'; }
+}
 function tick(){
+  if(!running){ requestAnimationFrame(tick); return; }
   const dt=Math.min(clock.getDelta(),0.05); const t=clock.elapsedTime;
+  autoDowngrade(dt);
   // FPS movement
   if(mode==='fps' && flc.isLocked){
     const speed=2.4; vel.x-=vel.x*8*dt; vel.z-=vel.z*8*dt;
@@ -683,17 +753,29 @@ function tick(){
   steams.forEach(s=>{ const p=s.pts.geometry.attributes.position; for(let i=0;i<s.N;i++){ let y=p.getY(i)+dt*(0.12+s.seed[i]*0.1);
     let x=p.getX(i)+Math.sin(t*1.5+s.seed[i]*10)*0.0008; if(y>s.origin.y+0.5){y=s.origin.y;x=s.origin.x+(Math.random()-0.5)*0.06;} p.setY(i,y); p.setX(i,x);} p.needsUpdate=true; });
 
-  cinePass.uniforms.time.value=t;
+  if(cinePass) cinePass.uniforms.time.value=t;
   updateTip();
-  composer.render();
+  renderFrame();
   requestAnimationFrame(tick);
 }
+// Precompile shaders + warm the pipeline BEFORE the first frame so the first move
+// doesn't stall on a big shader/transmission compile (a classic black-frame cause).
+try { renderer.compile(scene, camera); } catch(e) {}
 tick();
+
+// WebGL context-loss recovery: on integrated GPUs the driver can drop the context
+// under load → black screen. Catch it, fall to the low tier, and reload cleanly.
+canvas.addEventListener('webglcontextlost', (e)=>{ e.preventDefault(); running=false;
+  localStorage.setItem('bench_quality','low');
+  showErr('GPU-context verloren — kwaliteit teruggezet naar Low; de pagina herlaadt…');
+  setTimeout(()=>location.reload(), 1600);
+}, false);
+canvas.addEventListener('webglcontextrestored', ()=>{ running=true; }, false);
 
 addEventListener('resize',()=>{
   camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth,innerHeight); composer.setSize(innerWidth,innerHeight);
-  cinePass.uniforms.res.value.set(innerWidth,innerHeight);
+  renderer.setSize(innerWidth,innerHeight); if(composer) composer.setSize(innerWidth,innerHeight);
+  if(cinePass) cinePass.uniforms.res.value.set(innerWidth,innerHeight);
 });
 </script>
 </body>
