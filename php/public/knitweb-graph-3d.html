@@ -30,13 +30,13 @@ html,body{margin:0;height:100%;background:#0e1117;color:#e8edf4;font-family:-app
 <div id="graph"></div>
 <div class="bar">
  <span class="t">Knitweb · 3D</span>
- <div class="seg" id="seg"><button data-v="plugins" class="on">Plugins</button><button data-v="begrippen">Begrippen</button><button data-v="live">Live chem-web</button></div>
+ <div class="seg" id="seg"><button data-v="plugins" class="on">Plugins</button><button data-v="begrippen">Begrippen</button><button data-v="live">Live chem-field</button></div>
  <div class="tg"><label class="sw"><input type="checkbox" id="kw" checked><span class="sl"></span></label><label for="kw" style="cursor:pointer">Trefwoorden <b id="kwst">aan</b></label></div>
  <div class="tg"><label for="lang">Taal</label><select id="lang"><option value="en">EN</option><option value="ru">RU</option><option value="zh">中文</option><option value="ar">AR</option></select></div>
  <span class="hint">sleep node · scroll=zoom · klik=centreer · sleep achtergrond=roteer</span>
 </div>
 <div id="panel"><span class="k" id="pk">start</span><h3 id="pt">3D kennisgraaf</h3>
-<p id="pp">Hover een node voor details, een lijn voor de relatie. Klik een node om te centreren. Kies <b>Live chem-web</b> om de echte knitweb-kennisgraaf te laden. Zet een VR-headset op en klik op <b>VR</b> om nodes met controllers vast te pakken en te verplaatsen.</p></div>
+<p id="pp">Hover een node voor details, een lijn voor de relatie. Klik een node om te centreren. Kies <b>Live chem-field</b> om de echte knitweb-kennisgraaf te laden. Zet een VR-headset op en klik op <b>VR</b> om nodes met controllers vast te pakken en te verplaatsen.</p></div>
 <div id="vrbtn"><button id="enter-vr" disabled>VR laden…</button></div>
 <div id="xr-hint">In VR: richt controller op een node en trek de <b>trigger</b> om te selecteren. Houd de <b>grip-knop</b> ingedrukt om een node vast te pakken en te verplaatsen.</div>
 
@@ -69,14 +69,15 @@ function showNode(n){if(!n)return;window._lastNode=n;pk.textContent=n.group;pt.t
 function showLink(l){if(!l)return;var a=lc(l.source),b=lc(l.target);pk.textContent='relatie';pt.textContent=a+'  '+(l.rel?'·':'')+'  '+b;pp.innerHTML='<b style="color:#ffd479">'+esc(rl(l.rel))+'</b>'+(l.phrase?' — '+esc(l.phrase):'');}
 function authColor(by){var h=0,s=String(by||'?');for(var i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))%360;return 'hsl('+h+',55%,58%)';}
 function setView(v){cur=v;[].forEach.call(document.querySelectorAll('#seg button'),function(b){b.className=b.dataset.v===v?'on':'';});if(Graph&&DATA[v]){Graph.graphData(DATA[v]);setTimeout(function(){try{Graph.zoomToFit(700,55);}catch(e){}},350);}}
-function loadLive(){pp.innerHTML='live chem-web laden…';var cfg=window.MOLGANG_GRAPH_ENDPOINTS;var paths=(Array.isArray(cfg)&&cfg.length?cfg:['explorer-graph.json','molgang/explorer-graph.json','/molgang/explorer-graph.json']).slice();
- (function tryp(i){if(i>=paths.length){pp.innerHTML='&#9888; geen explorer-graph.json gevonden (live chem-web niet beschikbaar hier)';return;}
+function loadLive(){pp.innerHTML='live chem-field laden…';var cfg=window.MOLGANG_GRAPH_ENDPOINTS;var paths=(Array.isArray(cfg)&&cfg.length?cfg:['explorer-graph.json','molgang/explorer-graph.json','/molgang/explorer-graph.json']).slice();
+ (function tryp(i){if(i>=paths.length){pp.innerHTML='&#9888; geen explorer-graph.json gevonden (live chem-field niet beschikbaar hier)';return;}
   fetch(paths[i]).then(function(r){if(!r.ok)throw 0;return r.json();}).then(function(d){
    var deg={};(d.edges||[]).forEach(function(e){deg[e.s]=(deg[e.s]||0)+1;deg[e.t]=(deg[e.t]||0)+1;});
    var nodes=(d.nodes||[]).map(function(n){return {id:n.id,name:n.lab||n.id,color:authColor(n.by),val:3+Math.min(deg[n.id]||0,9),group:'chem-concept · by '+(n.by||'?'),desc:n.def||'',ml:n.ml};});
    var ids={};nodes.forEach(function(n){ids[n.id]=1;});
    var links=(d.edges||[]).filter(function(e){return ids[e.s]&&ids[e.t];}).map(function(e){return {source:e.s,target:e.t,rel:e.r,color:'#46526a'};});
-   DATA.live={nodes:nodes,links:links};setView('live');pp.innerHTML='live chem-web ✓ — '+nodes.length+' concepten · '+links.length+' links'+(d.name?' ('+esc(d.name)+')':'');
+   DATA.live={nodes:nodes,links:links};setView('live');pp.innerHTML='live chem-field ✓ — '+nodes.length+' concepten · '+links.length+' links'+(d.name?' ('+esc(d.name)+')':'');
+   if(window._focusId){setTimeout(function(){var fn=(Graph.graphData().nodes||[]).filter(function(x){return x.id===window._focusId||x.name===window._focusId;})[0];if(fn){var dd=140,r=1+dd/Math.hypot(fn.x||1,fn.y||1,fn.z||1);Graph.cameraPosition({x:(fn.x||0)*r,y:(fn.y||0)*r,z:(fn.z||0)*r||dd},fn,1500);showNode(fn);}},1400);}
   }).catch(function(){tryp(i+1);});})(0);}
 
 document.getElementById('kw').addEventListener('change',function(){KWON=this.checked;var st=document.getElementById('kwst');if(st)st.textContent=KWON?'aan':'uit';if(window._lastNode)showNode(window._lastNode);});
@@ -274,6 +275,11 @@ function initGraph(){
     .onNodeClick(function(node){var d=160,r=1+d/Math.hypot(node.x||1,node.y||1,node.z||1);Graph.cameraPosition({x:(node.x||0)*r,y:(node.y||0)*r,z:(node.z||0)*r||d},node,1500);showNode(node);});
   window.addEventListener('resize',function(){Graph.width(window.innerWidth).height(window.innerHeight);});
   setTimeout(function(){try{Graph.zoomToFit(700,60);}catch(e){}},700);
+  // Embed/deep-link: #live auto-loads the live chem-field; #node=<id> is a wiki-style
+  // deep-link from a game page — load live, then centre + open that knot.
+  var h=decodeURIComponent(location.hash||'');
+  if(h.indexOf('#node=')===0){ window._focusId=h.slice(6); loadLive(); }
+  else if(h==='#live'){ loadLive(); }
 
   // Access Three.js internals for WebXR
   try{
