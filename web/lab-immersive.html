@@ -665,6 +665,7 @@ $('#orbitBtn').onclick=enterOrbit;
 // keep the walker inside the room and out of the bench
 function clampWalk(){
   const p=flc.getObject().position; const m=0.4;
+  if(!Number.isFinite(p.x)||!Number.isFinite(p.z)){ p.set(0,EYE,3.0); vel.set(0,0,0); return; }  // NaN guard → recover, never black out
   p.x=Math.max(-ROOM.w/2+m,Math.min(ROOM.w/2-m,p.x));
   p.z=Math.max(-ROOM.d/2+m,Math.min(ROOM.d/2-m,p.z));
   // bench keep-out (front face at z=BENCH.z+0.4)
@@ -743,12 +744,15 @@ function tick(){
   autoDowngrade(dt);
   // FPS movement
   if(mode==='fps' && flc.isLocked){
+    // NB: a never-pressed key is `undefined`, and Number(undefined) === NaN — that NaN
+    // propagated into camera.position and blanked the whole view on the very first step
+    // (HUD stayed, 3D went black). Coerce each key to 0/1 so an unpressed key is 0.
     const speed=2.4; vel.x-=vel.x*8*dt; vel.z-=vel.z*8*dt;
-    dir.z=Number(keys.KeyW||keys.ArrowUp)-Number(keys.KeyS||keys.ArrowDown);
-    dir.x=Number(keys.KeyD||keys.ArrowRight)-Number(keys.KeyA||keys.ArrowLeft);
-    dir.normalize();
-    if(keys.KeyW||keys.KeyS||keys.ArrowUp||keys.ArrowDown) vel.z-=dir.z*speed*dt*8;
-    if(keys.KeyA||keys.KeyD||keys.ArrowLeft||keys.ArrowRight) vel.x-=dir.x*speed*dt*8;
+    const fwd=(keys.KeyW||keys.ArrowUp)?1:0, back=(keys.KeyS||keys.ArrowDown)?1:0;
+    const rgt=(keys.KeyD||keys.ArrowRight)?1:0, lft=(keys.KeyA||keys.ArrowLeft)?1:0;
+    dir.z=fwd-back; dir.x=rgt-lft; if(dir.x||dir.z) dir.normalize();
+    if(fwd||back) vel.z-=dir.z*speed*dt*8;
+    if(rgt||lft) vel.x-=dir.x*speed*dt*8;
     flc.moveRight(-vel.x*dt); flc.moveForward(-vel.z*dt); clampWalk();
   } else if(mode==='orbit' && orbit){ orbit.update(); }
 
