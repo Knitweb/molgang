@@ -70,9 +70,12 @@
   .votes{display:flex;gap:8px;font-family:var(--mono);font-size:.8em;margin-top:6px}
   .votes .c{color:var(--good)}.votes .m{color:var(--bad)}.votes .a{color:var(--dim)}
   .pls{color:var(--amber)}.silk{color:var(--teal)}
-  .slagtrack{background:linear-gradient(160deg,#1c1710,#141c25);border:1px solid #3a2f1e;
-    border-radius:12px;padding:12px;margin-bottom:14px}
-  .slagtrack .bar>i{background:linear-gradient(90deg,#c98a3a,#f4b41a)}
+  .slagtrack,.mtrack{background:linear-gradient(160deg,#1c1710,#141c25);border:1px solid #3a2f1e;
+    border-radius:12px;padding:12px;margin-bottom:10px}
+  .slagtrack .bar>i,.mtrack .bar>i{background:linear-gradient(90deg,var(--slag,#c98a3a),#f4b41a)}
+  .mtrack.locked{opacity:.55;filter:saturate(.5)}
+  .mtrack.complete{border-color:var(--slag);box-shadow:0 0 0 1px var(--slag) inset,0 0 22px -8px var(--slag)}
+  #badges .chip{margin-left:6px}
   .slagchips{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
   .slagchips button{font-family:var(--mono);font-size:.8em;background:var(--panel);border:1px solid #3a2f1e;
     color:var(--ink);border-radius:7px;padding:4px 8px;cursor:pointer}
@@ -114,20 +117,15 @@
   <div class="spacer"></div>
   <span class="chip" id="wallet">⚡ <b id="w-pls">–</b> PLS · 🧵 <span id="w-silk">–</span></span>
   <span class="chip">🏅 <span id="w-title">–</span> <span class="lvl" id="w-lvl">L1</span></span>
-  <span class="chip badge-slag hidden" id="slag-badge" title="Steel Slag mission complete — the BOF-slag oxide matrix refined">⛏ Slag Refiner</span>
+  <span id="badges"></span>
   <button class="ghost" id="enter-vr" disabled>VR…</button>
 </header>
 
 <main>
   <aside class="left">
-    <div class="slagtrack" id="slagtrack">
-      <div class="lbl" style="margin-top:0">⛏ Steel Slag track</div>
-      <div class="dim" style="font-size:.8em;margin:-4px 0 8px;color:var(--dim)">Refine the BOF-slag oxide matrix</div>
-      <div class="bar"><i id="slag-bar"></i></div>
-      <div class="row" style="font-size:.82em;margin-top:4px"><span class="k">Refined</span><span class="v" id="slag-count">0 / 5</span></div>
-      <div id="slag-chips" class="slagchips"></div>
-      <a href="learn.html#slag" style="font-size:.76em;color:var(--dim)">the mission →</a>
-    </div>
+    <div class="lbl" style="margin-top:0">⚗️ Mission campaign</div>
+    <div class="dim" style="font-size:.8em;margin:-4px 0 8px;color:var(--dim)">Slag → vanadium → leach → precipitate. Weave each set to unlock the next.</div>
+    <div id="missions"></div>
     <div class="lbl">All molecules</div>
     <div class="shelf" id="shelf"></div>
   </aside>
@@ -408,8 +406,7 @@ async function boot(){
     fetch(API+"/data/molecules-3d.json").then(r=>r.json())
   ]);
   buildShelf();
-  buildSlagChips();
-  if(slagBadgeEarned()) showSlagBadge();
+  renderMissions();
   await rejoin();
   await refresh();
 }
@@ -428,52 +425,80 @@ function buildShelf(){
 }
 const sub = f => f.replace(/(\d+)/g,'<sub>$1</sub>');
 
-// Steel Slag track — the four BOF-slag oxides + limestone flux. Building this
-// matrix mirrors the ChemField/SmartSlag recovery mission (learn.html#slag).
-const SLAG = ["CaO","SiO2","MgO","Al2O3","CaCO3"];
-let slagWoven = new Set();
-function buildSlagChips(){
-  const box=$("#slag-chips"); box.innerHTML="";
-  SLAG.forEach(f=>{
-    const b=document.createElement("button");
-    b.dataset.f=f; b.innerHTML=sub(f);
-    b.onclick=()=>{ const sb=[...document.querySelectorAll(".shelf button")]
+// ── Mission campaign — a hydrometallurgy progression that mirrors the real
+// ChemField/SmartSlag → VANELEX vanadium-from-slag route (learn.html#slag).
+// Each mission = a set of molecules to weave; completing one unlocks the next.
+// Mission 1 keeps the original "Slag Refiner" localStorage key (backward-compat).
+const MISSIONS = [
+  { id:"slag",     icon:"⛏", name:"Steel Slag",         badge:"Slag Refiner",
+    key:"molgang_slag_refiner", desc:"Refine the BOF-slag oxide matrix + limestone flux.",
+    mols:["CaO","SiO2","MgO","Al2O3","CaCO3"] },
+  { id:"vanadium", icon:"🔬", name:"Vanadium Recovery",  badge:"Vanadium Extractor",
+    key:"molgang_m_vanadium", desc:"Isolate the V/Ti-bearing oxides — the SmartSlag/VANELEX target.",
+    mols:["V2O5","V2O3","TiO2","Fe2O3"] },
+  { id:"leach",    icon:"🧪", name:"Acid Leach",          badge:"Leach Master",
+    key:"molgang_m_leach", desc:"Build the hydrometallurgical leaching acids.",
+    mols:["H2SO4","HCl","HNO3","H3PO4"] },
+  { id:"precip",   icon:"⚗️", name:"Precipitate & Purify", badge:"Precipitator",
+    key:"molgang_m_precip", desc:"Neutralise and precipitate the recovered metals.",
+    mols:["NaOH","KOH","CuSO4","BaSO4"] },
+];
+const woven = new Set();                               // every term this wallet has woven
+const missionDone = m => localStorage.getItem(m.key) === "1";
+// A mission is unlocked once every earlier mission is complete.
+const missionUnlocked = i => i === 0 || missionDone(MISSIONS[i - 1]);
+
+function renderMissions(){
+  const host = $("#missions"); if(!host) return;
+  host.innerHTML = MISSIONS.map((m, i) => {
+    const locked = !missionUnlocked(i) && !missionDone(m);
+    const chips = m.mols.map(f => `<button data-f="${f}"${locked?" disabled":""}>${sub(f)}</button>`).join("");
+    return `<div class="mtrack${locked?" locked":""}" id="m-${m.id}" style="--slag:${missionColor(i)}">
+      <div class="lbl" style="margin-top:0">${m.icon} ${m.name}${locked?' <span class="dim" style="font-weight:400">· 🔒 vergrendeld</span>':''}</div>
+      <div class="dim" style="font-size:.8em;margin:-4px 0 8px">${m.desc}</div>
+      <div class="bar"><i id="bar-${m.id}"></i></div>
+      <div class="row" style="font-size:.82em;margin-top:4px"><span class="k">Refined</span><span class="v" id="cnt-${m.id}">0 / ${m.mols.length}</span></div>
+      <div class="slagchips" id="chips-${m.id}">${chips}</div>
+      <div class="slag-stage" id="stage-${m.id}"></div>
+      <a href="learn.html#slag" style="font-size:.76em;color:var(--dim)">the mission →</a>
+    </div>`;
+  }).join("");
+  // wire mission chips → select the molecule on the shelf (locked chips are disabled)
+  host.querySelectorAll(".slagchips button:not([disabled])").forEach(b => {
+    b.onclick = () => { const f=b.dataset.f; const sb=[...document.querySelectorAll(".shelf button")]
       .find(x=>x.textContent.replace(/\s/g,'').startsWith(f)); select(f, sb); };
-    box.appendChild(b);
   });
+  renderBadges();
 }
-const SLAG_MAJORS = ["CaO","SiO2","MgO","Al2O3"];   // the oxide matrix
-const SLAG_FLUX = "CaCO3";                            // limestone flux
-function slagBadgeEarned(){ return localStorage.getItem("molgang_slag_refiner")==="1"; }
-function showSlagBadge(){ $("#slag-badge").classList.remove("hidden"); }
+const MCOLORS = ["#c98a3a","#7cf6c8","#8fd0ff","#d0a0f0"];
+const missionColor = i => MCOLORS[i % MCOLORS.length];
 
-function updateSlag(st){
-  (st?.my_knits?.knits||[]).forEach(k=>{ if(k.woven && SLAG.includes(k.term)) slagWoven.add(k.term); });
-  const n=slagWoven.size;
-  $("#slag-count").textContent=`${n} / ${SLAG.length}`;
-  $("#slag-bar").style.width=Math.round(n/SLAG.length*100)+"%";
-  document.querySelectorAll("#slag-chips button").forEach(b=>
-    b.classList.toggle("done", slagWoven.has(b.dataset.f)));
+function renderBadges(){
+  const host = $("#badges"); if(!host) return;
+  host.innerHTML = MISSIONS.filter(missionDone).map(m =>
+    `<span class="chip badge-slag" title="${m.name} mission complete">${m.icon} ${m.badge}</span>`).join("");
+}
 
-  // two-stage mission: map the 4-oxide matrix, then add the flux
-  const majors = SLAG_MAJORS.filter(f=>slagWoven.has(f)).length;
-  const fluxed = slagWoven.has(SLAG_FLUX);
-  let stage = $("#slag-stage");
-  if(!stage){ stage=document.createElement("div"); stage.id="slag-stage"; stage.className="slag-stage";
-    $("#slag-count").parentElement.after(stage); }
-  const complete = n===SLAG.length;
-  stage.innerHTML = complete
-    ? `<span class="slag-done">✓ Matrix refined · ⛏ Slag Refiner earned</span>`
-    : `<span>Matrix <b>${majors}/4</b></span><span>Flux ${fluxed?'✓':'—'}</span>`;
-
-  $("#slagtrack").classList.toggle("complete", complete);
-  if(complete){
-    showSlagBadge();
-    if(!slagBadgeEarned()){
-      localStorage.setItem("molgang_slag_refiner","1");
-      toast("⛏ Slag Refiner earned — BOF-slag matrix + flux complete!");
+function updateMissions(st){
+  (st?.my_knits?.knits||[]).forEach(k => { if(k.woven && k.term) woven.add(k.term); });
+  MISSIONS.forEach((m, i) => {
+    const have = m.mols.filter(f => woven.has(f));
+    const n = have.length, complete = n === m.mols.length;
+    const cnt=$("#cnt-"+m.id), bar=$("#bar-"+m.id), stage=$("#stage-"+m.id), track=$("#m-"+m.id);
+    if(cnt) cnt.textContent = `${n} / ${m.mols.length}`;
+    if(bar) bar.style.width = Math.round(n/m.mols.length*100)+"%";
+    document.querySelectorAll("#chips-"+m.id+" button").forEach(b =>
+      b.classList.toggle("done", woven.has(b.dataset.f)));
+    if(stage) stage.innerHTML = complete
+      ? `<span class="slag-done">✓ ${m.name} refined · ${m.icon} ${m.badge} earned</span>` : "";
+    if(track) track.classList.toggle("complete", complete);
+    if(complete && !missionDone(m)){
+      localStorage.setItem(m.key, "1");
+      toast(`${m.icon} ${m.badge} earned — ${m.name} complete!`);
+      renderMissions();                                // re-render to unlock the next mission
     }
-  }
+  });
+  renderBadges();
 }
 
 let mode = "explore";
@@ -578,7 +603,7 @@ $("#propose").onclick = async ()=>{
     const earned = before ? st.you.pulses - before.pulses : null;
     showResult(knit, earned);
     applyWallet(st.you, {flash:true});
-    updateSlag(st);
+    updateMissions(st);
   }catch(e){ toast("Propose failed: "+e.message); }
   $("#propose").textContent="Propose bond · 🧵1"; $("#propose").disabled = mode==="build" && revealed.size!==(MOLS[selected]?.atoms.length||0);
 };
@@ -675,7 +700,7 @@ async function refresh(){
       toast("Sessie hersteld na server-herstart");
     }
     applyWallet(st.you);
-    updateSlag(st);
+    updateMissions(st);
   }catch(e){
     toast("⚠ Verbinding weg — opnieuw verbinden…");
   }
