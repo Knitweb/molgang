@@ -11,7 +11,7 @@
  */
 "use strict";
 
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const SHELL_CACHE = `molgang-shell-${CACHE_VERSION}`;
 const API_CACHE = `molgang-api-${CACHE_VERSION}`;
 
@@ -68,7 +68,24 @@ self.addEventListener("fetch", (e) => {
     return;
   }
 
-  // static shell: cache-first + background revalidate
+  // App CODE (HTML documents + JS) → NETWORK-FIRST so a deploy always loads fresh
+  // (cache-first here served a stale lab-immersive.html — its heavy GPU path black-
+  // screened after a fix had shipped). Cache is only the offline fallback.
+  const isCode = req.destination === "document" || url.pathname.endsWith("/") ||
+    /\.(html|mjs|js)$/.test(url.pathname);
+  if (isCode) {
+    e.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok) { const copy = res.clone(); caches.open(SHELL_CACHE).then((c) => c.put(req, copy)); }
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // Static assets (icons/css/json/fonts) → cache-first + background revalidate.
   e.respondWith(
     caches.match(req).then((hit) => {
       const refresh = fetch(req)
