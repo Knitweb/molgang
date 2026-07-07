@@ -15,3 +15,20 @@
 //
 // >>> OWNER: fill this in once the backend is up, then re-upload config.js. <<<
 window.MOLGANG_API = "";   // e.g. "https://molgang.fly.dev"
+
+// ── P2P bootstrap nodes ──────────────────────────────────────────────────────
+// The chem-field knowledge graph and the game sync from these peers, first
+// reachable wins, then the same-origin snapshot. knitweb.art = node 1, 5mart.ml =
+// node 2. A molgang-served node sends CORS, so cross-origin retrieval works.
+// (knitweb.art is pending domain verification; until it resolves, node 2 + the
+//  local snapshot serve the graph — the waterfall degrades gracefully.)
+window.MOLGANG_PEERS = [
+  { name: "knitweb.art", base: "https://knitweb.art/molgang" },
+  { name: "5mart.ml",    base: "https://5mart.ml/molgang" }
+];
+window.MOLGANG_GRAPH_ENDPOINTS = [
+  "https://knitweb.art/molgang/explorer-graph.json",
+  "https://5mart.ml/molgang/explorer-graph.json",
+  "explorer-graph.json",
+  "molgang/explorer-graph.json"
+];
