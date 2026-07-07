@@ -23,11 +23,11 @@ window.MOLGANG_API = "";   // e.g. "https://molgang.fly.dev"
 // (knitweb.art is pending domain verification; until it resolves, node 2 + the
 //  local snapshot serve the graph — the waterfall degrades gracefully.)
 window.MOLGANG_PEERS = [
-  { name: "knitweb.art", base: "https://knitweb.art/molgang" },
+  { name: "knitweb.art", base: "https://knitweb.art/chem" },
   { name: "5mart.ml",    base: "https://5mart.ml/molgang" }
 ];
 window.MOLGANG_GRAPH_ENDPOINTS = [
-  "https://knitweb.art/molgang/explorer-graph.json",
+  "https://knitweb.art/chem/molgang/explorer-graph.json",
   "https://5mart.ml/molgang/explorer-graph.json",
   "explorer-graph.json",
   "molgang/explorer-graph.json"
