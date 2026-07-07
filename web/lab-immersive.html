@@ -39,6 +39,17 @@
     border-radius:999px; padding:6px 12px; font-size:12.5px; transition:.12s; }
   #chips button:hover { transform:translateY(-1px); border-color:var(--accent); }
   #chips button.on { background:var(--accent); color:#05221a; border-color:var(--accent); font-weight:600; }
+  .wallet { pointer-events:none; font-size:12px; color:var(--ink); background:#0d131bcc; border:1px solid var(--line);
+    border-radius:8px; padding:6px 10px; font-variant-numeric:tabular-nums; }
+  .wallet b { color:var(--accent); }
+  #playbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; pointer-events:auto; margin-top:2px; }
+  #propose { pointer-events:auto; cursor:pointer; border:0; border-radius:10px; padding:8px 16px; font-size:13px; font-weight:600;
+    color:#05221a; background:var(--accent); box-shadow:0 6px 22px #37d6a833; transition:.12s; }
+  #propose:hover:not(:disabled) { filter:brightness(1.06); transform:translateY(-1px); }
+  #propose:disabled { opacity:.4; cursor:not-allowed; box-shadow:none; }
+  #result { font-size:12px; color:var(--dim); font-variant-numeric:tabular-nums; }
+  #result b { color:var(--ink); } #result .ok { color:var(--accent); } #result .no { color:#e0533c; }
+  #result .cid { font-family:ui-monospace,monospace; font-size:10.5px; color:var(--dim); word-break:break-all; }
 
   /* tooltip */
   #tip { position:fixed; z-index:6; pointer-events:none; padding:5px 9px; border-radius:7px; font-size:12px;
@@ -70,6 +81,7 @@
     <span class="brand">🧪 <b>MOLGANG</b></span>
     <span class="tag">· The Bench — immersive lab</span>
     <span class="spacer"></span>
+    <span class="wallet" id="wallet" title="Your PLS wallet — earn by weaving confirmed bonds">⚡ <b id="w-pls">–</b> PLS · 🧵 <span id="w-silk">–</span> · <span id="w-title">—</span> <b id="w-lvl">L1</b></span>
     <a href="knitweb-graph-3d.html#live" title="Open this term in the chem-field knowledge graph (wiki)">🕸️ chem-field</a>
     <a href="lab-3d.html" title="The reactive 3D lab: build, propose, settle, earn PLS">→ Reactive Lab</a>
     <a href="lab-analyze.html" title="Analytical lab: XRF + ICP-OES">→ Analytical Lab</a>
@@ -82,6 +94,10 @@
   <div class="hud" id="dock">
     <span class="lbl">Specimen on the bench turntable</span>
     <div id="chips"></div>
+    <div id="playbar">
+      <button id="propose" disabled>⚗️ Propose <span id="p-name">specimen</span> · 🧵1</button>
+      <span id="result"></span>
+    </div>
   </div>
   <div id="hint">WASD / arrows to walk · mouse to look · <b>E</b> next specimen · <b>Esc</b> to release</div>
 
@@ -477,7 +493,9 @@ function buildChips() {
   });
 }
 function selectMol(id){ if(!MOLS[id])return; buildMolecule(id);
-  [...document.querySelectorAll('#chips button')].forEach(b=>b.classList.toggle('on',b.dataset.id===id)); }
+  [...document.querySelectorAll('#chips button')].forEach(b=>b.classList.toggle('on',b.dataset.id===id));
+  const pn=$('#p-name'); if(pn) pn.textContent=(MOLS[id].name||id);
+  const pb=$('#propose'); if(pb && ONLINE) pb.disabled=false; }
 function cycleMol(){ const avail=PICKS.filter(id=>MOLS[id]); const i=avail.indexOf(currentId); selectMol(avail[(i+1)%avail.length]); }
 
 // ---------- data load --------------------------------------------------------
@@ -486,8 +504,59 @@ Promise.all([
   fetch('data/molecules-3d.json').then(r=>r.json())
 ]).then(([els,mols])=>{
   ELEMENTS=els; MOLS=mols; buildChips();
-  buildMolecule(PICKS.find(id=>MOLS[id])||Object.keys(MOLS)[0]);
+  const first=PICKS.find(id=>MOLS[id])||Object.keys(MOLS)[0];
+  buildMolecule(first); const pn=$('#p-name'); if(pn) pn.textContent=(MOLS[first]&&MOLS[first].name)||first;
+  boot();
 }).catch(e=>showErr('Could not load lab data ('+e+'). Serve via `molgang serve` so /data/*.json resolves.'));
+
+// ---------- reactive loop: join → propose → BFT settle → earn PLS -------------
+// The Bench is playable when served by `molgang serve` (same-origin API); on a
+// static mirror the API is absent, so it degrades to a visual showcase.
+const API = (window.MOLGANG_API ?? "");
+const esc = s => String(s??"").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+let sid=null, ONLINE=false, lastYou=null;
+const api = async (path, method="GET", body=null, _retry=true) => {
+  const r = await fetch(API + path, { method, headers: body?{"content-type":"application/json"}:{}, body: body?JSON.stringify(body):null });
+  if(r.status===429 && _retry){ const w=(parseFloat(r.headers.get("Retry-After"))||1)*1000; await sleep(Math.min(w,4000)); return api(path,method,body,false); }
+  if(!r.ok){ let m=""; try{ m=(await r.json()).error||""; }catch{} const e=new Error(m||(path+" "+r.status)); e.status=r.status; throw e; }
+  return r.json();
+};
+const isSessionLost = e => e && (/session|seat|take a seat|unknown/i.test(e.message||"") || e.status===404);
+function deviceId(){ let d=localStorage.getItem("molgang_device"); if(!d){ d=(crypto.randomUUID?crypto.randomUUID():String(Math.random()).slice(2)); localStorage.setItem("molgang_device",d);} return d; }
+async function rejoin(){
+  const name=localStorage.getItem("molgang_name")||("Chemist "+Math.floor(Math.random()*900+100)); localStorage.setItem("molgang_name",name);
+  const j=await api("/api/join","POST",{name, avatar:"🏛", device:deviceId()}); sid=j.sid;
+  const st=await api("/api/state?sid="+sid); await api("/api/sit","POST",{sid, table:st.tables[0].id}); return st;
+}
+async function withSession(fn){ try{ return await fn(); }catch(e){ if(!isSessionLost(e)) throw e; await rejoin(); return await fn(); } }
+function applyWallet(you){ if(!you)return; lastYou=you;
+  $('#w-pls').textContent=you.pulses; $('#w-silk').textContent=you.silk; $('#w-title').textContent=you.title; $('#w-lvl').textContent="L"+you.level; }
+function showResult(k, earned){
+  const R=$('#result'); if(!R) return;
+  if(!k){ R.innerHTML='<span class="dim">no settlement</span>'; return; }
+  const ok=k.woven && k.outcome==="confirmed"; const v=k.votes||{confirm:0,mismatch:0,abstain:0}; const staked=v.total||0;
+  R.innerHTML = ok
+    ? `<b class="ok">✓ woven</b> · ▲${v.confirm} ▼${v.mismatch} · ${staked} PLS staked${earned!=null?` · <b class="ok">+${earned} PLS</b>`:''} · 🧵+1 <span class="cid">${(k.fiber_cid||'').slice(0,24)}…</span>`
+    : `<b class="no">✗ ${k.outcome||'no quorum'}</b> · ▲${v.confirm} ▼${v.mismatch} · stakes refunded`;
+}
+async function boot(){
+  try{ const st=await rejoin(); ONLINE=true; applyWallet(st.you); if(currentId) $('#propose').disabled=false; }
+  catch(e){ ONLINE=false; $('#w-pls').textContent="offline"; $('#w-title').textContent="static"; $('#result').innerHTML='<span class="dim">serve via <b>molgang serve</b> to play the reactive loop</span>'; }
+}
+$('#propose').onclick = async ()=>{
+  if(!currentId || !ONLINE) return;
+  const btn=$('#propose'); const before=lastYou?{pulses:lastYou.pulses}:null;
+  btn.disabled=true; btn.textContent="Staking… 🧵";
+  try{
+    const st=await withSession(async ()=>{ const p=await api("/api/propose","POST",{sid, term:currentId}); const s=await api("/api/state?sid="+sid); s._pid=p.pid; return s; });
+    const knit=(st.my_knits.knits||[]).find(k=>k.pid===st._pid)||st.my_knits.knits[0];
+    const earned=before?st.you.pulses-before.pulses:null;
+    showResult(knit, earned); applyWallet(st.you);
+  }catch(e){ $('#result').innerHTML='<span class="no">propose failed: '+esc(e.message)+'</span>'; }
+  btn.innerHTML='⚗️ Propose <span id="p-name">'+esc((MOLS[currentId]&&MOLS[currentId].name)||currentId)+'</span> · 🧵1'; btn.disabled=false;
+};
+setInterval(async ()=>{ if(!sid||!ONLINE)return; try{ await api("/api/heartbeat","POST",{sid}); }catch(e){ if(isSessionLost(e)){ try{ await rejoin(); }catch{} } } }, 20000);
 
 // ---------- controls: pointer-lock FPS + orbit fallback ----------------------
 const flc = new PointerLockControls(camera, renderer.domElement);
