@@ -47,6 +47,10 @@
     color:#05221a; background:var(--accent); box-shadow:0 6px 22px #37d6a833; transition:.12s; }
   #propose:hover:not(:disabled) { filter:brightness(1.06); transform:translateY(-1px); }
   #propose:disabled { opacity:.4; cursor:not-allowed; box-shadow:none; }
+  #cert { pointer-events:auto; cursor:pointer; border:1px solid var(--line); border-radius:10px; padding:8px 14px; font-size:12.5px;
+    color:#e0a04c; background:#0e141cd0; transition:.12s; }
+  #cert:hover:not(:disabled) { border-color:#e0a04c; transform:translateY(-1px); }
+  #cert:disabled { opacity:.4; cursor:not-allowed; }
   #result { font-size:12px; color:var(--dim); font-variant-numeric:tabular-nums; }
   #result b { color:var(--ink); } #result .ok { color:var(--accent); } #result .no { color:#e0533c; }
   #result .cid { font-family:ui-monospace,monospace; font-size:10.5px; color:var(--dim); word-break:break-all; }
@@ -96,6 +100,7 @@
     <div id="chips"></div>
     <div id="playbar">
       <button id="propose" disabled>⚗️ Propose <span id="p-name">specimen</span> · 🧵1</button>
+      <button id="cert" disabled title="Mint your proof-of-useful-work certificate (unlocks at Level 2)">🏅 Certificate · L2</button>
       <span id="result"></span>
     </div>
   </div>
@@ -531,7 +536,17 @@ async function rejoin(){
 }
 async function withSession(fn){ try{ return await fn(); }catch(e){ if(!isSessionLost(e)) throw e; await rejoin(); return await fn(); } }
 function applyWallet(you){ if(!you)return; lastYou=you;
-  $('#w-pls').textContent=you.pulses; $('#w-silk').textContent=you.silk; $('#w-title').textContent=you.title; $('#w-lvl').textContent="L"+you.level; }
+  $('#w-pls').textContent=you.pulses; $('#w-silk').textContent=you.silk; $('#w-title').textContent=you.title; $('#w-lvl').textContent="L"+you.level;
+  const c=$('#cert'); if(c){ if(you.level>=2){ c.disabled=false; c.textContent="🏅 Mint certificate (PDF)"; } else { c.disabled=true; c.textContent="🏅 Certificate · L2"; } } }
+async function mintCertificate(){
+  let r; try{ r=await fetch(API+"/api/certificate",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({sid})}); }
+  catch(e){ $('#result').innerHTML='<span class="no">server unreachable — run molgang serve</span>'; return; }
+  if(r.status===400){ try{ await rejoin(); }catch{} return; }
+  if(!r.ok){ $('#result').innerHTML='<span class="no">certificate: HTTP '+r.status+'</span>'; return; }
+  const blob=await r.blob(); const u=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=u; a.download="molgang-pouw-certificate.pdf"; a.click(); URL.revokeObjectURL(u);
+  $('#result').innerHTML='<b class="ok">🏅 certificate downloaded</b> — PoUW, public copy, key redacted';
+}
 function showResult(k, earned){
   const R=$('#result'); if(!R) return;
   if(!k){ R.innerHTML='<span class="dim">no settlement</span>'; return; }
@@ -556,6 +571,7 @@ $('#propose').onclick = async ()=>{
   }catch(e){ $('#result').innerHTML='<span class="no">propose failed: '+esc(e.message)+'</span>'; }
   btn.innerHTML='⚗️ Propose <span id="p-name">'+esc((MOLS[currentId]&&MOLS[currentId].name)||currentId)+'</span> · 🧵1'; btn.disabled=false;
 };
+$('#cert').onclick = ()=>mintCertificate();
 setInterval(async ()=>{ if(!sid||!ONLINE)return; try{ await api("/api/heartbeat","POST",{sid}); }catch(e){ if(isSessionLost(e)){ try{ await rejoin(); }catch{} } } }, 20000);
 
 // ---------- controls: pointer-lock FPS + orbit fallback ----------------------
