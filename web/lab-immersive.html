@@ -154,24 +154,26 @@ const canvas = $('#scene');
 // shadow resolution and pixel ratio all key off the tier. WebGPU is detected for a
 // future high tier; today we ship robust adaptive WebGL. A saved override wins, and
 // a context-loss auto-drops to 'low' and reloads.
+// `arealights`: RectAreaLights use an expensive per-frame LTC BRDF — a second cause
+// (after transmission) of context loss on integrated GPUs during movement, so they're
+// OFF on low and we light with a hemisphere + directional + cheap point pools instead.
 const PRESETS = {
-  low:    { pr:1.0, transmission:false, sao:false, bloom:false, cinematic:false, shadows:false, shadowSize:1024 },
-  medium: { pr:1.5, transmission:false, sao:false, bloom:true,  cinematic:true,  shadows:true,  shadowSize:1024 },
-  high:   { pr:2.0, transmission:true,  sao:true,  bloom:true,  cinematic:true,  shadows:true,  shadowSize:2048 },
+  low:    { pr:1.0, transmission:false, sao:false, bloom:false, cinematic:false, shadows:false, shadowSize:1024, arealights:false },
+  medium: { pr:1.5, transmission:false, sao:false, bloom:true,  cinematic:true,  shadows:true,  shadowSize:1024, arealights:true },
+  high:   { pr:2.0, transmission:true,  sao:true,  bloom:true,  cinematic:true,  shadows:true,  shadowSize:2048, arealights:true },
 };
 const HAS_WEBGPU = typeof navigator!=='undefined' && !!navigator.gpu;
 function detectTier(gl){
   const saved = localStorage.getItem('bench_quality');
   if (saved && PRESETS[saved]) return saved;
+  // Conservative default: only a detected DISCRETE GPU gets the heavy path. Everything
+  // else — Apple M-series, Intel, mobile, unknown — starts on Low (guaranteed smooth);
+  // the player can opt up to Medium/High from the start screen. Ship the safe default.
   try {
     const dbg = gl.getExtension('WEBGL_debug_renderer_info');
     const r = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
-    const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent||'');
-    const discrete = /NVIDIA|GeForce|Radeon RX|Radeon Pro|AMD/i.test(r);
-    const weak = /Intel|Adreno|Mali|PowerVR|SwiftShader|llvmpipe/i.test(r);
-    if (mobile || weak) return 'low';        // Intel iGPU / mobile → cheapest
-    if (discrete) return 'high';             // dedicated GPU → full effects
-    return 'medium';                         // Apple M-series & unknown → safe middle (no transmission)
+    const discrete = /NVIDIA|GeForce|Radeon RX|Radeon Pro|Radeon Vega|AMD\b/i.test(r);
+    return discrete ? 'high' : 'low';
   } catch { return 'low'; }
 }
 
@@ -208,16 +210,20 @@ const EYE = 1.62;
 camera.position.set(0, EYE, 3.4);
 
 // ---------- lights -----------------------------------------------------------
-RectAreaLightUniformsLib.init();
-scene.add(new THREE.HemisphereLight(0xbcd2e6, 0x20262e, 0.28));
+if (Q.arealights) RectAreaLightUniformsLib.init();
+// On low, the area lights are gone, so lift the ambient fill to keep it well-lit.
+scene.add(new THREE.HemisphereLight(0xbcd2e6, 0x20262e, Q.arealights ? 0.28 : 0.75));
 
 // two recessed ceiling fluorescent panels — the signature "lab light" look
 function ceilingPanel(x, z) {
   const CH = 2.95;
-  const light = new THREE.RectAreaLight(0xf3f8ff, 3.0, 1.6, 0.5);
-  light.position.set(x, CH-0.02, z);
-  light.rotation.x = -Math.PI/2;
-  scene.add(light);
+  if (Q.arealights) {
+    const light = new THREE.RectAreaLight(0xf3f8ff, 3.0, 1.6, 0.5);
+    light.position.set(x, CH-0.02, z); light.rotation.x = -Math.PI/2;
+    scene.add(light);
+  } else {
+    const pl = new THREE.PointLight(0xf3f8ff, 14, 8, 2); pl.position.set(x, CH-0.2, z); scene.add(pl);  // cheap pooled light
+  }
   const diff = new THREE.Mesh(
     new THREE.PlaneGeometry(1.62, 0.52),
     new THREE.MeshStandardMaterial({ color:0xffffff, emissive:0xf2f7ff, emissiveIntensity:1.1, roughness:0.4 }));
@@ -239,10 +245,14 @@ sun.shadow.camera.left=-8; sun.shadow.camera.right=8; sun.shadow.camera.top=8; s
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 4;
 scene.add(sun);
 
-// warm interior fill in the fume hood
-const hoodLight = new THREE.RectAreaLight(0xfff0d8, 1.25, 1.8, 0.5);
-hoodLight.position.set(2.4, 2.15, -3.4); hoodLight.rotation.x = -Math.PI/2;
-scene.add(hoodLight);
+// warm interior fill in the fume hood (area light on higher tiers, cheap point on low)
+if (Q.arealights) {
+  const hoodLight = new THREE.RectAreaLight(0xfff0d8, 1.25, 1.8, 0.5);
+  hoodLight.position.set(2.4, 2.15, -3.4); hoodLight.rotation.x = -Math.PI/2;
+  scene.add(hoodLight);
+} else {
+  const hp = new THREE.PointLight(0xfff0d8, 5, 3, 2); hp.position.set(2.4, 2.0, -3.4); scene.add(hp);
+}
 
 // ---------- material factory -------------------------------------------------
 const M = {
@@ -717,7 +727,7 @@ function updateTip(){
 
 // ---------- animate ----------------------------------------------------------
 const clock=new THREE.Clock();
-let running=true;
+let running=true, frame=0;
 // Adaptive downgrade: if the frame budget is blown for a stretch, drop a tier so a
 // weak GPU stays smooth instead of hitching toward a context loss.
 let slow=0, downgraded=false;
@@ -754,7 +764,7 @@ function tick(){
     let x=p.getX(i)+Math.sin(t*1.5+s.seed[i]*10)*0.0008; if(y>s.origin.y+0.5){y=s.origin.y;x=s.origin.x+(Math.random()-0.5)*0.06;} p.setY(i,y); p.setX(i,x);} p.needsUpdate=true; });
 
   if(cinePass) cinePass.uniforms.time.value=t;
-  updateTip();
+  if((frame++ & 7)===0) updateTip();   // raycast ~8× less often — cheap, still responsive
   renderFrame();
   requestAnimationFrame(tick);
 }
@@ -767,8 +777,14 @@ tick();
 // under load → black screen. Catch it, fall to the low tier, and reload cleanly.
 canvas.addEventListener('webglcontextlost', (e)=>{ e.preventDefault(); running=false;
   localStorage.setItem('bench_quality','low');
-  showErr('GPU-context verloren — kwaliteit teruggezet naar Low; de pagina herlaadt…');
-  setTimeout(()=>location.reload(), 1600);
+  // Reload once to apply Low; if we already reloaded, don't loop — show guidance.
+  if(sessionStorage.getItem('bench_reloaded')){
+    showErr('GPU-context verloren op Low — je toestel kan deze scène niet stabiel renderen. Open evt. de Reactive Lab (lichter).');
+  } else {
+    sessionStorage.setItem('bench_reloaded','1');
+    showErr('GPU-context verloren — kwaliteit op Low gezet; de pagina herlaadt…');
+    setTimeout(()=>location.reload(), 1400);
+  }
 }, false);
 canvas.addEventListener('webglcontextrestored', ()=>{ running=true; }, false);
 
