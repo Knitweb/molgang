@@ -197,17 +197,43 @@ class RelaySync:
     """
 
     def __init__(self, base: str, world: World, signer: AccountNode, *,
-                 topic: str = WEB_TOPIC, opener=None) -> None:
+                 topic: str = WEB_TOPIC, opener=None, shards: int = 1, subscribe=None) -> None:
         self.base = base.rstrip("/")
         self.world = world
         self.signer = signer
         self.topic = topic
         self.cursor = 0.0
+        # Concept sharding (#97): shards==1 keeps the single un-suffixed topic (back-compat).
+        # shards>1 routes each item to <topic>.sNN by its concept key; a node reads only the
+        # shards it subscribes to (default: all). Per-shard high-water cursors live in _cursors.
+        self.shards = max(1, int(shards))
+        if subscribe is None:
+            self.subscribe = list(range(self.shards))
+        else:
+            self.subscribe = sorted({int(i) for i in subscribe if 0 <= int(i) < self.shards})
+        self._cursors: dict[str, float] = {}
         # the de-dup index of every fiber key already present in the local World
         self._seen: set[tuple] = set()
         self._reindex()
         # injectable transport (the test stub swaps this; default = urllib over HTTPS)
         self._open = opener or self._urlopen
+
+    # -- shard routing (#97) ----------------------------------------------
+    def _topic_for_item(self, item: WovenItem) -> str:
+        """The relay topic an item is published to: the base topic when unsharded, else
+        ``<topic>.sNN`` for the item's home shard."""
+        if self.shards == 1:
+            return self.topic
+        from .shard import item_shard, shard_topic
+        return shard_topic(self.topic, item_shard(item, self.shards))
+
+    def _read_topics(self) -> list[str]:
+        """The topics this node pulls from (the base topic when unsharded, else the
+        subscribed per-shard topics)."""
+        if self.shards == 1:
+            return [self.topic]
+        from .shard import shard_topic
+        return [shard_topic(self.topic, i) for i in self.subscribe]
 
     # -- transport ---------------------------------------------------------
     def _urlopen(self, url: str, data: bytes | None = None) -> dict:
@@ -232,7 +258,7 @@ class RelaySync:
         Returns the relay's ``{ok, id|error}``. Its keys are recorded locally so a later pull of
         our own echoed message is a no-op (we already wove it).
         """
-        msg = pack(item, self.signer, topic=self.topic, to=to)
+        msg = pack(item, self.signer, topic=self._topic_for_item(item), to=to)
         out = self._open(f"{self.base}/send", json.dumps(msg).encode("utf-8"))
         self._seen.update(item_keys(item))
         return out
@@ -252,8 +278,31 @@ class RelaySync:
 
         Returns ``{applied, bumped, rejected, skipped, scanned, cursor}``.
         """
-        since = self.cursor if since is None else since
-        q = urllib.parse.urlencode({"topic": self.topic, "since": since, "limit": limit})
+        if self.shards == 1:
+            # Single un-suffixed topic — identical behaviour + cursor to the pre-shard path.
+            stats, cur = self._pull_topic(self.topic, self.cursor if since is None else since,
+                                          limit=limit)
+            self.cursor = cur
+            stats["cursor"] = cur
+            return stats
+        # Sharded: drain each subscribed shard topic with its own high-water cursor, merge stats.
+        total = {"applied": 0, "bumped": 0, "rejected": 0, "skipped": 0, "scanned": 0}
+        for topic in self._read_topics():
+            start = self._cursors.get(topic, 0.0) if since is None else since
+            stats, cur = self._pull_topic(topic, start, limit=limit)
+            self._cursors[topic] = cur
+            for k in total:
+                total[k] += stats[k]
+        total["cursor"] = max(self._cursors.values()) if self._cursors else 0.0
+        # keep self.cursor meaningful (max across shards) for callers that read it
+        self.cursor = total["cursor"]
+        return total
+
+    def _pull_topic(self, topic: str, since: float, *, limit: int = 200) -> tuple[dict, float]:
+        """Drain one relay topic from ``since``: verify each signature (pinned to ``topic``),
+        weave/bump new items, and return ``(stats, new_cursor)``. Shared by the unsharded and
+        per-shard pull paths so both weave through identical verification + dedup."""
+        q = urllib.parse.urlencode({"topic": topic, "since": since, "limit": limit})
         resp = self._open(f"{self.base}/fetch?{q}", None)
         msgs = resp.get("messages", []) if isinstance(resp, dict) else []
         applied = bumped = rejected = skipped = 0
@@ -262,7 +311,7 @@ class RelaySync:
                 # our own echoed push — already woven + counted locally; never re-bump it
                 skipped += 1
                 continue
-            if not verify_message(msg, topic=self.topic):
+            if not verify_message(msg, topic=topic):
                 rejected += 1
                 continue
             try:
@@ -286,9 +335,9 @@ class RelaySync:
             self._weave(item)
             self._seen.update(keys)
             applied += 1
-        self.cursor = float(resp.get("cursor", since)) if isinstance(resp, dict) else since
-        return {"applied": applied, "bumped": bumped, "rejected": rejected,
-                "skipped": skipped, "scanned": len(msgs), "cursor": self.cursor}
+        cur = float(resp.get("cursor", since)) if isinstance(resp, dict) else since
+        return ({"applied": applied, "bumped": bumped, "rejected": rejected,
+                 "skipped": skipped, "scanned": len(msgs)}, cur)
 
     # -- weave / bump ------------------------------------------------------
     def _weave(self, item: WovenItem) -> None:
