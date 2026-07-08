@@ -298,7 +298,10 @@ class World:
                   for i in self.items[-limit:][::-1]]
         links = [{"subject": i.subject, "relation": i.relation, "object": i.object, "by": i.by}
                  for i in self.items if i.kind == "link" and i.fiber_cid not in self.tombstones]
-        terms = sorted(self._term_cid)  # the woven vocabulary (case-folded keys)
+        # The woven vocabulary as case-preserved term strings, deduped across the
+        # (term, lang) keys. Case is significant for chemistry (Co ≠ CO), so terms
+        # are NOT folded; language-tagged duplicates collapse to one display string.
+        terms = sorted({term for (term, _lang) in self._term_cid})
         return {"nodes": nodes, "edges": edges, "state_root": web_state_root(self.web),
                 "recent": recent, "links": links[-limit:][::-1], "terms": terms}
 

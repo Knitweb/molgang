@@ -124,7 +124,9 @@ def test_two_worlds_converge_over_relay(tmp_path):
     res = rb.pull()
     assert res["applied"] == 2 and res["rejected"] == 0
     g = b.graph()
-    assert "nacl" in g["terms"] and any(l["subject"] == "Na" for l in g["links"])
+    # terms are case-preserved (chemistry is case-significant: Co ≠ CO), so "NaCl"
+    # is stored verbatim rather than case-folded to "nacl".
+    assert "NaCl" in g["terms"] and any(l["subject"] == "Na" for l in g["links"])
 
     # CONVERGENCE: same node-set ⇒ identical state_root (the same UAL contribution)
     assert b.size() == a.size()
