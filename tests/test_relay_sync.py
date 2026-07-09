@@ -332,3 +332,74 @@ def test_live_relay_fetch_roundtrip(tmp_path):
     resp = rs._open(f"{base}/fetch?topic=chem", None)
     assert resp.get("messages"), "expected the seeded chem message on the live relay"
     assert all(verify_message(m) for m in resp["messages"])     # real sigs verify end-to-end
+
+
+# -- concept sharding (#97): bound per-node memory + per-topic fetch volume ----
+from molgang import chemistry
+from molgang.shard import shard_of, item_shard, shard_topic, shard_topics
+
+
+def test_shard_of_is_deterministic_and_casefold_stable():
+    # same casefold key ⇒ same shard, regardless of case or repeated calls (no PYTHONHASHSEED)
+    assert shard_of("NaCl", 8) == shard_of("nacl", 8) == shard_of("NACL", 8)
+    assert shard_of("H2O", 8) == shard_of("H2O", 8)
+    assert 0 <= shard_of("H2O", 8) < 8
+    assert shard_of("anything", 1) == 0            # n<=1 collapses to one shard
+    # a realistic vocab spreads across shards (not all in one bucket)
+    buckets = {shard_of(f, 8) for f in chemistry.MOLECULES}
+    assert len(buckets) >= 3
+    # shard_topics: unsharded is the bare base; sharded is suffixed + subscribable
+    assert shard_topics(WEB_TOPIC, 1) == [WEB_TOPIC]
+    assert shard_topics(WEB_TOPIC, 4, subscribe=[0, 2]) == [
+        shard_topic(WEB_TOPIC, 0), shard_topic(WEB_TOPIC, 2)]
+
+
+def test_item_lands_only_on_its_shard_topic(tmp_path):
+    relay = FakeRelay()
+    a = _bar_world(tmp_path, "A")
+    ra = RelaySync("http://stub", a, host_signer("A"), opener=relay.opener, shards=4)
+    a.on_weave = ra.push
+    a.weave_knit({"kind": "term", "term": "H2O"}, "alice", "f1", 3)
+    expected = shard_topic(WEB_TOPIC, shard_of("H2O", 4))
+    assert {m["topic"] for m in relay.messages} == {expected}   # only its shard topic
+    assert relay._fetch("u?topic=" + WEB_TOPIC)["count"] == 0    # NOT on the base topic
+
+
+def test_subscriber_only_receives_its_shards(tmp_path):
+    relay = FakeRelay()
+    a = _bar_world(tmp_path, "A")
+    ra = RelaySync("http://stub", a, host_signer("A"), opener=relay.opener, shards=4)
+    a.on_weave = ra.push
+    terms = list(chemistry.MOLECULES)[:16]
+    for i, t in enumerate(terms):
+        a.weave_knit({"kind": "term", "term": t}, "alice", f"f{i}", 2)
+    # B holds only shard 0
+    b = _bar_world(tmp_path, "B")
+    rb = RelaySync("http://stub", b, host_signer("B"), opener=relay.opener, shards=4, subscribe=[0])
+    rb.pull()
+    got = set(b.graph()["terms"])
+    shard0 = {t for t in terms if shard_of(t, 4) == 0}
+    assert shard0, "expected at least one term to hash to shard 0"
+    assert got == shard0                                   # exactly its shard, nothing else
+    assert all(shard_of(t, 4) == 0 for t in got)           # never a foreign-shard item
+
+
+def test_full_subscribe_converges_identically_to_unsharded(tmp_path):
+    def run(shards):
+        relay = FakeRelay()
+        a = _bar_world(tmp_path, f"A{shards}")
+        ra = RelaySync("http://stub", a, host_signer("A"), opener=relay.opener, shards=shards)
+        a.on_weave = ra.push
+        a.weave_knit({"kind": "term", "term": "H2O"}, "x", "f1", 3)
+        a.weave_knit({"kind": "term", "term": "CO2"}, "x", "f2", 3)
+        a.weave_links([{"subject": "Na", "object": "Cl", "relation": "bonds"}], "x", "f3", 4)
+        b = _bar_world(tmp_path, f"B{shards}")
+        rb = RelaySync("http://stub", b, host_signer("B"), opener=relay.opener, shards=shards)
+        res = rb.pull()
+        return a.state_root(), b.state_root(), res
+
+    (a1, b1, _), (a4, b4, res4) = run(1), run(4)
+    assert a1 == b1                     # unsharded converges (baseline)
+    assert a4 == b4                     # full-subscribe sharded converges
+    assert a1 == a4                     # sharded weaving yields the identical web
+    assert res4["applied"] == 3 and res4["rejected"] == 0
