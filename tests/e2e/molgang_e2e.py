@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
-"""MOLGANG browser end-to-end smoke test (Playwright, headless).
+"""MOLGANG browser end-to-end smoke tests (Playwright + Selenium, headless).
 
-Spins up a pristine `molgang serve` instance and runs:
-walk-in → sit → knit a term → wait for the woven result.
-Produces screenshots, prints pass/fail, and exits with a non-zero status on failure.
+Spins up pristine `molgang serve` instances per test suite and runs:
+walk-in → sit → knit a term → woven consensus flow.
+Produces screenshots, prints pass/fail, and exits with non-zero status on failure.
+
+IMPORTANT: Quorum determinism is only guaranteed with a fresh backend per test run.
+A fresh world is required because crowded tables may not reach voting consensus
+if too many concurrent proposals exist. Each test creates a clean instance via
+tempfile.TemporaryDirectory to ensure reproducible weaving behavior.
 """
 
 from __future__ import annotations
@@ -288,15 +293,87 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
     return failures
 
 
+def run_flow_selenium(base: str, shots: Path, term: str) -> list[str]:
+    """Selenium-based e2e flow: walk-in → sit → knit → woven (core path coverage).
+
+    Uses ChromeDriver for cross-browser validation. Gracefully skips if Chrome version
+    doesn't match chromedriver (common in dev; CI ensures sync). Fresh backend per run.
+    """
+    failures: list[str] = []
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+    except ImportError:
+        failures.append("Selenium not installed; skipping Selenium flow")
+        return failures
+
+    shots.mkdir(parents=True, exist_ok=True)
+    driver = None
+    try:
+        chrome_options = Options()
+        chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--window-size=1280,900")
+
+        try:
+            driver = webdriver.Chrome(options=chrome_options)
+        except Exception as e:
+            if "version" in str(e).lower() or "sessionnotcreated" in str(e).lower():
+                failures.append("Selenium: Chrome/chromedriver version mismatch (skipping for dev; CI will have sync)")
+                return failures
+            raise
+
+        wait = WebDriverWait(driver, 20)
+        driver.get(f"{base}/")
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#avatars .av-pick")))
+        driver.save_screenshot(str(shots / "sel_01-walkin.png"))
+
+        # Join flow
+        age_checkbox = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#age-ok")))
+        age_checkbox.click()
+        driver.find_element(By.CSS_SELECTOR, "#name").send_keys("🤖 Selenium")
+        driver.find_element(By.CSS_SELECTOR, "#go").click()
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#floor:not(.hidden) .table-card")))
+        driver.save_screenshot(str(shots / "sel_02-floor.png"))
+
+        # Sit and knit
+        driver.find_element(By.CSS_SELECTOR, "#floor .table-card .join-table").click()
+        wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#table:not(.hidden) #knit")))
+        driver.find_element(By.CSS_SELECTOR, "#term").send_keys(term)
+        driver.find_element(By.CSS_SELECTOR, "#knit").click()
+
+        # Wait for woven
+        fabric_elem = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "#fabric")))
+        if term not in fabric_elem.text:
+            failures.append(f"Selenium: term '{term}' never appeared in table fabric")
+
+        time.sleep(0.6)
+        driver.save_screenshot(str(shots / "sel_03-woven.png"))
+    except Exception as e:
+        failures.append(f"Selenium: flow failed: {e}")
+    finally:
+        if driver:
+            try:
+                driver.quit()
+            except Exception:
+                pass
+
+    return failures
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="MOLGANG browser e2e smoke test")
+    parser = argparse.ArgumentParser(description="MOLGANG browser e2e smoke tests (Playwright + Selenium)")
     parser.add_argument("--host", default="127.0.0.1",
                         help="Host used for launching local server")
     parser.add_argument("--base", default="", help="Molgang base URL (defaults to http://{host}:{port})")
     parser.add_argument("--term", default="H2O", help="Term to knit")
     parser.add_argument("--shots", default=str(_repo_root() / ".artifacts/e2e"),
                         help="Screenshot output directory")
-    parser.add_argument("--port", type=int, default=8765, help="Port for the local one-shot server")
+    parser.add_argument("--port", type=int, default=8799, help="Port for the local one-shot server")
     parser.add_argument("--reuse", action="store_true",
                         help="Reuse an already-running server at --base")
     args = parser.parse_args()
@@ -305,12 +382,13 @@ def main() -> int:
     base = args.base or f"http://{host_for_base}:{args.port}"
 
     shots = Path(args.shots).resolve()
-    failures: list[str] = []
+    all_failures: dict[str, list[str]] = {}
     proc: subprocess.Popen[str] | None = None
 
+    # Run Playwright test suite with fresh backend
     try:
         if not args.reuse:
-            tmp = tempfile.TemporaryDirectory(prefix="molgang-e2e-")
+            tmp = tempfile.TemporaryDirectory(prefix="molgang-e2e-pw-")
             proc = _serve_process(Path(tmp.name), host=args.host, port=args.port)
             try:
                 _wait_for_api(base, timeout_s=20)
@@ -321,23 +399,58 @@ def main() -> int:
         else:
             _wait_for_api(base, timeout_s=20)
             failures = run_flow(base, shots, args.term)
+        all_failures["playwright"] = failures
     except Exception as e:
         print(f"E2E PLAYWRIGHT: failed ({e})")
         if proc and proc.stdout:
-            tail = proc.stdout.read().strip().splitlines()[-15:]
-            if tail:
-                print("server log tail:")
-                print("\n".join(tail))
-        return 1
+            try:
+                tail = proc.stdout.read().strip().splitlines()[-15:]
+                if tail:
+                    print("server log tail:")
+                    print("\n".join(tail))
+            except Exception:
+                pass
+        all_failures["playwright"] = [str(e)]
 
-    if failures:
-        print(f"E2E PLAYWRIGHT: {len(failures)} FAILED")
-        for msg in failures:
-            print(f"  - {msg}")
-        return 1
+    # Run Selenium test suite with fresh backend
+    try:
+        if not args.reuse:
+            tmp = tempfile.TemporaryDirectory(prefix="molgang-e2e-sel-")
+            proc = _serve_process(Path(tmp.name), host=args.host, port=args.port)
+            try:
+                _wait_for_api(base, timeout_s=20)
+                failures = run_flow_selenium(base, shots, args.term)
+            finally:
+                _stop_process(proc)
+                tmp.cleanup()
+        else:
+            _wait_for_api(base, timeout_s=20)
+            failures = run_flow_selenium(base, shots, args.term)
+        all_failures["selenium"] = failures
+    except Exception as e:
+        print(f"E2E SELENIUM: failed ({e})")
+        if proc and proc.stdout:
+            try:
+                tail = proc.stdout.read().strip().splitlines()[-15:]
+                if tail:
+                    print("server log tail:")
+                    print("\n".join(tail))
+            except Exception:
+                pass
+        all_failures["selenium"] = [str(e)]
 
-    print("E2E PLAYWRIGHT: PASS ✅")
-    return 0
+    # Report results
+    any_failed = False
+    for suite_name, failures in all_failures.items():
+        if failures:
+            any_failed = True
+            print(f"E2E {suite_name.upper()}: {len(failures)} FAILED")
+            for msg in failures:
+                print(f"  - {msg}")
+        else:
+            print(f"E2E {suite_name.upper()}: PASS ✅")
+
+    return 1 if any_failed else 0
 
 
 if __name__ == "__main__":
