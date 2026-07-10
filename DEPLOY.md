@@ -128,6 +128,72 @@ does **not** offer this; use the cross-origin config.js path above.)
 
 ---
 
+## E. Email subscription & daily digest (optional)
+
+Players can opt-in to receive a **daily digest** email with their weaving stats and a redacted
+PoUW certificate (proof of work, no private key). The implementation satisfies **security gate
+#55**: subscriber copies receive the **public/redacted certificate** (address + public key +
+work summary); only the operator BCC receives the bearer key (if any) for early-stage oversight.
+
+### Setup
+
+1. **Generate the encryption key** (required; 32 random bytes in hex):
+   ```bash
+   openssl rand -hex 32
+   ```
+   Copy the output and paste it into `php/config.php`:
+   ```php
+   'email_cipher_key' => 'YOUR_RANDOM_HEX_STRING_HERE',
+   ```
+   This key encrypts subscriber emails at-rest in the MySQL database. **Never commit this file.**
+
+2. **Apply the schema update:**
+   ```bash
+   mysql -h HOST -u USER -p DBNAME < php/schema.sql
+   ```
+   This creates the `subscriber` table (device_id, email_enc, iv_hex, email_hmac, created).
+
+3. **Configure email (optional SMTP; defaults to sendmail):**
+   In `php/config.php`:
+   ```php
+   'email_from' => 'noreply@5mart.ml',
+   'bcc_operator' => 'bug@5mart.ml',
+   // 'email_smtp_host' => 'smtp.example.com',
+   // 'email_smtp_port' => 587,
+   ```
+
+4. **Wire the cron job** to send digests daily (e.g., 09:00 UTC):
+   ```bash
+   0 9 * * * php /path/to/molgang/php/cron_digest.php >> /var/log/molgang_digest.log 2>&1
+   ```
+
+### How it works
+
+- **Frontend**: A "📧 subscribe" box appears at the top of the page (hidden once subscribed).
+  Players enter their email → POST `/api/subscribe {device, email}` → success hides the box.
+
+- **Backend**: `Subscribe::subscribe()` normalizes the email, validates it, encrypts it with
+  AES-256-CBC (random IV per record), and stores HMAC-SHA256 in a UNIQUE column for idempotent
+  subscribe (same email twice = no error, no duplicate).
+
+- **Cron**: `php/cron_digest.php` runs daily, fetches all subscribers, decrypts their emails,
+  builds a summary (knits woven, votes cast, bar stats), and sends each an email with a
+  **redacted PoUW certificate**. The operator BCC sees the same email (with bearer key if
+  configured).
+
+### Security (Refs #55)
+
+- **Encryption**: AES-256-CBC with random IV. The 32-byte key is set in `config.php` (git-ignored).
+- **Plaintext protection**: No plaintext email ever hits disk or the database. Queries use prepared
+  statements.
+- **Certificate redaction**: The subscriber's copy of the PoUW certificate strips any private key
+  before mailing. The operator's BCC can hold a bounded, documented bearer key for custodial
+  oversight during beta. See `php/cron_digest.php` for the redaction logic.
+- **Testing**: Run `php php/tests/subscribe_test.php` to verify encryption/decryption,
+  idempotence, input validation, and cert redaction.
+
+---
+
 ## Phone play
 Open `https://5mart.ml/molgang` on the phone → the browser mints a stable **device id**
 (localStorage) → a deterministic **PLS wallet**, registered in the sqlite DB. Leave and rejoin

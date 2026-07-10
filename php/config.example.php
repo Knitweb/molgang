@@ -17,4 +17,15 @@ return [
     // inherit 5mart.ml as a hidden default.
     // 'public_base_url' => 'https://example.org/molgang',
     // 'node_name' => 'example.org',
+
+    // Email subscription for daily digest (Refs #76). Generate with:
+    //   openssl rand -hex 32
+    // Must be a 32-byte hex string. Never commit this; it encrypts subscriber emails at-rest.
+    'email_cipher_key' => 'YOUR_32_BYTE_HEX_KEY_HERE_REPLACE_WITH_RANDOM_VALUE',
+
+    // Email SMTP settings for digest delivery (optional; defaults to sendmail if unset).
+    // 'email_smtp_host' => 'localhost',
+    // 'email_smtp_port' => 25,
+    // 'email_from' => 'noreply@5mart.ml',
+    // 'bcc_operator' => 'bug@5mart.ml',
 ];

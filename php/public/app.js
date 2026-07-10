@@ -33,6 +33,40 @@ const DEVICE_ID = (() => {
   return d;
 })();
 
+// email subscription state (localStorage key = "molgang_subscribed_email")
+let subscribedEmail = localStorage.getItem("molgang_subscribed_email") || null;
+
+// ---- email subscription ----
+function updateSubscribeBox() {
+  const box = $("subscribe-box");
+  if (!box) return;
+  if (subscribedEmail) {
+    box.classList.add("hidden");
+  } else {
+    box.classList.remove("hidden");
+  }
+}
+
+async function handleSubscribe() {
+  const email = $("subscribe-email").value.trim();
+  if (!email) {
+    $("subscribe-status").textContent = "email required";
+    return;
+  }
+  const status = $("subscribe-status");
+  status.textContent = "subscribing...";
+  const r = await api("/api/subscribe", "POST", { device: DEVICE_ID, email });
+  if (r.ok) {
+    subscribedEmail = email;
+    localStorage.setItem("molgang_subscribed_email", email);
+    status.textContent = "subscribed! check your inbox";
+    $("subscribe-email").value = "";
+    setTimeout(updateSubscribeBox, 1500);
+  } else {
+    status.textContent = "error: " + (r.error || "unknown");
+  }
+}
+
 // ---- walk-in ----
 async function boot() {
   const avs = (await api("/api/state")).avatars || [];
@@ -51,6 +85,8 @@ async function boot() {
   });
   chosenAvatar = avs[0].id;
   $("go").onclick = walkIn;
+  if ($("subscribe-btn")) $("subscribe-btn").onclick = handleSubscribe;
+  updateSubscribeBox();
   if (sid) { $("enter").classList.add("hidden"); start(); }
 }
 

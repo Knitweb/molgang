@@ -60,3 +60,15 @@ CREATE TABLE IF NOT EXISTS presence (
   info        VARCHAR(160) NULL,                   -- e.g. desktop version / host
   PRIMARY KEY (device_id, client)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Email subscribers for daily digest (refs #76).
+-- Email is stored as AES-256-CBC ciphertext + IV (never plaintext).
+-- email_hmac is a UNIQUE constraint to detect duplicates and enforce idempotence.
+CREATE TABLE IF NOT EXISTS subscriber (
+  device_id   VARCHAR(96)  NOT NULL PRIMARY KEY,   -- player's device ID
+  email_enc   LONGBLOB     NOT NULL,               -- email encrypted with AES-256-CBC, stored as binary
+  iv_hex      VARCHAR(32)  NOT NULL,               -- IV (16 bytes) in hex
+  email_hmac  VARCHAR(64)  NOT NULL UNIQUE,        -- HMAC-SHA256 of normalized email (for duplicate detection)
+  created     DOUBLE       NOT NULL,
+  KEY k_hash (email_hmac)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

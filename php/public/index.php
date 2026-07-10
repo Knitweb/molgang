@@ -8,6 +8,7 @@ require_once __DIR__ . '/../src/Bar.php';
 require_once __DIR__ . '/../src/Relay.php';     // knitweb HTTP relay + presence node (Refs #61)
 require_once __DIR__ . '/../src/Onboard.php';   // wallet-signed QR node onboarding (Refs #63)
 require_once __DIR__ . '/../src/Monitor.php';   // read-only health lens for monitor.html (Refs #59 #60)
+require_once __DIR__ . '/../src/Subscribe.php'; // email subscription for daily digest (Refs #76)
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -86,6 +87,13 @@ try {
             }
             $dev = (string) ($q['device'] ?? '');
             out($dev === '' ? ['error' => 'device required'] : ['peers' => Bar::presenceFor($dev)]);
+
+        // ---- email subscription for daily digest (#76) ----------------------
+        case 'subscribe':
+            if ($method !== 'POST') { http_response_code(405); out(['error' => 'POST required']); }
+            $res = Subscribe::subscribe((string) ($body['device'] ?? ''), (string) ($body['email'] ?? ''));
+            if (empty($res['ok'])) http_response_code(400);
+            out($res);
 
         // ---- knitweb p2p node: signed onboarding (#63) ----------------------
         case 'onboard':
