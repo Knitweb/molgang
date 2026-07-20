@@ -510,16 +510,26 @@ function renderPulseHost(host) {
   $("pulse-host").title = `${addr}\nwallet: ${host.wallet || ""}`;
 }
 
+// 🖼 Table scenes — each bar table gets a rendered ChemEng scene banner (same
+// asset family as the level stations). Known default tables map by id; any
+// extra/renamed table cycles through the set by its position on the floor.
+const TABLE_SCENES = { periodic: "tables/periodic.png", organic: "tables/organic.png",
+                       noble: "tables/noble.png" };
+const TABLE_SCENE_CYCLE = Object.values(TABLE_SCENES);
+const tableScene = (id, idx) =>
+  TABLE_SCENES[id] || TABLE_SCENE_CYCLE[idx % TABLE_SCENE_CYCLE.length];
+
 function renderFloor(s) {
   const f = $("floor"); f.innerHTML = "";
-  s.tables.forEach((t) => {
+  s.tables.forEach((t, idx) => {
     const card = document.createElement("div");
     card.className = "table-card";
     const chairs = Array.from({ length: t.seats }, (_, i) => {
       const occ = t.seated[i];
       return `<span class="chair ${occ ? "occ" : ""}" title="${occ ? occ.name : "empty"}">${occ ? avatarImg(occ.avatar, "chair-av") : "·"}</span>`;
     }).join("");
-    card.innerHTML = `<h3>${t.name}</h3>
+    card.innerHTML = `<div class="table-scene"><img src="${tableScene(t.id, idx)}" alt="" loading="lazy" /></div>
+      <h3>${t.name}</h3>
       <div class="chairs">${chairs}</div>
       <div class="dim small">${t.seated.length}/${t.seats} seated · ${t.fabric.length} woven</div>
       <button class="join-table">take a seat →</button>`;

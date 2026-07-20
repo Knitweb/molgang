@@ -144,6 +144,13 @@ main,section{padding:24px 22px;max-width:1140px;margin:0 auto}
 .table-card:hover{transform:rotateX(2deg) translateY(-10px) scale(1.03);
   box-shadow:var(--shadow-3d),var(--glow) rgba(34,227,255,.35),0 40px 70px -26px #000}
 .table-card h3{margin:0 0 12px;font-size:17px}
+/* rendered ChemEng scene banner atop each table card (matches the level stations) */
+.table-scene{margin:-20px -20px 12px;border-radius:var(--radius) var(--radius) 0 0;overflow:hidden;
+  position:relative}
+.table-scene img{display:block;width:100%;height:96px;object-fit:cover;
+  filter:brightness(1.25) saturate(1.1)}
+.table-scene::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(11,16,32,.15),rgba(11,16,32,.02) 45%,var(--panel2))}
 @keyframes floaty{0%,100%{translate:0 0;rotate:x 13deg}50%{translate:0 -8px;rotate:x 11deg}}
 
 .chairs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
