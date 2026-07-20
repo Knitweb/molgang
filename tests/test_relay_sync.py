@@ -511,3 +511,48 @@ def test_pool_survives_a_dark_relay_with_cooldown_retry(tmp_path):
     pool.pull()
     assert len(b_calls) > dark_calls
     assert not pool.healthy("http://b/relay")
+
+
+# -- region-aware bootstrap discovery (#98) -----------------------------------
+def test_discover_relays_ranks_and_falls_back(tmp_path):
+    from molgang.relay_sync import RelayPool, discover_relays, expand_relay_bases
+
+    roster = {"relays": [
+        {"base": "https://relay-eu.example/api", "region": "eu-west", "load": 3, "age_s": 1.0},
+        {"base": "https://relay-us.example/api", "region": "us-east", "load": 9, "age_s": 2.0},
+        {"base": "https://relay-eu.example/api"},        # duplicate → dropped
+        {"base": "ftp://bogus.example"},                  # non-http(s) → dropped
+    ]}
+    calls = []
+
+    def boot_opener(url, data=None):
+        calls.append(url)
+        return roster
+
+    # ranked roster comes back in registry order, deduped and scheme-filtered
+    bases = discover_relays("https://seed.example/api/relay", opener=boot_opener)
+    assert bases == ["https://relay-eu.example/api", "https://relay-us.example/api"]
+    assert calls and calls[0].endswith("/bootstrap")
+
+    # region preference is passed through to the registry
+    discover_relays("https://seed.example/api/relay", opener=boot_opener, region="us-east")
+    assert "region=us-east" in calls[-1]
+
+    # unreachable registry → the configured rendezvous base itself (never zero relays)
+    def dead_opener(url, data=None):
+        raise OSError("registry down")
+    assert discover_relays("https://seed.example/api/relay", opener=dead_opener) == \
+        ["https://seed.example/api/relay"]
+
+    # expand_relay_bases: plain entries pass through, bootstrap+ entries resolve, dedup'd
+    expanded = expand_relay_bases(
+        ["https://fixed.example/api", "bootstrap+https://seed.example/api/relay",
+         "https://relay-eu.example/api"], opener=boot_opener)
+    assert expanded == ["https://fixed.example/api", "https://relay-eu.example/api",
+                        "https://relay-us.example/api"]
+
+    # the discovered, ranked order seeds a RelayPool as-is (healthiest first)
+    w = _bar_world(tmp_path, "boot")
+    pool = RelayPool(bases, w, host_signer("boot"), opener=lambda u, d=None: {"messages": [],
+                                                                              "cursor": 0})
+    assert pool.bases == ["https://relay-eu.example/api", "https://relay-us.example/api"]

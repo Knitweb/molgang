@@ -60,7 +60,8 @@ final class Relay
      * A registered node announces it is alive (heartbeat). Touches last_seen on node_registry.
      * @return array{ok:bool,error?:string,online?:array}
      */
-    public static function ping(string $pubHex, ?string $endpoint = null): array
+    public static function ping(string $pubHex, ?string $endpoint = null, ?string $region = null,
+                                ?string $role = null, ?int $load = null): array
     {
         $pubHex = strtolower(trim($pubHex));
         if (!Crypto::isCompressedPubkey($pubHex)) {
@@ -69,11 +70,63 @@ final class Relay
         if (!self::isRegistered($pubHex)) {
             return ['ok' => false, 'error' => 'node not registered'];
         }
+        // Region/role/load are OPTIONAL self-reported bootstrap hints (#98): a relay
+        // announces role='relay' + its region tag + queue depth so bootstrap() can rank it.
+        $region = $region !== null ? substr(preg_replace('~[^a-z0-9_-]~', '', strtolower($region)) ?? '', 0, 32) : null;
+        $role   = $role === 'relay' ? 'relay' : ($role === 'node' ? 'node' : null);
         Db::run(
-            'UPDATE node_registry SET last_seen=?, endpoint=COALESCE(?,endpoint) WHERE pubkey=?',
-            [self::now(), $endpoint !== null && $endpoint !== '' ? $endpoint : null, $pubHex]
+            'UPDATE node_registry SET last_seen=?, endpoint=COALESCE(?,endpoint),
+                    region=COALESCE(?,region), role=COALESCE(?,role),
+                    load_hint=COALESCE(?,load_hint)
+              WHERE pubkey=?',
+            [self::now(), $endpoint !== null && $endpoint !== '' ? $endpoint : null,
+             $region !== null && $region !== '' ? $region : null, $role,
+             $load !== null ? max(0, $load) : null, $pubHex]
         );
         return ['ok' => true, 'online' => self::online()];
+    }
+
+    /**
+     * Region-aware bootstrap roster (#98): registered, non-revoked RELAY rows ranked
+     * least-loaded first, then most-recently-seen — so a joining peer seeds its RelayPool
+     * with the healthiest relays instead of one hard-coded base. Bounded like online().
+     * Optional ?region= pins matching relays to the FRONT (never filters others out —
+     * a lone-region peer must still bootstrap through remote relays).
+     */
+    public static function bootstrap(?string $region = null): array
+    {
+        $rows = Db::all(
+            "SELECT endpoint, region, load_hint, last_seen FROM node_registry
+              WHERE revoked=0 AND role='relay' AND endpoint IS NOT NULL AND endpoint <> ''
+           ORDER BY load_hint ASC, last_seen DESC
+              LIMIT " . self::MAX_FETCH, []
+        );
+        $now = self::now();
+        $relays = [];
+        foreach ($rows as $r) {
+            $relays[] = [
+                'base'   => $r['endpoint'],
+                'region' => $r['region'],
+                'load'   => (int) $r['load_hint'],
+                'age_s'  => round($now - (float) $r['last_seen'], 1),
+            ];
+        }
+        if ($region !== null && $region !== '') {
+            // STABLE partition — matching region first, the rest after, each group KEEPING the
+            // SQL load_hint/last_seen order. (usort() is not stable, so a comparator that only
+            // compares region equality would scramble the ranking within each group.)
+            $region = strtolower($region);
+            $match = $other = [];
+            foreach ($relays as $r) {
+                if (strtolower((string) $r['region']) === $region) {
+                    $match[] = $r;
+                } else {
+                    $other[] = $r;
+                }
+            }
+            $relays = array_merge($match, $other);
+        }
+        return ['relays' => $relays, 'count' => count($relays), 'time' => $now];
     }
 
     /** The roster of currently-online knitweb nodes (address + endpoint, never the raw pubkey-as-secret). */
@@ -411,6 +464,7 @@ final class Relay
         $queued = (int) (Db::one('SELECT COUNT(*) c FROM relay_message')['c'] ?? 0);
         return [
             'node'        => self::nodeName(),
+            'relays'      => self::bootstrap()['relays'],   // cross-region roster (#98)
             'role'        => 'knitweb HTTP relay + presence (request-driven, host-neutral PHP)',
             'transport'   => 'https',
             'scheme'      => 'secp256k1-ecdsa-sha256',

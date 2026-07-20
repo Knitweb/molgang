@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS node_registry (
   endpoint    VARCHAR(255) NULL,                   -- optional callback URL the node advertises
   registered  DOUBLE       NOT NULL,               -- first onboarded (unix float)
   last_seen   DOUBLE       NOT NULL,               -- last ping/relay (drives the "online" roster)
+  region      VARCHAR(32)  NULL,               -- relay region tag, e.g. eu-west (#98)
+  role        VARCHAR(16)  NOT NULL DEFAULT 'node', -- 'node' | 'relay' (#98)
+  load_hint   INT          NOT NULL DEFAULT 0,     -- self-reported load for ranking (#98)
   revoked     TINYINT      NOT NULL DEFAULT 0,     -- soft-revoke without deleting history
   UNIQUE KEY k_addr (address),
   KEY k_seen (last_seen),
@@ -37,6 +40,14 @@ CREATE TABLE IF NOT EXISTS relay_message (
   created     DOUBLE       NOT NULL,               -- unix float; the poll cursor
   KEY k_to (to_addr), KEY k_topic (topic), KEY k_created (created), KEY k_from (from_pub)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Region-aware bootstrap (#98): additive columns. On an EXISTING install apply:
+--   ALTER TABLE node_registry ADD COLUMN region VARCHAR(32) NULL,
+--     ADD COLUMN role VARCHAR(16) NOT NULL DEFAULT 'node',
+--     ADD COLUMN load_hint INT NOT NULL DEFAULT 0;
+-- 'role' marks relay rows ('relay') apart from plain peers; 'region' is the relay's
+-- self-reported region tag (e.g. eu-west); 'load_hint' a self-reported load metric
+-- (queued messages) used to rank the bootstrap list least-loaded first.
 
 -- Per-peer anti-entropy cursors (#96): the high-water 'created' this node has already pulled
 -- from each peer relay, so GET /api/relay/reconcile passes stay incremental and cheap.
