@@ -18,7 +18,10 @@ $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 Db::setPdo($pdo);
 
 // SQLite mirrors of schema.sql + node_registry.sql (portable column types).
-$pdo->exec('CREATE TABLE node_registry(pubkey TEXT PRIMARY KEY,address TEXT UNIQUE,device_fp TEXT,endpoint TEXT,registered REAL,last_seen REAL,revoked INT DEFAULT 0)');
+// node_registry mirrors node_registry.sql INCLUDING the #98 region/role/load_hint columns —
+// Monitor::summary() -> Relay::info() -> Relay::bootstrap() reads role/region, so the test schema
+// must carry them or the read-only monitor snapshot crashes.
+$pdo->exec("CREATE TABLE node_registry(pubkey TEXT PRIMARY KEY,address TEXT UNIQUE,device_fp TEXT,endpoint TEXT,registered REAL,last_seen REAL,region TEXT,role TEXT DEFAULT 'node',load_hint INT DEFAULT 0,revoked INT DEFAULT 0)");
 $pdo->exec('CREATE TABLE relay_message(id TEXT PRIMARY KEY,from_pub TEXT,to_addr TEXT,topic TEXT,body TEXT,sig TEXT,created REAL)');
 $pdo->exec('CREATE TABLE player(device_id TEXT PRIMARY KEY,name TEXT,avatar TEXT,address TEXT,pulses INT,silk INT,xp INT,is_bot INT DEFAULT 0,created REAL)');
 $pdo->exec('CREATE TABLE session(sid TEXT PRIMARY KEY,device_id TEXT,table_id TEXT,last_seen REAL)');
@@ -35,9 +38,9 @@ function check(string $label, bool $ok): void {
 
 // --- seed live-like state ------------------------------------------------------------------
 // A registered + online p2p node (within Relay::ONLINE_WINDOW_S), and a stale/revoked one.
-$pdo->exec("INSERT INTO node_registry VALUES('02aa','pls1online','fp-aa:bb:cc:dd','https://peer.example',$now,$now,0)");
-$pdo->exec("INSERT INTO node_registry VALUES('02bb','pls1stale','fp-ee',NULL,$now," . ($now - 9999) . ",0)");
-$pdo->exec("INSERT INTO node_registry VALUES('02cc','pls1revoked','fp-ff',NULL,$now,$now,1)");
+$pdo->exec("INSERT INTO node_registry(pubkey,address,device_fp,endpoint,registered,last_seen,revoked) VALUES('02aa','pls1online','fp-aa:bb:cc:dd','https://peer.example',$now,$now,0)");
+$pdo->exec("INSERT INTO node_registry(pubkey,address,device_fp,endpoint,registered,last_seen,revoked) VALUES('02bb','pls1stale','fp-ee',NULL,$now," . ($now - 9999) . ",0)");
+$pdo->exec("INSERT INTO node_registry(pubkey,address,device_fp,endpoint,registered,last_seen,revoked) VALUES('02cc','pls1revoked','fp-ff',NULL,$now,$now,1)");
 // Relay messages: one broadcast, one addressed.
 $pdo->exec("INSERT INTO relay_message VALUES('m1','02aa',NULL,'chem','BODY-SHOULD-NOT-LEAK','sig',$now)");
 $pdo->exec("INSERT INTO relay_message VALUES('m2','02aa','pls1online','dm','BODY2','sig'," . ($now - 5) . ")");
