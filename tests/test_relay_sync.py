@@ -278,16 +278,17 @@ def test_webserver_main_accepts_operator_flags(monkeypatch, tmp_path):
     class FakeSigner:
         address = "pls1relay"
 
-    class FakeRelay:
-        def __init__(self, base):
-            self.base = base
+    class FakeRelayHandle:
+        def __init__(self, bases):
+            self.bases = list(bases)     # _start_relay now receives the whole pool (#95)
+            self.base = self.bases[0]
             self.signer = FakeSigner()
 
-    def fake_start_relay(bar, base, wallet, interval):
-        captured["relay_base"] = base
+    def fake_start_relay(bar, bases, wallet, interval):
+        captured["relay_bases"] = bases
         captured["relay_wallet"] = wallet
         captured["relay_interval"] = interval
-        return FakeRelay(base)
+        return FakeRelayHandle(bases)
 
     class FakeServer:
         def __init__(self, addr, handler):
@@ -306,7 +307,9 @@ def test_webserver_main_accepts_operator_flags(monkeypatch, tmp_path):
         "--port", "0",
         "--world", str(tmp_path / "world.json"),
         "--db", str(tmp_path / "registry.db"),
+        # repeatable + comma-list --relay flags flatten into ONE ordered pool (#95)
         "--relay", "https://5mart.ml/molgang/api/relay",
+        "--relay", "https://relay-b.example/api,https://relay-c.example/api",
         "--relay-wallet", str(tmp_path / "server-node.cbor"),
         "--relay-interval", "7",
         "--monitor",
@@ -315,7 +318,9 @@ def test_webserver_main_accepts_operator_flags(monkeypatch, tmp_path):
 
     assert code == 0
     assert captured["addr"] == ("127.0.0.1", 0)
-    assert captured["relay_base"] == "https://5mart.ml/molgang/api/relay"
+    assert captured["relay_bases"] == ["https://5mart.ml/molgang/api/relay",
+                                       "https://relay-b.example/api",
+                                       "https://relay-c.example/api"]
     assert captured["relay_wallet"] == str(tmp_path / "server-node.cbor")
     assert captured["relay_interval"] == 7.0
     assert captured["monitor_nodes"] == "alice=59000"
@@ -403,3 +408,106 @@ def test_full_subscribe_converges_identically_to_unsharded(tmp_path):
     assert a4 == b4                     # full-subscribe sharded converges
     assert a1 == a4                     # sharded weaving yields the identical web
     assert res4["applied"] == 3 and res4["rejected"] == 0
+
+
+# -- the relay POOL: fan-out push, union pull, failover (#95) -----------------
+def test_pool_write_fans_out_and_b_only_reader_converges(tmp_path):
+    """A pool write lands on EVERY relay, so a peer reading only relay B still converges."""
+    from molgang.relay_sync import RelayPool
+
+    relay_a, relay_b = FakeRelay(), FakeRelay()
+
+    def pool_opener(url, data=None):
+        return (relay_a if "://a/" in url else relay_b).opener(url, data)
+
+    w = _bar_world(tmp_path, "W")
+    pool = RelayPool(["http://a/relay", "http://b/relay"], w, host_signer("W"),
+                     opener=pool_opener)
+    w.on_weave = pool.push
+    w.weave_knit({"kind": "link", "subject": "Na", "object": "Cl", "relation": "bonds"},
+                 "alice", "f1", 4)
+
+    # fan-out: the SAME signed message is stored on both relays
+    assert relay_a._fetch("u?topic=" + WEB_TOPIC)["count"] == 1
+    assert relay_b._fetch("u?topic=" + WEB_TOPIC)["count"] == 1
+
+    # a single-relay peer bound ONLY to B converges on W's web
+    b = _bar_world(tmp_path, "Bonly")
+    rb = RelaySync("http://b/relay", b, host_signer("Bonly"), opener=relay_b.opener)
+    res = rb.pull()
+    assert res["applied"] == 1
+    assert b.state_root() == w.state_root()
+
+
+def test_pool_unions_without_double_count(tmp_path):
+    """The same replicated message on two relays weaves ONCE — no double apply, no re-bump."""
+    from molgang.relay_sync import RelayPool
+
+    relay_a, relay_b = FakeRelay(), FakeRelay()
+    msg = pack(WovenItem(kind="link", by="carol", fiber_cid="fc", confirmations=2,
+                         subject="Na", object="Cl", relation="bonds"),
+               host_signer("C"))
+    relay_a._send(msg)
+    relay_b._send(dict(msg))            # replicated verbatim (identical sig) onto relay B
+
+    def pool_opener(url, data=None):
+        return (relay_a if "://a/" in url else relay_b).opener(url, data)
+
+    b = _bar_world(tmp_path, "reader")
+    pool = RelayPool(["http://a/relay", "http://b/relay"], b, host_signer("R"),
+                     opener=pool_opener)
+    res = pool.pull()
+    assert res["applied"] == 1 and res["bumped"] == 0    # once, not twice
+    assert res["skipped"] == 1                           # B's identical copy sig-skipped
+    assert len(b.items) == 1
+    w = pool.syncs[0]._edge_weight(b._term_node("Na"), b._term_node("Cl"), "bonds")
+    assert w == 2                                        # weight applied exactly once
+
+    # a DIFFERENT co-weaving signer still bumps (that is a genuine second confirmation)
+    other = pack(WovenItem(kind="link", by="dave", fiber_cid="fd", confirmations=1,
+                           subject="Na", object="Cl", relation="bonds"),
+                 host_signer("D"))
+    relay_b._send(other)
+    res2 = pool.pull()
+    assert res2["bumped"] == 1 and res2["applied"] == 0
+
+
+def test_pool_survives_a_dark_relay_with_cooldown_retry(tmp_path):
+    """A dead base is health-marked and skipped, never fatal; after cooldown it is retried."""
+    from molgang.relay_sync import RelayPool
+
+    relay_a = FakeRelay()
+    b_calls = []
+
+    def pool_opener(url, data=None):
+        if "://b/" in url:
+            b_calls.append(url)
+            raise OSError("relay B is dark")
+        return relay_a.opener(url, data)
+
+    now = [0.0]
+    w = _bar_world(tmp_path, "W")
+    pool = RelayPool(["http://a/relay", "http://b/relay"], w, host_signer("W"),
+                     opener=pool_opener, cooldown=60.0, clock=lambda: now[0])
+    w.on_weave = pool.push              # push through the pool MUST NOT raise into the weave
+
+    w.weave_knit({"kind": "term", "term": "NaCl"}, "alice", "f1", 3)
+    assert relay_a._fetch("u?topic=" + WEB_TOPIC)["count"] == 1     # A still got the knit
+    assert pool.healthy("http://a/relay") and not pool.healthy("http://b/relay")
+
+    # while B is in cooldown the pool does not touch it (no stall, no extra calls) …
+    dark_calls = len(b_calls)
+    stats = pool.pull()
+    assert stats["errors"] == 0 and len(b_calls) == dark_calls
+
+    # … and /api/relay-style status reports the pool truthfully
+    st = {s["base"]: s for s in pool.status()}
+    assert st["http://a/relay"]["healthy"] is True
+    assert st["http://b/relay"]["healthy"] is False
+    assert st["http://b/relay"]["failures"] >= 1
+
+    # after the cooldown expires B is probed again (and marked down again on failure)
+    now[0] = 61.0
+    pool.pull()
+    assert len(b_calls) > dark_calls
+    assert not pool.healthy("http://b/relay")
