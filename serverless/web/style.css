@@ -339,6 +339,26 @@ h2,h3{letter-spacing:.2px}
 .ladder .perks{margin:0;padding-left:18px;color:var(--dim);font-size:13px;display:flex;flex-direction:column;gap:2px}
 .ladder .perks li{list-style:none;margin-left:-12px}
 
+/* 🧪 level stations — the visual climb (equipment renders from the ChemEng build) */
+.level-strip{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 12px;margin-bottom:8px;
+  scrollbar-width:thin}
+.level-station{flex:0 0 118px;margin:0;text-align:center;position:relative;padding:8px 6px 10px;
+  border:1px solid var(--line);border-radius:12px;background:var(--panel2);
+  transition:transform .15s ease,border-color .15s ease}
+.level-station img{width:100%;height:auto;border-radius:8px;display:block;margin-bottom:6px}
+.level-station figcaption{font-size:12px;line-height:1.35}
+.level-station figcaption .small{display:block}
+.level-station.unlocked{border-color:var(--line2)}
+.level-station.current{border-color:var(--accent2);box-shadow:var(--glow) rgba(34,227,255,.25);
+  transform:translateY(-2px)}
+.level-station.current figcaption b{color:var(--accent2)}
+.level-station.locked{opacity:.45}
+.level-station.locked img{filter:grayscale(1) brightness(.7)}
+.ls-bar{display:block;height:5px;margin-top:6px;border-radius:3px;background:var(--glass);
+  overflow:hidden}
+.ls-bar i{display:block;height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2))}
+
 /* settings popover — the language switcher retires here after first use (#i18n v2) */
 .settings-pop { position: absolute; top: 52px; right: 12px; z-index: 40;
   background: var(--bg2, #0b1020); border: 1px solid var(--accent, #8b5cff);

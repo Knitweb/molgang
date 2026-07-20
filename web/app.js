@@ -671,6 +671,42 @@ function renderSpirals(t) {
   });
 }
 
+// 🧪 Level stations — the visual climb through the bar. One station per
+// reputation-ladder level (#113): real equipment renders from the ChemEng
+// (molgang-roblox) build, from a humble beaker up to the quantum tunnel ring.
+// XP thresholds mirror progression.LEVELS server-side; titles come from the API
+// for the CURRENT player, these are the static rungs of the whole ladder.
+const LEVEL_STATIONS = [
+  { xp: 0,    title: "Apprentice",    img: "levels/l1_beaker.png",         station: "Beaker" },
+  { xp: 100,  title: "Student",       img: "levels/l2_flask.png",          station: "Erlenmeyer flask" },
+  { xp: 300,  title: "Lab Assistant", img: "levels/l3_lab_bench.png",      station: "Lab bench" },
+  { xp: 600,  title: "Chemist",       img: "levels/l4_distillation.png",   station: "Distillation column" },
+  { xp: 1000, title: "Synthesist",    img: "levels/l5_heat_exchanger.png", station: "Heat exchanger" },
+  { xp: 1500, title: "Catalyst",      img: "levels/l6_centrifuge.png",     station: "Centrifuge" },
+  { xp: 2500, title: "Alchemist",     img: "levels/l7_quantum_dot.png",    station: "Quantum dot" },
+  { xp: 4000, title: "Laureate",      img: "levels/l8_quantum_ring.png",   station: "Quantum tunnel ring" },
+];
+
+function renderLevelStrip(level, xp) {
+  return LEVEL_STATIONS.map((st, i) => {
+    const n = i + 1;
+    const state = n < level ? "unlocked" : n === level ? "current" : "locked";
+    let bar = "";
+    if (state === "current" && n < LEVEL_STATIONS.length) {
+      // progress inside the current card: how far through this station's XP span
+      const span = LEVEL_STATIONS[n].xp - st.xp;
+      const pct = Math.max(0, Math.min(100, Math.round(((xp - st.xp) / span) * 100)));
+      bar = `<span class="ls-bar"><i style="width:${pct}%"></i></span>`;
+    }
+    return `<figure class="level-station ${state}" title="${esc(st.station)}">
+        <img src="${st.img}" alt="${esc(st.station)}" loading="lazy" />
+        <figcaption><b>L${n}</b> ${esc(st.title)}${state === "locked" ? " 🔒" : ""}
+          <span class="dim small">${fmt(st.xp)} XP</span></figcaption>
+        ${bar}
+      </figure>`;
+  }).join("");
+}
+
 // 🏅 Progress — quests, achievements & seasonal standing (#110/#111/#112). All reputation/XP,
 // never tokens. Reads the dedicated /api endpoints scoped to the current player.
 let lbSeason = "all";   // "all" | "season" — leaderboard toggle state
@@ -685,6 +721,7 @@ async function renderProgress(s) {
     ? `<span class="dim small">max rank reached 🎓</span>`
     : (nxt.next_title ? `<span class="dim small">${fmt(nxt.xp_to_next)} XP to <b>${esc(nxt.next_title)}</b></span>` : "");
   $("ladder").innerHTML =
+    `<div class="level-strip">${renderLevelStrip(you.level || 1, you.xp || 0)}</div>` +
     `<div class="ladder-now">🏅 <b>L${you.level || 1} ${esc(you.title || "Apprentice")}</b> · ${fmt(you.xp || 0)} XP ${climb}</div>` +
     `<ul class="perks">${(you.perks || []).map((p) => `<li>✓ ${esc(p)}</li>`).join("")}</ul>`;
 
