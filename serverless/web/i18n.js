@@ -96,8 +96,12 @@ window.I18N = (() => {
   function apply(root) {
     const r = root || document;
     r.querySelectorAll("[data-i18n]").forEach((el) => {
-      const v = t(el.getAttribute("data-i18n"));
-      if (el.hasAttribute("data-i18n-html")) el.innerHTML = v;
+      const key = el.getAttribute("data-i18n");
+      const v = t(key);
+      // HTML injection is reserved for strings RESOLVED from our locale JSONs;
+      // a missing key falls back to the raw attribute value, which must land as
+      // text, never markup (CodeQL js/xss-through-dom).
+      if (el.hasAttribute("data-i18n-html") && v !== key) el.innerHTML = v;
       else el.textContent = v;
     });
     r.querySelectorAll("[data-i18n-title]").forEach((el) => {
