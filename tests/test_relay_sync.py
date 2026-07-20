@@ -556,3 +556,177 @@ def test_discover_relays_ranks_and_falls_back(tmp_path):
     pool = RelayPool(bases, w, host_signer("boot"), opener=lambda u, d=None: {"messages": [],
                                                                               "cursor": 0})
     assert pool.bases == ["https://relay-eu.example/api", "https://relay-us.example/api"]
+
+
+# -- the relay MESH: relay-to-relay reconcile, convergence + failover (#100) --
+# The php side reconciles relays with GET /api/relay/reconcile (anti-entropy, #96). These
+# tests prove the MESH property that reconcile buys: peers writing through DIFFERENT relays
+# still converge, and losing a relay mid-run does not lose items. The reconcile helper below
+# mirrors php/src/Relay.php::reconcile(): fetch the peer's log after a stored per-peer
+# cursor, re-verify EVERY signature through the same gate as send(), skip known sigs.
+def _reconcile(dst: FakeRelay, src: FakeRelay, cursors: dict) -> int:
+    """One incremental anti-entropy pass dst←src; returns newly ingested messages."""
+    key = (id(dst), id(src))
+    got = src._fetch(f"u?topic={WEB_TOPIC}&since={cursors.get(key, 0.0)}")
+    known = {m["sig"] for m in dst.messages}
+    new = 0
+    for m in got["messages"]:
+        if m["sig"] in known:
+            continue
+        if not crypto.verify(m["from"], signed_preimage(m["to"] or "", m["topic"], m["body"]),
+                             m["sig"]):
+            continue                       # a forged message never propagates through the mesh
+        dst._t += 1.0
+        dst.messages.append({**m, "id": f"r{len(dst.messages)}", "created": dst._t})
+        known.add(m["sig"])
+        new += 1
+    cursors[key] = got["cursor"]
+    return new
+
+
+def _reconcile_mesh(relays: list, cursors: dict, max_rounds: int = 5) -> tuple[int, int]:
+    """Gossip every pair until a full round moves nothing. Returns (ingested, rounds)."""
+    total = 0
+    for rounds in range(1, max_rounds + 1):
+        moved = sum(_reconcile(dst, src, cursors)
+                    for dst in relays for src in relays if dst is not src)
+        total += moved
+        if moved == 0:
+            return total, rounds
+    return total, max_rounds
+
+
+def _mesh_opener(relays: dict, dead: set):
+    """Route http://<name>/relay to the named FakeRelay; a dead relay raises like a socket."""
+    def opener(url, data=None):
+        for name, r in relays.items():
+            if f"://{name}/" in url:
+                if name in dead:
+                    raise OSError(f"relay {name} is dark")
+                return r.opener(url, data)
+        raise AssertionError(f"unroutable url {url}")
+    return opener
+
+
+def test_mesh_of_three_reconciling_relays_converges_all_readers(tmp_path):
+    """M writers each pushing to a DIFFERENT relay converge every reader after reconcile."""
+    relays = {"a": FakeRelay(), "b": FakeRelay(), "c": FakeRelay()}
+    names = list(relays)
+    writers, items = 6, 4
+    for i in range(writers):                       # writer i is pinned to ONE relay only
+        w = _bar_world(tmp_path, f"w{i}")
+        sync = RelaySync(f"http://{names[i % 3]}/relay", w, host_signer(f"w{i}"),
+                         opener=_mesh_opener(relays, set()))
+        w.on_weave = sync.push
+        for k in range(items):
+            w.weave_knit({"kind": "term", "term": f"W{i}K{k}"}, f"peer{i}", f"f{i}.{k}", 2)
+
+    # before reconcile each relay only holds its own writers' items
+    assert all(len(r.messages) == writers // 3 * items for r in relays.values())
+    ingested, rounds = _reconcile_mesh(list(relays.values()), {})
+    assert ingested == 2 * writers * items         # every item reached the 2 OTHER relays
+    assert all(len(r.messages) == writers * items for r in relays.values())
+
+    # a reader bound to ANY single relay now sees the identical web
+    roots = set()
+    for n in names:
+        rd = _bar_world(tmp_path, f"rd{n}")
+        res = RelaySync(f"http://{n}/relay", rd, host_signer(f"rd{n}"),
+                        opener=_mesh_opener(relays, set())).pull(limit=10_000)
+        assert res["applied"] == writers * items and res["rejected"] == 0
+        roots.add(rd.state_root())
+    assert len(roots) == 1                         # deterministic convergence, one state root
+
+
+def test_mesh_forged_message_never_propagates(tmp_path):
+    """A relay polluted with a forged message reconciles it to NOBODY (the send gate holds)."""
+    relays = {"a": FakeRelay(), "b": FakeRelay()}
+    w = _bar_world(tmp_path, "w")
+    sync = RelaySync("http://a/relay", w, host_signer("w"), opener=_mesh_opener(relays, set()))
+    w.on_weave = sync.push
+    w.weave_knit({"kind": "term", "term": "H2O"}, "peer", "f1", 2)
+    good = dict(relays["a"].messages[0])
+    relays["a"].messages.append({**good, "id": "forged", "body": good["body"] + "X",
+                                 "created": relays["a"]._t + 1})
+    relays["a"]._t += 1
+    ingested, _ = _reconcile_mesh(list(relays.values()), {})
+    assert ingested == 1                           # only the genuine message crossed
+    assert [m["body"] for m in relays["b"].messages] == [good["body"]]
+
+
+def test_mesh_failover_one_relay_dies_midrun_and_nothing_is_lost(tmp_path):
+    """Writers on a 3-relay POOL keep converging when one relay dies halfway through."""
+    from molgang.relay_sync import RelayPool
+
+    relays = {"a": FakeRelay(), "b": FakeRelay(), "c": FakeRelay()}
+    dead: set = set()
+    now = [0.0]
+    writers = []
+    for i in range(4):
+        w = _bar_world(tmp_path, f"w{i}")
+        pool = RelayPool([f"http://{n}/relay" for n in relays], w, host_signer(f"w{i}"),
+                         opener=_mesh_opener(relays, dead), cooldown=300.0,
+                         clock=lambda: now[0])
+        w.on_weave = pool.push
+        writers.append((w, pool))
+    for i, (w, _) in enumerate(writers):           # first half of the run: all relays up
+        w.weave_knit({"kind": "term", "term": f"PRE{i}"}, f"p{i}", f"pre{i}", 2)
+
+    dead.add("c")                                  # ☠ relay C dies mid-run
+    for i, (w, _) in enumerate(writers):           # second half: writes keep flowing
+        w.weave_knit({"kind": "term", "term": f"POST{i}"}, f"p{i}", f"post{i}", 2)
+    assert all(not p.healthy("http://c/relay") for _, p in writers)
+    assert len(relays["a"].messages) == len(relays["b"].messages) == 8
+
+    # anti-entropy among the SURVIVORS: fan-out re-signs per relay (distinct ECDSA sigs for
+    # the same item), so reconcile carries the copies across — and the READER's item-key
+    # dedup is what keeps the web single-counted, exactly the deployed pipeline.
+    ingested, _ = _reconcile_mesh([relays["a"], relays["b"]], {})
+    assert ingested == 2 * 8                       # each survivor ingests the other's copies
+    roots = set()
+    for n in ("a", "b"):
+        rd = _bar_world(tmp_path, f"rd{n}")
+        res = RelaySync(f"http://{n}/relay", rd, host_signer(f"rd{n}"),
+                        opener=_mesh_opener(relays, dead)).pull(limit=10_000)
+        assert res["applied"] == 8                 # all 4 PRE + all 4 POST items, once each
+        assert len(rd.items) == 8                  # never double-applied via the copies
+        roots.add(rd.state_root())
+    assert len(roots) == 1
+
+
+def test_mesh_bounded_scale_reports_convergence_time_and_counts(tmp_path):
+    """Bounded scale proof for CI: N single-relay writers × K items over a 3-relay
+    reconciling mesh converge every reader; prints the measured numbers so the CI log
+    carries a trend line (road-to-1M measurement, docs/MEASUREMENT.md)."""
+    import time as _time
+
+    relays = {"a": FakeRelay(), "b": FakeRelay(), "c": FakeRelay()}
+    names = list(relays)
+    n_writers, k_items = 24, 25                    # 600 signed writes — bounded for CI
+    t0 = _time.perf_counter()
+    for i in range(n_writers):
+        w = _bar_world(tmp_path, f"s{i}")
+        sync = RelaySync(f"http://{names[i % 3]}/relay", w, host_signer(f"s{i}"),
+                         opener=_mesh_opener(relays, set()))
+        w.on_weave = sync.push
+        for k in range(k_items):
+            w.weave_knit({"kind": "term", "term": f"S{i}K{k}"}, f"s{i}", f"sf{i}.{k}", 2)
+    t_write = _time.perf_counter() - t0
+
+    t0 = _time.perf_counter()
+    ingested, rounds = _reconcile_mesh(list(relays.values()), {})
+    t_rec = _time.perf_counter() - t0
+    total = n_writers * k_items
+    assert ingested == 2 * total and rounds <= 2   # one full gossip round suffices
+
+    t0 = _time.perf_counter()
+    reader = _bar_world(tmp_path, "scale-reader")
+    res = RelaySync("http://a/relay", reader, host_signer("scale-reader"),
+                    opener=_mesh_opener(relays, set())).pull(limit=10_000)
+    t_read = _time.perf_counter() - t0
+    assert res["applied"] == total and res["rejected"] == 0
+    assert len(reader.graph()["terms"]) >= total   # every item is IN the woven web
+    print(f"\nMESH SCALE: {n_writers} writers x {k_items} items = {total} messages | "
+          f"write {t_write:.2f}s, reconcile {t_rec:.2f}s ({ingested} ingested, "
+          f"{rounds} rounds), reader-converge {t_read:.2f}s")
+    assert t_write + t_rec + t_read < 120          # regression guard, generous CI bound
