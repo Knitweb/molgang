@@ -63,7 +63,11 @@ def test_app_registers_sw_and_survives_offline_refresh():
     # (strings moved to web/locales/*.json in #117; the keys are the contract now)
     assert 't("toast.reconnecting")' in js and 't("toast.reconnected")' in js
     body = js.split("async function refresh()", 1)[1].split("\n}", 1)[0]
-    assert "try" in body and "catch" in body
+    # api() surfaces a dead server as {ok:false, status:0} (it does not throw) —
+    # the blip guard must catch that result BEFORE renderState, or an offline
+    # blip falls through to resetSession() and logs the player out (#120 fix)
+    assert "status === 0" in body
+    assert body.index("status === 0") < body.index("renderState")
 
 
 def test_serve_returns_sw_with_js_content_type(tmp_path):
