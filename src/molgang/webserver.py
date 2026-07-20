@@ -411,6 +411,9 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                                         "address": relay.signer.address, "cursor": relay.cursor,
                                         # pool surface (#95): one row per relay + health
                                         "relays": relay.status()})
+            if path == "/api/relay/telemetry":
+                # node-scoped 1M/GTA6 scoreboard numbers for the public dashboard (#131)
+                return self._json(200, bar.telemetry())
             if path == "/api/lens/chemistry":
                 from urllib.parse import parse_qs, urlparse
                 q = (parse_qs(urlparse(self.path).query).get("q") or [""])[0]

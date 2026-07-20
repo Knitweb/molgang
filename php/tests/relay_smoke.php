@@ -108,6 +108,24 @@ $m = $got['messages'][0];
 $reverify = Crypto::verify($m['from'], Relay::signedPreimage((string) ($m['to'] ?? ''), $m['topic'], $m['body']), $m['sig']);
 check('reader re-verifies the relayed signature end-to-end', $reverify === true);
 
+// --- fleet telemetry: the 1M/GTA6 scoreboard (#131), keyed to docs/MEASUREMENT.md -----------
+$tel = Relay::telemetry();
+check('telemetry counts the live+active peer (presence ∧ real work in-window)',
+    ($tel['peers_online'] ?? 0) === 1);
+check('telemetry exposes the MEASUREMENT.md metric names + GTA6 reference',
+    isset($tel['knits_per_sec'], $tel['useful_work_per_sec'])
+    && ($tel['gta6_reference_peers'] ?? 0) === 1_000_000
+    && ($tel['scope'] ?? '') === 'relay');
+check('telemetry exposes the deduped concurrent-pubkey SET for fleet union (#131)',
+    isset($tel['peer_pubkeys']) && is_array($tel['peer_pubkeys'])
+    && count($tel['peer_pubkeys']) === 1 && $tel['peer_pubkeys'][0] === $pubHex);
+
+// presence WITHOUT work in-window must NOT count (activity floor, rule 3): age out the message
+Db::run('UPDATE relay_message SET created = ?', [microtime(true) - (Relay::ONLINE_WINDOW_S + 60)]);
+$tel2 = Relay::telemetry();
+check('a peer with stale (out-of-window) work drops from the concurrent count',
+    ($tel2['peers_online'] ?? -1) === 0 && ($tel2['useful_work_per_sec'] ?? -1) === 0.0);
+
 // --- anti-entropy: reconcile with a peer relay (#96) ----------------------------------------
 // A fake PEER relay served through the injectable $http: honours ?since= exactly like fetch().
 $peerPayload = 'NaCl is table salt';

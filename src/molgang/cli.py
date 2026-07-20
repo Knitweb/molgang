@@ -242,7 +242,53 @@ def main(argv: list[str] | None = None) -> int:
         return seed_cmd(argv[2:])
     if cmd == "facts":
         return facts_cmd(argv[2:])
+    if cmd == "fleet":
+        return fleet_cmd(argv[2:])
     return demo()
+
+
+def fleet_cmd(args: list[str]) -> int:
+    """Print the cross-region 1M/GTA6 fleet total (#131): union-dedup across a relay pool.
+
+    Relays come from --relay (repeatable / comma-list) or a --bootstrap discovery URL that
+    resolves through the region-aware registry (#98). Reads /api/relay/telemetry only.
+    """
+    import argparse
+    import json as _json
+
+    from . import fleet
+
+    ap = argparse.ArgumentParser(prog="molgang fleet")
+    ap.add_argument("--relay", action="append", default=None,
+                    help="relay API base (repeatable / comma-list)")
+    ap.add_argument("--bootstrap", default=None,
+                    help="discovery URL — resolve the relay pool from its registry (#98)")
+    ap.add_argument("--region", default=None, help="prefer this region when bootstrapping")
+    a = ap.parse_args(args)
+
+    bases: list[str] = [b.strip() for v in (a.relay or []) for b in v.split(",") if b.strip()]
+    if a.bootstrap:
+        # registry discovery ships with the #98 bootstrap; import lazily so the aggregator
+        # works standalone with --relay even before that lands.
+        try:
+            from .relay_sync import discover_relays
+        except ImportError:
+            print("--bootstrap needs the region-aware discovery (#98) — use --relay for now")
+            return 2
+        bases += discover_relays(a.bootstrap, region=a.region)
+    bases = list(dict.fromkeys(bases))
+    if not bases:
+        print("no relays given — pass --relay <base> and/or --bootstrap <url>")
+        return 2
+
+    out = fleet.aggregate(bases)
+    print(_json.dumps(out, indent=2))
+    tgt = out["win_target_peers"] or 1
+    print(f"\n🌐 fleet: {out['concurrent_peers_total']:,} concurrent peers across "
+          f"{out['reachable']}/{out['total']} relays "
+          f"({out['concurrent_peers_total'] / tgt * 100:.4f}% of the GTA6 line)"
+          + ("  ⚠ degraded (a relay lacked the pubkey set)" if out["degraded"] else ""))
+    return 0
 
 
 if __name__ == "__main__":

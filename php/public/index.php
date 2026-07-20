@@ -143,6 +143,10 @@ try {
             if ($sub === 'fetch') {
                 out(Relay::fetch($q));
             }
+            if ($sub === 'telemetry') {
+                // GET /api/relay/telemetry → real 1M/GTA6 scoreboard numbers (#131)
+                out(Relay::telemetry());
+            }
             if ($sub === 'reconcile') {
                 // POST/GET /api/relay/reconcile[?key=…] → one anti-entropy pass over the
                 // configured relay_peers (#96). Request-driven and bounded, so it is cron-safe;
