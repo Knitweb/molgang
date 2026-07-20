@@ -50,8 +50,10 @@ const api = async (path, method = "GET", body = null) => {
   return data;
 };
 
-const avatarImg = (id, cls = "av-img") => `<img class="${cls}" src="avatars/${id}.svg" alt="" />`;
-// thousands-separated number + HTML-escape helpers (used by the Monitor tab)
+const avatarImg = (id, cls = "av-img") => `<img class="${cls}" src="avatars/${esc(id)}.svg" alt="" />`;
+// thousands-separated number + HTML-escape helpers. esc() is mandatory at EVERY
+// interpolation of peer-influenced data (names, terms, cids, …) into innerHTML —
+// peer-supplied strings replicate between clients, so a missed sink is stored XSS.
 const fmt = (n) => (n == null ? 0 : Number(n)).toLocaleString();
 const esc = (s) => (s == null ? "" : String(s)).replace(/[&<>"]/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -266,7 +268,7 @@ async function boot() {
     const b = document.createElement("button");
     b.className = "av-pick" + (i === 0 ? " sel" : "");
     b.title = a.name;
-    b.innerHTML = `<img src="avatars/${a.id}.svg" alt="${a.name}" /><span>${a.name}</span>`;
+    b.innerHTML = `<img src="avatars/${esc(a.id)}.svg" alt="${esc(a.name)}" /><span>${esc(a.name)}</span>`;
     b.onclick = () => {
       chosenAvatar = a.id;
       document.querySelectorAll(".av-pick").forEach((x) => x.classList.remove("sel"));
@@ -516,9 +518,9 @@ function renderFloor(s) {
     card.className = "table-card";
     const chairs = Array.from({ length: t.seats }, (_, i) => {
       const occ = t.seated[i];
-      return `<span class="chair ${occ ? "occ" : ""}" title="${occ ? occ.name : "empty"}">${occ ? avatarImg(occ.avatar, "chair-av") : "·"}</span>`;
+      return `<span class="chair ${occ ? "occ" : ""}" title="${esc(occ ? occ.name : "empty")}">${occ ? avatarImg(occ.avatar, "chair-av") : "·"}</span>`;
     }).join("");
-    card.innerHTML = `<h3>${t.name}</h3>
+    card.innerHTML = `<h3>${esc(t.name)}</h3>
       <div class="chairs">${chairs}</div>
       <div class="dim small">${t.seated.length}/${t.seats} seated · ${t.fabric.length} woven</div>
       <button class="join-table">take a seat →</button>`;
@@ -539,7 +541,7 @@ function renderTable(s) {
   $("rename-table").classList.toggle("hidden", !t.can_rename);
   $("seats").innerHTML = t.seated.map((p) =>
     `<div class="seat ${p.you ? "you" : ""}">${avatarImg(p.avatar, "seat-av")}
-      <div><b>${p.name}</b><br><span class="dim small">L${p.level} ${p.title} · ${p.woven}🧬</span></div></div>`).join("");
+      <div><b>${esc(p.name)}</b><br><span class="dim small">L${esc(p.level)} ${esc(p.title)} · ${esc(p.woven)}🧬</span></div></div>`).join("");
   $("leave-table").onclick = async () => {
     const r = await api("/api/stand", "POST", { sid });
     if (r.error) { showToast(r.error); return; }
@@ -567,10 +569,10 @@ function renderTable(s) {
   $("open").innerHTML = t.open.length ? t.open.map((p) => {
     const v = p.votes;
     const buttons = (p.mine || p.voted) ? `<span class="dim small">${p.mine ? "your knit" : "voted ✓"}</span>` :
-      `<button class="vote ok" data-pid="${p.pid}" data-v="confirm">👍 pulse</button>
-       <button class="vote no" data-pid="${p.pid}" data-v="mismatch">👎 pulse</button>`;
-    return `<div class="knit"><b>${p.term}</b> <span class="dim small">by ${p.by}</span>
-      <span class="tally">✓${v.confirm} ✗${v.mismatch} · ${v.total}</span> ${buttons}</div>`;
+      `<button class="vote ok" data-pid="${esc(p.pid)}" data-v="confirm">👍 pulse</button>
+       <button class="vote no" data-pid="${esc(p.pid)}" data-v="mismatch">👎 pulse</button>`;
+    return `<div class="knit"><b>${esc(p.term)}</b> <span class="dim small">by ${esc(p.by)}</span>
+      <span class="tally">✓${esc(v.confirm)} ✗${esc(v.mismatch)} · ${esc(v.total)}</span> ${buttons}</div>`;
   }).join("") : `<div class="dim">no open knits — brainstorm one above</div>`;
   $("open").querySelectorAll("button.vote").forEach((b) => {
     b.onclick = async () => {
@@ -581,7 +583,7 @@ function renderTable(s) {
   });
   renderSpirals(t);
   $("fabric").innerHTML = t.fabric.length ? t.fabric.map((w) =>
-    `<span class="woven" title="Fiber ${w.fiber_cid}">${w.term} <span class="dim small">·${w.confirmations}✓</span></span>`).join("") :
+    `<span class="woven" title="Fiber ${esc(w.fiber_cid)}">${esc(w.term)} <span class="dim small">·${esc(w.confirmations)}✓</span></span>`).join("") :
     `<span class="dim">nothing woven yet</span>`;
 }
 
@@ -639,24 +641,24 @@ function renderSpirals(t) {
     const path = sp.links.map((lk, i) => {
       // each link is "A → B"; chain them without repeating the shared node.
       const [a, b] = lk.split("→").map((x) => x.trim());
-      return (i === 0 ? `<span class="chip">${a}</span>` : "") +
-        ` <span class="spiral-arrow">→</span> <span class="chip">${b}</span>`;
+      return (i === 0 ? `<span class="chip">${esc(a)}</span>` : "") +
+        ` <span class="spiral-arrow">→</span> <span class="chip">${esc(b)}</span>`;
     }).join("");
     const stateLabel = captured ? "🕸 capture" : "auxiliary";
     const acts = (sp.mine || sp.backed)
       ? `<span class="dim small">${sp.mine ? "your spiral" : "backed ✓"}</span>`
-      : `<button class="back" data-cid="${sp.cid}" data-v="confirm">⚡ Back (pulse)</button>
-         <button class="reject" data-cid="${sp.cid}" data-v="mismatch">✗ Reject</button>`;
-    return `<div class="spiral ${captured ? "captured" : ""}" data-cid="${sp.cid}">
+      : `<button class="back" data-cid="${esc(sp.cid)}" data-v="confirm">⚡ Back (pulse)</button>
+         <button class="reject" data-cid="${esc(sp.cid)}" data-v="mismatch">✗ Reject</button>`;
+    return `<div class="spiral ${captured ? "captured" : ""}" data-cid="${esc(sp.cid)}">
       <div class="spiral-top">
         <span class="spiral-state ${captured ? "capture" : ""}">${stateLabel}</span>
-        <b>by ${sp.by}</b>
-        <span class="spiral-len">${sp.length} links</span>
+        <b>by ${esc(sp.by)}</b>
+        <span class="spiral-len">${esc(sp.length)} links</span>
       </div>
       <div class="spiral-path">${path}</div>
       <div class="spiral-meta">
-        <span>✓ ${v.confirm} · ✗ ${v.mismatch} · ${v.total} backers</span>
-        <span class="spiral-stake">my stake if I back: ⚡ ${sp.stake} PLS</span>
+        <span>✓ ${esc(v.confirm)} · ✗ ${esc(v.mismatch)} · ${esc(v.total)} backers</span>
+        <span class="spiral-stake">my stake if I back: ⚡ ${esc(sp.stake)} PLS</span>
         <span class="spiral-actions">${acts}</span>
       </div>
     </div>`;
@@ -724,8 +726,8 @@ function renderRecords(s) {
     const rank = ["🥇", "🥈", "🥉"][i] || ("#" + (i + 1));
     return `<div class="record-row">
       <span class="record-rank">${rank}</span>
-      <span><b>${r.by}</b> <span class="dim small">· ${r.table}</span></span>
-      <span class="record-len">🕸 ${r.length} links</span>
+      <span><b>${esc(r.by)}</b> <span class="dim small">· ${esc(r.table)}</span></span>
+      <span class="record-len">🕸 ${esc(r.length)} links</span>
     </div>`;
   }).join("") : `<div class="dim">no spirals captured yet — weave one at a table to set the record</div>`;
 }
@@ -740,7 +742,7 @@ function detectCaptures(s) {
       now.add(sp.cid);
       if (!_capturedSeen.has(sp.cid)) {
         showToast(`${t("toast.spiral.captured")} ${sp.length} links · ${sp.by}`);
-        const card = document.querySelector(`.spiral[data-cid="${sp.cid}"]`);
+        const card = document.querySelector(`.spiral[data-cid="${CSS.escape(sp.cid)}"]`);
         if (card) card.classList.add("flash");
       }
     }
@@ -796,14 +798,14 @@ async function requestCertificate() {
 function renderLedger(mk) {
   if (!mk) return;
   $("ledger-summary").innerHTML =
-    `<span class="bal">🪢 <b>${mk.knits_made}</b> knits</span>
-     <span class="bal">🧬 <b>${mk.woven}</b> woven</span>
-     <span class="bal">🗳️ <b>${mk.total_votes}</b> total votes on my knits</span>`;
+    `<span class="bal">🪢 <b>${esc(mk.knits_made)}</b> knits</span>
+     <span class="bal">🧬 <b>${esc(mk.woven)}</b> woven</span>
+     <span class="bal">🗳️ <b>${esc(mk.total_votes)}</b> total votes on my knits</span>`;
   $("ledger-rows").innerHTML = mk.knits.map((k) => {
-    const v = k.votes, st = k.woven ? "✅ woven" : (k.settled ? "✗ " + k.outcome : "… open");
-    return `<tr><td><b>${k.term}</b></td><td class="dim">${k.topic}</td><td>${st}</td>
-      <td>${v.confirm} / ${v.mismatch} / ${v.abstain} / <b>${v.total}</b></td>
-      <td class="mono small">${k.fiber_cid ? k.fiber_cid.slice(0, 20) + "…" : "—"}</td></tr>`;
+    const v = k.votes, st = k.woven ? "✅ woven" : (k.settled ? "✗ " + esc(k.outcome) : "… open");
+    return `<tr><td><b>${esc(k.term)}</b></td><td class="dim">${esc(k.topic)}</td><td>${st}</td>
+      <td>${esc(v.confirm)} / ${esc(v.mismatch)} / ${esc(v.abstain)} / <b>${esc(v.total)}</b></td>
+      <td class="mono small">${k.fiber_cid ? esc(k.fiber_cid.slice(0, 20)) + "…" : "—"}</td></tr>`;
   }).join("") || `<tr><td colspan="5" class="dim">no knits yet — sit at a table and knit a term</td></tr>`;
 }
 
@@ -813,34 +815,34 @@ function renderExplorer(rows) {
       const v = c.votes, rank = ["🥇","🥈","🥉"][i] || ("#" + (i + 1));
       return `<div class="ecol ${c.woven ? "won" : ""}">
         <div class="erank">${rank}</div>
-        <div class="eterm"><b>${c.term}</b> <span class="dim small">by ${c.by}</span></div>
-        <div class="evotes">net <b>${c.net}</b> · ✓${v.confirm} ✗${v.mismatch} – ${v.abstain} · total ${v.total}</div>
-        <div class="mono small">${c.woven ? "Fiber " + (c.fiber_cid || "").slice(0, 16) + "…" : (c.settled ? c.outcome : "open")}</div>
+        <div class="eterm"><b>${esc(c.term)}</b> <span class="dim small">by ${esc(c.by)}</span></div>
+        <div class="evotes">net <b>${esc(c.net)}</b> · ✓${esc(v.confirm)} ✗${esc(v.mismatch)} – ${esc(v.abstain)} · total ${esc(v.total)}</div>
+        <div class="mono small">${c.woven ? "Fiber " + esc((c.fiber_cid || "").slice(0, 16)) + "…" : (c.settled ? esc(c.outcome) : "open")}</div>
       </div>`;
     }).join("");
-    return `<div class="erow"><div class="etopic">${row.topic} <span class="dim small">(${row.competing})</span></div>
+    return `<div class="erow"><div class="etopic">${esc(row.topic)} <span class="dim small">(${esc(row.competing)})</span></div>
       <div class="ecols">${cols}</div></div>`;
   }).join("") || `<div class="dim">no knits yet</div>`;
 }
 
 function renderWeb(w) {
   $("web-stats").innerHTML =
-    `<span class="bal">🔵 <b>${w.nodes}</b> nodes</span>
-     <span class="bal">🔗 <b>${w.edges}</b> edges</span>
-     <span class="bal mono small">root ${(w.state_root || "").slice(0, 16)}…</span>`;
+    `<span class="bal">🔵 <b>${esc(w.nodes)}</b> nodes</span>
+     <span class="bal">🔗 <b>${esc(w.edges)}</b> edges</span>
+     <span class="bal mono small">root ${esc((w.state_root || "").slice(0, 16))}…</span>`;
   const a = w.anchor || {};
   $("web-anchor").innerHTML = a.ual
-    ? `🔗 anchored to OriginTrail: <span class="mono small">${a.ual}</span>
-       <span class="dim small">· ${a.nodes}n/${a.edges}e · verified ${a.verified}</span>`
+    ? `🔗 anchored to OriginTrail: <span class="mono small">${esc(a.ual)}</span>
+       <span class="dim small">· ${esc(a.nodes)}n/${esc(a.edges)}e · verified ${esc(a.verified)}</span>`
     : `<span class="dim">not yet anchored — weave a term to extend the web</span>`;
   $("web-recent").innerHTML = (w.recent || []).map((r) =>
-    `<span class="woven" title="Fiber ${r.fiber}">${r.kind === "link" ? "🔗" : "🧬"} ${r.label} <span class="dim small">·${r.confirmations}✓ ${r.by}</span></span>`).join("")
+    `<span class="woven" title="Fiber ${esc(r.fiber)}">${r.kind === "link" ? "🔗" : "🧬"} ${esc(r.label)} <span class="dim small">·${esc(r.confirmations)}✓ ${esc(r.by)}</span></span>`).join("")
     || `<span class="dim">empty</span>`;
   $("web-links").innerHTML = (w.links || []).map((l) =>
-    `<div class="linkrow"><span class="chip">${l.subject}</span> <span class="dim small">${l.relation} →</span> <span class="chip">${l.object}</span></div>`).join("")
+    `<div class="linkrow"><span class="chip">${esc(l.subject)}</span> <span class="dim small">${esc(l.relation)} →</span> <span class="chip">${esc(l.object)}</span></div>`).join("")
     || `<span class="dim">no links yet — knit two terms with "=" (e.g. <code>V2O5 = vanadium pentoxide</code>)</span>`;
   // type-ahead datalist of the woven vocabulary (case-insensitive lookup means any case works)
-  $("gx-names").innerHTML = (w.terms || []).map((t) => `<option value="${t}"></option>`).join("");
+  $("gx-names").innerHTML = (w.terms || []).map((t) => `<option value="${esc(t)}"></option>`).join("");
   renderGraph();
 }
 
@@ -853,27 +855,27 @@ function gxSuggest(suggestions, input, rerun) {
     });
   }, 0);
   return ` <span class="dim small">did you mean:</span> ` +
-    suggestions.map((s) => `<a href="#" class="chip" data-t="${s}">${s}</a>`).join(" ");
+    suggestions.map((s) => `<a href="#" class="chip" data-t="${esc(s)}">${esc(s)}</a>`).join(" ");
 }
 
 async function renderGraph() {
   const g = await api("/api/graph");
   const s = g.stats || {};
   $("gx-stats").innerHTML =
-    `<span class="bal">🔵 <b>${s.nodes || 0}</b> nodes</span>
-     <span class="bal">🔗 <b>${s.edges || 0}</b> edges</span>
-     <span class="bal">🧩 <b>${s.clusters || 0}</b> clusters</span>
-     <span class="bal">density <b>${s.density || 0}</b></span>`;
+    `<span class="bal">🔵 <b>${esc(s.nodes || 0)}</b> nodes</span>
+     <span class="bal">🔗 <b>${esc(s.edges || 0)}</b> edges</span>
+     <span class="bal">🧩 <b>${esc(s.clusters || 0)}</b> clusters</span>
+     <span class="bal">density <b>${esc(s.density || 0)}</b></span>`;
   $("gx-hubs").innerHTML = "<b>hubs:</b> " + ((g.hubs || []).map((h) =>
-    `<span class="chip" title="centrality ${h.centrality}">${h.term} <span class="dim small">·${h.degree}</span></span>`).join(" ") || "<span class='dim'>none yet</span>");
+    `<span class="chip" title="centrality ${esc(h.centrality)}">${esc(h.term)} <span class="dim small">·${esc(h.degree)}</span></span>`).join(" ") || "<span class='dim'>none yet</span>");
   $("gx-go").onclick = async () => {
     const t = $("gx-term").value.trim(); if (!t) return;
     const r = await api("/api/graph?term=" + encodeURIComponent(t));
     const n = r.neighbors;
     $("gx-result").innerHTML = !n
-      ? `<span class="dim">“${t}” isn't in the web yet.</span>` + gxSuggest(r.suggestions, $("gx-term"), $("gx-go").onclick)
-      : `<b>${n.term}</b> → ${(n.out.map((x) => `${x.relation} <span class="chip">${x.to}</span>`).join(", ") || "—")}<br>
-         <b>${n.term}</b> ← ${(n.in.map((x) => `<span class="chip">${x.from}</span> ${x.relation}`).join(", ") || "—")}`;
+      ? `<span class="dim">“${esc(t)}” isn't in the web yet.</span>` + gxSuggest(r.suggestions, $("gx-term"), $("gx-go").onclick)
+      : `<b>${esc(n.term)}</b> → ${(n.out.map((x) => `${esc(x.relation)} <span class="chip">${esc(x.to)}</span>`).join(", ") || "—")}<br>
+         <b>${esc(n.term)}</b> ← ${(n.in.map((x) => `<span class="chip">${esc(x.from)}</span> ${esc(x.relation)}`).join(", ") || "—")}`;
   };
   $("gx-path").onclick = async () => {
     const a = $("gx-a").value.trim(), b = $("gx-b").value.trim(); if (!a || !b) return;
@@ -882,13 +884,13 @@ async function renderGraph() {
     if (!p) {
       const miss = r.missing || [];
       const box = (miss.length && a.toLowerCase() === String(miss[0]).toLowerCase()) ? $("gx-a") : $("gx-b");
-      $("gx-result").innerHTML = `<span class="dim">${(miss.join(", ") || "one of those terms")} isn't woven yet.</span>`
+      $("gx-result").innerHTML = `<span class="dim">${esc(miss.join(", ") || "one of those terms")} isn't woven yet.</span>`
         + gxSuggest(r.suggestions, box, $("gx-path").onclick);
       return;
     }
     $("gx-result").innerHTML = p.path
-      ? `path (${p.hops} hops): ${p.path.map((x) => `<span class="chip">${x}</span>`).join(" → ")}`
-      : `<span class="dim">no path between “${p.from}” and “${p.to}” yet.</span>`;
+      ? `path (${esc(p.hops)} hops): ${p.path.map((x) => `<span class="chip">${esc(x)}</span>`).join(" → ")}`
+      : `<span class="dim">no path between “${esc(p.from)}” and “${esc(p.to)}” yet.</span>`;
   };
 }
 
@@ -982,20 +984,20 @@ async function runSim() {
 function renderMonStatus(st) {
   $("mon-nodes").innerHTML = (st.nodes || []).map((n) => {
     const dot = n.live ? `<span class="mdot up"></span>` : `<span class="mdot down"></span>`;
-    const port = n.port ? `<span class="dim small">:${n.port}</span>` : "";
-    return `<div class="mon-node">${dot}<b>${n.label}</b> ${port}
+    const port = n.port ? `<span class="dim small">:${esc(n.port)}</span>` : "";
+    return `<div class="mon-node">${dot}<b>${esc(n.label)}</b> ${port}
       <span class="${n.live ? "pos" : "neg"} small">${n.live ? "● live" : "● down"}</span></div>`;
   }).join("") || `<span class="dim">no nodes configured</span>`;
   const w = st.web || {}, h = st.pulse_host;
   $("mon-web").innerHTML =
-    `<span class="bal">🔵 <b>${w.nodes || 0}</b> web nodes</span>
-     <span class="bal">🔗 <b>${w.edges || 0}</b> edges</span>
-     <span class="bal mono small">root ${(w.state_root || "").slice(0, 14)}…</span>` +
-    (h && h.address ? `<span class="bal mono small" title="${h.address}">📡 host ${h.address.slice(0, 10)}… · ${h.balance_pls || 0} PLS</span>` : "");
+    `<span class="bal">🔵 <b>${esc(w.nodes || 0)}</b> web nodes</span>
+     <span class="bal">🔗 <b>${esc(w.edges || 0)}</b> edges</span>
+     <span class="bal mono small">root ${esc((w.state_root || "").slice(0, 14))}…</span>` +
+    (h && h.address ? `<span class="bal mono small" title="${esc(h.address)}">📡 host ${esc(h.address.slice(0, 10))}… · ${esc(h.balance_pls || 0)} PLS</span>` : "");
   const a = st.anchor || {};
   $("mon-anchor").innerHTML = a.ual
-    ? `🔗 OriginTrail: <span class="mono small">${a.ual}</span>
-       <span class="dim small">· ${a.nodes}n/${a.edges}e · ${a.verified ? '<span class="pos">✓ verified</span>' : "unverified"}</span>`
+    ? `🔗 OriginTrail: <span class="mono small">${esc(a.ual)}</span>
+       <span class="dim small">· ${esc(a.nodes)}n/${esc(a.edges)}e · ${a.verified ? '<span class="pos">✓ verified</span>' : "unverified"}</span>`
     : `<span class="dim">shared web not yet anchored</span>`;
 }
 
@@ -1005,8 +1007,8 @@ function renderMonKg(kg) {
     `<span class="bal">🔵 <b>${fmt(kg.nodes)}</b> nodes</span>
      <span class="bal">🔗 <b>${fmt(kg.edges)}</b> edges</span>
      <span class="bal">🔵 <b>${fmt(kg.concepts)}</b> concepts</span>
-     <span class="bal">🧩 <b>${kg.clusters}</b> clusters</span>
-     <span class="bal">density <b>${kg.density}</b></span>`;
+     <span class="bal">🧩 <b>${esc(kg.clusters)}</b> clusters</span>
+     <span class="bal">density <b>${esc(kg.density)}</b></span>`;
   const L = kg.languages || {};
   $("mon-langs").innerHTML = MON_LANGS.map(([code, lbl]) =>
     `<span class="mon-lang"><span>${lbl}</span><b>${fmt(L[code] || 0)}</b></span>`).join("");
@@ -1017,7 +1019,7 @@ function renderMonKg(kg) {
      <div class="row"><span>${sw(MON_TENSION.neutral)}neutral</span><b>${fmt(b.neutral || 0)}</b></div>
      <div class="row"><span>${sw(MON_TENSION.slack)}slack</span><b>${fmt(b.slack || 0)}</b></div>
      <div class="row"><span>${sw(MON_TENSION.contested)}snapped</span><b>${fmt(b.contested || 0)}</b></div>
-     <div class="row"><span class="dim">avg tautness</span><b>${t.avg_tautness ?? "–"} / ${(t.thresholds || {}).scale || 1000}</b></div>`;
+     <div class="row"><span class="dim">avg tautness</span><b>${esc(t.avg_tautness ?? "–")} / ${esc((t.thresholds || {}).scale || 1000)}</b></div>`;
   $("mon-hubs").innerHTML = (kg.hubs || []).map((h) =>
     `<span class="chip mon-hub" data-t="${esc(h.term)}" title="centrality ${h.centrality}">${esc(h.term)} <span class="dim">·${h.degree}</span></span>`).join("");
   $("mon-hubs").querySelectorAll(".mon-hub").forEach((c) => { c.onclick = () => monFocus(c.dataset.t); });

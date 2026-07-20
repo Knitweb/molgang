@@ -93,11 +93,38 @@ window.I18N = (() => {
     return s;
   }
 
+  // data-i18n-html strings may carry light markup (<b>, <span class>, …) but a
+  // locale file must never be able to run script: parse inert, then rebuild
+  // keeping only an allowlist of tags/attributes (drops on* handlers, js: URLs).
+  const HTML_TAGS = new Set(["B", "I", "EM", "STRONG", "SPAN", "CODE", "BR", "A", "SMALL"]);
+  const HTML_ATTRS = new Set(["class", "title", "href", "target", "rel"]);
+  function sanitize(html) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const clean = (node) => {
+      const out = document.createDocumentFragment();
+      node.childNodes.forEach((c) => {
+        if (c.nodeType === Node.TEXT_NODE) { out.appendChild(document.createTextNode(c.textContent)); return; }
+        if (c.nodeType !== Node.ELEMENT_NODE) return;
+        if (!HTML_TAGS.has(c.tagName)) { out.appendChild(clean(c)); return; }  // unwrap unknown tags, keep text
+        const el = document.createElement(c.tagName.toLowerCase());
+        for (const at of c.attributes) {
+          if (!HTML_ATTRS.has(at.name)) continue;
+          if (at.name === "href" && !/^(https?:|#|\/)/i.test(at.value.trim())) continue;
+          el.setAttribute(at.name, at.value);
+        }
+        el.appendChild(clean(c));
+        out.appendChild(el);
+      });
+      return out;
+    };
+    return clean(doc.body);
+  }
+
   function apply(root) {
     const r = root || document;
     r.querySelectorAll("[data-i18n]").forEach((el) => {
       const v = t(el.getAttribute("data-i18n"));
-      if (el.hasAttribute("data-i18n-html")) el.innerHTML = v;
+      if (el.hasAttribute("data-i18n-html")) el.replaceChildren(sanitize(v));
       else el.textContent = v;
     });
     r.querySelectorAll("[data-i18n-title]").forEach((el) => {

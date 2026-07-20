@@ -282,6 +282,26 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
             _click(page, "#lb-season")            # season toggle switches the board without error
             page.wait_for_timeout(400)
             page.screenshot(path=str(shots / "05-progress.png"))
+
+            # molgang#255 — a peer-supplied name like <img src=x onerror=…> must render
+            # inert through the real render layer: no script execution, no injected
+            # element, the payload visible as literal text.
+            xss = page.evaluate(
+                """() => {
+                  window.__xss = 0;
+                  const hostile = '<img src=x onerror="window.__xss=1">';
+                  renderRecords({ spiral_leaderboard: [{ by: hostile, table: hostile, length: 3 }] });
+                  return new Promise((res) => setTimeout(() => res({
+                    fired: window.__xss,
+                    imgs: document.querySelectorAll('#records-board img').length,
+                    text: document.querySelector('#records-board')?.textContent || '',
+                  }), 300));
+                }"""
+            )
+            if xss["fired"] or xss["imgs"]:
+                failures.append("hostile player name executed or injected markup in the records board")
+            if "<img" not in xss["text"]:
+                failures.append("hostile player name was not rendered as literal text")
         finally:
             browser.close()
 
