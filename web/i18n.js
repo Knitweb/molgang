@@ -97,12 +97,16 @@ window.I18N = (() => {
     const r = root || document;
     r.querySelectorAll("[data-i18n]").forEach((el) => {
       const key = el.getAttribute("data-i18n");
-      const v = t(key);
-      // HTML injection is reserved for strings RESOLVED from our locale JSONs;
-      // a missing key falls back to the raw attribute value, which must land as
-      // text, never markup (CodeQL js/xss-through-dom).
-      if (el.hasAttribute("data-i18n-html") && v !== key) el.innerHTML = v;
-      else el.textContent = v;
+      // HTML injection is reserved for strings that come STRAIGHT from our locale
+      // JSONs — the tainted attribute value itself can only ever land as text,
+      // because the raw-key fallback path never reaches innerHTML at all
+      // (CodeQL js/xss-through-dom).
+      const resolved = dict[key] ?? en[key];
+      if (el.hasAttribute("data-i18n-html") && typeof resolved === "string") {
+        el.innerHTML = resolved;
+      } else {
+        el.textContent = t(key);
+      }
     });
     r.querySelectorAll("[data-i18n-title]").forEach((el) => {
       el.title = t(el.getAttribute("data-i18n-title"));
