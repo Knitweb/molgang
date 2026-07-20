@@ -1,0 +1,10 @@
+# Provisioned Prometheus datasource — resolves to the sibling container.
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    uid: molgang-prom
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false

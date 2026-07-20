@@ -117,10 +117,16 @@ class Monitor:
 
     def overview(self) -> dict:
         """One compact poll for the Monitor tab: node status + the local-knitweb KG digest."""
-        return {
+        out = {
             "status": self.node_status(),
             "kg": {**self.kg_stats(), **self.kg_hubs(8), "tension": self.kg_tension()},
         }
+        # Operator-configured Grafana board (monitoring/, #123) — read-only deep link;
+        # absent unless the operator opted in, so the tab never guesses at a URL.
+        dashboard = os.environ.get("MOLGANG_GRAFANA_URL", "").strip()
+        if dashboard:
+            out["dashboard"] = dashboard
+        return out
 
 
 # ---------------------------------------------------------------------------

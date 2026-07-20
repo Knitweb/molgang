@@ -1,0 +1,30 @@
+# Prometheus scrape config for the MOLGANG monitoring stack (#123).
+# Brought up by monitoring/docker-compose.yml; reuses the SLO alert rules (#125).
+#
+# Targets:
+#   * a local `molgang serve` (default --port 8765) exposing /metrics (#121)
+#   * any extra peers/relays listed under 'molgang-peers' — add a deployed
+#     instance here to watch it with the same board (see DEPLOY.md; the
+#     Fly/Render/VPS deploys serve the same /metrics path).
+#
+# host.docker.internal reaches the host from inside the Prometheus container on
+# Docker Desktop; the extra_hosts entry in docker-compose.yml maps it for Linux.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/molgang-alerts.yml
+
+scrape_configs:
+  - job_name: molgang-serve
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:8765"]
+        labels: { role: serve }
+
+  # deployed peers / relay fleet — append targets, one per instance
+  - job_name: molgang-peers
+    metrics_path: /metrics
+    static_configs:
+      - targets: []

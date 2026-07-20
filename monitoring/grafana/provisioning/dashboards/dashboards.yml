@@ -1,0 +1,10 @@
+# Auto-load every dashboard JSON committed under monitoring/grafana/dashboards.
+apiVersion: 1
+providers:
+  - name: molgang
+    orgId: 1
+    folder: MOLGANG
+    type: file
+    disableDeletion: true
+    options:
+      path: /var/lib/grafana/dashboards
