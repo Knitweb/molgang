@@ -1,0 +1,82 @@
+{
+  "__comment": "MOLGANG RED board (#123): request rate / errors / duration + woven-rate, quorum-settle p99 and inflight, over the stdlib /metrics exposition (#121). Thresholds mirror docs/BUDGETS.md and monitoring/molgang-alerts.yml (#125).",
+  "uid": "molgang-red",
+  "title": "MOLGANG — RED + weave",
+  "tags": ["molgang", "red", "road-to-1m"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "refresh": "5s",
+  "time": { "from": "now-30m", "to": "now" },
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "Request rate by path (req/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "molgang-prom" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(molgang_http_requests_total[1m])) by (path)", "legendFormat": "{{path}}" }
+      ]
+    },
+    {
+      "id": 2, "type": "timeseries", "title": "Error rate (4xx+5xx fraction) — budget 1%",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "molgang-prom" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "max": 0.05,
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "red", "value": 0.01 } ] } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(molgang_http_requests_total{code=~\"[45]..\"}[5m])) / sum(rate(molgang_http_requests_total[5m]))", "legendFormat": "error fraction" }
+      ]
+    },
+    {
+      "id": 3, "type": "stat", "title": "Inflight requests",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "molgang-prom" },
+      "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+      "targets": [ { "refId": "A", "expr": "molgang_http_inflight", "legendFormat": "inflight" } ]
+    },
+    {
+      "id": 4, "type": "timeseries", "title": "Latency p50 / p95 / p99 (all paths)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "molgang-prom" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.50, sum(rate(molgang_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p50" },
+        { "refId": "B", "expr": "histogram_quantile(0.95, sum(rate(molgang_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p95" },
+        { "refId": "C", "expr": "histogram_quantile(0.99, sum(rate(molgang_http_request_duration_seconds_bucket[5m])) by (le))", "legendFormat": "p99" }
+      ]
+    },
+    {
+      "id": 5, "type": "timeseries", "title": "Quorum-settle p99 (/api/propose) — budget 500ms",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "molgang-prom" },
+      "fieldConfig": { "defaults": { "unit": "s",
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null }, { "color": "red", "value": 0.5 } ] } }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.99, sum(rate(molgang_http_request_duration_seconds_bucket{path=\"/api/propose\"}[5m])) by (le))", "legendFormat": "propose p99" },
+        { "refId": "B", "expr": "histogram_quantile(0.99, sum(rate(molgang_http_request_duration_seconds_bucket{path=\"/api/vote\"}[5m])) by (le))", "legendFormat": "vote p99" },
+        { "refId": "C", "expr": "histogram_quantile(0.99, sum(rate(molgang_http_request_duration_seconds_bucket{path=\"/api/state\"}[5m])) by (le))", "legendFormat": "state p99" }
+      ]
+    },
+    {
+      "id": 6, "type": "timeseries", "title": "Weave throughput (knits/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "molgang-prom" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "rate(molgang_knit_proposed_total[5m])", "legendFormat": "proposed/s" },
+        { "refId": "B", "expr": "rate(molgang_knit_woven_total[5m])", "legendFormat": "woven/s" }
+      ]
+    },
+    {
+      "id": 7, "type": "timeseries", "title": "Votes by verdict (/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": { "type": "prometheus", "uid": "molgang-prom" },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "refId": "A", "expr": "sum(rate(molgang_vote_total[5m])) by (verdict)", "legendFormat": "{{verdict}}" }
+      ]
+    }
+  ]
+}
