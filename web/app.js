@@ -526,10 +526,10 @@ function renderFloor(s) {
     card.className = "table-card";
     const chairs = Array.from({ length: t.seats }, (_, i) => {
       const occ = t.seated[i];
-      return `<span class="chair ${occ ? "occ" : ""}" title="${occ ? occ.name : "empty"}">${occ ? avatarImg(occ.avatar, "chair-av") : "·"}</span>`;
+      return `<span class="chair ${occ ? "occ" : ""}" title="${esc(occ ? occ.name : "empty")}">${occ ? avatarImg(occ.avatar, "chair-av") : "·"}</span>`;
     }).join("");
     card.innerHTML = `<div class="table-scene"><img src="${tableScene(t.id, idx)}" alt="" loading="lazy" /></div>
-      <h3>${t.name}</h3>
+      <h3>${esc(t.name)}</h3>
       <div class="chairs">${chairs}</div>
       <div class="dim small">${t.seated.length}/${t.seats} seated · ${t.fabric.length} woven</div>
       <button class="join-table">take a seat →</button>`;
@@ -699,6 +699,8 @@ const LEVEL_STATIONS = [
 ];
 
 function renderLevelStrip(level, xp) {
+  level = Math.max(1, Math.min(Math.floor(Number(level) || 1), LEVEL_STATIONS.length));
+  xp = Math.max(0, Number(xp) || 0);
   return LEVEL_STATIONS.map((st, i) => {
     const n = i + 1;
     const state = n < level ? "unlocked" : n === level ? "current" : "locked";
@@ -721,7 +723,10 @@ function renderLevelStrip(level, xp) {
 // 🎉 Level-up celebration — when the ladder level rises across a refresh, show
 // the newly unlocked station full-screen (visual continuity with the strip).
 function showLevelUp(level) {
-  const st = LEVEL_STATIONS[Math.max(1, Math.min(level, LEVEL_STATIONS.length)) - 1];
+  // clamp to a plain integer FIRST — `level` arrives from the API and must never
+  // reach the markup as anything but a bounded number (CodeQL js/xss)
+  const n = Math.max(1, Math.min(Math.floor(Number(level) || 1), LEVEL_STATIONS.length));
+  const st = LEVEL_STATIONS[n - 1];
   const old = document.querySelector(".levelup-overlay");
   if (old) old.remove();
   const el = document.createElement("div");
@@ -730,7 +735,7 @@ function showLevelUp(level) {
     `<div class="levelup-card">
        <span class="lu-burst">🎉</span>
        <img src="${st.img}" alt="${esc(st.station)}" />
-       <h2>Level up! <b>L${level} ${esc(st.title)}</b></h2>
+       <h2>Level up! <b>L${n} ${esc(st.title)}</b></h2>
        <p class="dim">🔓 ${esc(st.station)} unlocked</p>
        <p class="dim small">tap anywhere to continue</p>
      </div>`;
