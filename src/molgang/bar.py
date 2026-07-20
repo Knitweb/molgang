@@ -189,11 +189,12 @@ class Bar:
                       if not s.bot and s.last_seen >= cutoff]
         active = sum(1 for s in human_live if self._woven_by(s.sid) > 0)
         # useful-work throughput: woven Fibers stamped within the window. Proposal weaves carry
-        # a wall-clock ``anchor_ts``; count those (spiral weaves without a stamp are ignored here
-        # rather than assumed in-window — honest under-count beats an inflated one).
-        wall_cutoff = time.time() - float(window_s)
+        # an ``anchor_ts``; count those (spiral weaves without a stamp are ignored here rather
+        # than assumed in-window — honest under-count beats an inflated one). Compare against the
+        # SAME clock the liveness window uses (``self._now()`` = injectable, defaults to wall
+        # time) so the two windows stay coherent under a mocked clock, not two time sources.
         recent_woven = sum(1 for w in self.woven
-                           if float(w.get("anchor_ts", 0)) >= wall_cutoff)
+                           if float(w.get("anchor_ts", 0)) >= cutoff)
         per_sec = round(recent_woven / window_s, 3) if window_s > 0 else 0.0
         return {
             "peers_online": active,
