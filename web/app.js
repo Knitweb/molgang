@@ -482,6 +482,7 @@ async function renderState(s) {
     $("me-knits").textContent = s.you.knits_made;
     $("me-level").textContent = "L" + s.you.level;
     $("me-title").textContent = s.you.title;
+    trackLevelUp(s.you.level);
     table = s.you.table; localStorage.setItem("molgang_table", table || "");
   }
   $("bar-woven").textContent = s.bar_woven;
@@ -705,6 +706,35 @@ function renderLevelStrip(level, xp) {
         ${bar}
       </figure>`;
   }).join("");
+}
+
+// 🎉 Level-up celebration — when the ladder level rises across a refresh, show
+// the newly unlocked station full-screen (visual continuity with the strip).
+function showLevelUp(level) {
+  const st = LEVEL_STATIONS[Math.max(1, Math.min(level, LEVEL_STATIONS.length)) - 1];
+  const old = document.querySelector(".levelup-overlay");
+  if (old) old.remove();
+  const el = document.createElement("div");
+  el.className = "levelup-overlay";
+  el.innerHTML =
+    `<div class="levelup-card">
+       <span class="lu-burst">🎉</span>
+       <img src="${st.img}" alt="${esc(st.station)}" />
+       <h2>Level up! <b>L${level} ${esc(st.title)}</b></h2>
+       <p class="dim">🔓 ${esc(st.station)} unlocked</p>
+       <p class="dim small">tap anywhere to continue</p>
+     </div>`;
+  el.addEventListener("click", () => el.remove());
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 6000);
+}
+
+function trackLevelUp(level) {
+  // Celebrate only a RISE seen within this device's play history — never on the
+  // very first join (prev unknown) and never again after a page reload.
+  const prev = Number(localStorage.getItem("molgang_level") || 0);
+  if (prev && level > prev) showLevelUp(level);
+  localStorage.setItem("molgang_level", String(level));
 }
 
 // 🏅 Progress — quests, achievements & seasonal standing (#110/#111/#112). All reputation/XP,
