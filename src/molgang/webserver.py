@@ -436,6 +436,11 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 except ValueError:
                     n = 6
                 return self._json(200, _simulate_p2p(n))
+            if path == "/api/monitor/mesh":
+                # relay-mesh visibility (#99): pool cursors + live per-relay info + lag.
+                # Works with --relay alone (no --monitor needed); real data only.
+                from .monitor import relay_mesh
+                return self._json(200, relay_mesh(relay))
             if monitor is None:
                 return self._json(503, {"error": "monitor unavailable"})
             if path == "/api/monitor":                      # one compact poll for the tab
