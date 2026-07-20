@@ -20,7 +20,11 @@
 // IndexedDB, owned by the page/worker, not the SW). It only caches static,
 // public, content-addressable assets.
 
-const APP_VERSION = "molgang-serverless-v2";
+// v3: app CODE (HTML documents + JS) is now NETWORK-FIRST — the live 5mart.ml
+// hotfix. A cache-first code path once served a stale shell that black-screened
+// after a fix had shipped; cache is only the offline fallback for code, while
+// small static assets stay cache-first + background revalidate.
+const APP_VERSION = "molgang-serverless-v3";
 const PYODIDE_VERSION = "0.26.2";
 
 const SHELL_CACHE = `${APP_VERSION}-shell`;
@@ -136,9 +140,39 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 2) Same-origin shell: cache-first (small, versioned). Navigations fall back
-  //    to the cached index.html so the app opens offline. There is NO /api/* to
-  //    special-case — the engine answers every request in-tab.
+  // 2a) Same-origin app CODE (HTML documents + JS): NETWORK-FIRST so a deploy
+  //     always loads fresh — cache is only the offline fallback. (Cache-first
+  //     here once kept serving a stale shell after a fix had shipped: the live
+  //     black-screen deadlock this v3 upstreams the fix for.)
+  const isCode = req.destination === "document" || url.pathname.endsWith("/") ||
+    /\.(html|mjs|js)$/.test(url.pathname);
+  if (isSameOrigin(url) && isCode) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(SHELL_CACHE);
+        try {
+          const resp = await fetch(req);
+          if (resp && resp.ok && resp.type === "basic") {
+            cache.put(req, resp.clone()).catch(() => {});
+          }
+          return resp;
+        } catch (err) {
+          const cached = await cache.match(req, { ignoreSearch: true });
+          if (cached) return cached;
+          // Offline navigation fallback to the cached app shell.
+          if (req.mode === "navigate") {
+            const shell = await cache.match("./index.html");
+            if (shell) return shell;
+          }
+          throw err;
+        }
+      })()
+    );
+    return;
+  }
+
+  // 2b) Same-origin static assets (css/json/svg/icons/wheel): cache-first,
+  //     revalidated quietly in the background (small, versioned by APP_VERSION).
   if (isSameOrigin(url)) {
     event.respondWith(
       (async () => {
@@ -151,20 +185,11 @@ self.addEventListener("fetch", (event) => {
             .catch(() => {});
           return cached;
         }
-        try {
-          const resp = await fetch(req);
-          if (resp && resp.ok && resp.type === "basic") {
-            cache.put(req, resp.clone()).catch(() => {});
-          }
-          return resp;
-        } catch (err) {
-          // Offline navigation fallback to the cached app shell.
-          if (req.mode === "navigate") {
-            const shell = await cache.match("./index.html");
-            if (shell) return shell;
-          }
-          throw err;
+        const resp = await fetch(req);
+        if (resp && resp.ok && resp.type === "basic") {
+          cache.put(req, resp.clone()).catch(() => {});
         }
+        return resp;
       })()
     );
     return;
