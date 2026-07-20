@@ -232,13 +232,19 @@ final class Relay
         $cutoff = $now - $w;
 
         // rule 2 ∧ 3: onboarded, live-in-window, AND authored real work in the same window.
-        $peers = (int) (Db::one(
-            'SELECT COUNT(DISTINCT r.pubkey) c
+        // The DISTINCT pubkey SET (not just the count) so a fleet aggregator can UNION across
+        // relays and dedup a wallet seen from several regions to ONE peer (rule 1). Bounded by
+        // MAX_FETCH; these pubkeys are already public via online(), so this is no new disclosure.
+        $rows = Db::all(
+            'SELECT DISTINCT r.pubkey
                FROM node_registry r
                JOIN relay_message m ON m.from_pub = r.pubkey
-              WHERE r.revoked = 0 AND r.last_seen >= ? AND m.created >= ?',
+              WHERE r.revoked = 0 AND r.last_seen >= ? AND m.created >= ?
+              LIMIT ' . self::MAX_FETCH,
             [$cutoff, $cutoff]
-        )['c'] ?? 0);
+        );
+        $pubkeys = array_map(static fn ($r) => (string) $r['pubkey'], $rows);
+        $peers = count($pubkeys);
 
         // useful-work throughput over the window: relay-woven messages in [now-W, now].
         $workEvents = (int) (Db::one(
@@ -248,6 +254,7 @@ final class Relay
 
         return [
             'peers_online'         => $peers,           // concurrent, activity-floored, deduped
+            'peer_pubkeys'         => $pubkeys,         // the deduped set — fleet UNION key (rule 1)
             'knits_per_sec'        => $perSec,
             'useful_work_per_sec'  => $perSec,
             'useful_work_events'   => $workEvents,

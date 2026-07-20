@@ -110,15 +110,52 @@
       badge.textContent = meets ? "at the line — needs " + fmt(t.win_sustain_min) + " min sustained"
         : "building…";
 
-      document.getElementById("scope-note").textContent = t.scope === "relay"
-        ? "Scope: this relay's honest slice (" + (t.node || "relay") + "). The cross-region total is the sum of every relay's distinct-pubkey set."
-        : "";
+      var scopeNote = "";
+      if (t.scope === "fleet") {
+        scopeNote = "Scope: cross-region fleet union over " + (t.node || "the relays")
+          + " — deduped by pubkey (a wallet on two relays counts once).";
+      } else if (t.scope === "relay") {
+        scopeNote = "Scope: this relay's honest slice (" + (t.node || "relay")
+          + "). The cross-region total unions every relay's distinct-pubkey set.";
+      } else if (t.scope === "node") {
+        scopeNote = "Scope: this single node (" + (t.node || "node") + ").";
+      }
+      document.getElementById("scope-note").textContent = scopeNote;
       var d = new Date();
       document.getElementById("updated").textContent = "updated " + d.toLocaleTimeString();
     }
 
+    // Cross-region fleet union (#131): when config lists relays, fetch each one's telemetry
+    // and UNION their peer_pubkeys so a wallet active on two relays counts once (rule 1).
+    function fleetUnion(bases) {
+      return Promise.all(bases.map(function (b) {
+        return fetch(b.replace(/\/$/, "") + "/telemetry").then(function (r) {
+          return r.ok ? r.json() : null;
+        }).catch(function () { return null; });
+      })).then(function (results) {
+        var union = {}, knits = 0, reachable = 0, degraded = false, lb = 0;
+        results.forEach(function (t) {
+          if (!t) return;
+          reachable++;
+          knits += Number(t.knits_per_sec) || 0;
+          if (Array.isArray(t.peer_pubkeys)) {
+            t.peer_pubkeys.forEach(function (p) { union[p] = 1; });
+          } else { degraded = true; lb += Number(t.peers_online) || 0; }
+        });
+        var total = Object.keys(union).length + lb;
+        return {
+          peers_online: total, knits_per_sec: knits, useful_work_per_sec: knits,
+          window_s: (results.find(function (t) { return t; }) || {}).window_s || 120,
+          scope: "fleet", node: reachable + "/" + bases.length + " relays" + (degraded ? " (degraded)" : ""),
+          gta6_reference_peers: 1000000, win_target_peers: 1000000, win_sustain_min: 30,
+        };
+      });
+    }
+
     function tick() {
-      // Prefer the dedicated relay telemetry; fall back to the monitor snapshot's telemetry block.
+      var relays = (window.MOLGANG_FLEET_RELAYS || []).filter(Boolean);
+      if (relays.length) { fleetUnion(relays).then(paint).catch(fail); return; }
+      // Single scope: prefer the dedicated relay telemetry; fall back to the monitor snapshot.
       fetch(BASE + "/api/relay/telemetry").then(function (r) {
         if (!r.ok) throw new Error("no telemetry route");
         return r.json();
