@@ -48,3 +48,12 @@ CREATE TABLE IF NOT EXISTS relay_message (
 -- 'role' marks relay rows ('relay') apart from plain peers; 'region' is the relay's
 -- self-reported region tag (e.g. eu-west); 'load_hint' a self-reported load metric
 -- (queued messages) used to rank the bootstrap list least-loaded first.
+
+-- Per-peer anti-entropy cursors (#96): the high-water 'created' this node has already pulled
+-- from each peer relay, so GET /api/relay/reconcile passes stay incremental and cheap.
+CREATE TABLE IF NOT EXISTS relay_peer_cursor (
+  peer        VARCHAR(255) NOT NULL PRIMARY KEY,   -- peer relay API base URL
+  cursor_at   DOUBLE       NOT NULL DEFAULT 0,     -- peer's fetch cursor already consumed
+  last_sync   DOUBLE       NOT NULL DEFAULT 0,     -- unix float of the last reconcile pass
+  last_new    INT          NOT NULL DEFAULT 0      -- messages ingested on that pass
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

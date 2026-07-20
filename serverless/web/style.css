@@ -144,6 +144,13 @@ main,section{padding:24px 22px;max-width:1140px;margin:0 auto}
 .table-card:hover{transform:rotateX(2deg) translateY(-10px) scale(1.03);
   box-shadow:var(--shadow-3d),var(--glow) rgba(34,227,255,.35),0 40px 70px -26px #000}
 .table-card h3{margin:0 0 12px;font-size:17px}
+/* rendered ChemEng scene banner atop each table card (matches the level stations) */
+.table-scene{margin:-20px -20px 12px;border-radius:var(--radius) var(--radius) 0 0;overflow:hidden;
+  position:relative}
+.table-scene img{display:block;width:100%;height:96px;object-fit:cover;
+  filter:brightness(1.25) saturate(1.1)}
+.table-scene::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(11,16,32,.15),rgba(11,16,32,.02) 45%,var(--panel2))}
 @keyframes floaty{0%,100%{translate:0 0;rotate:x 13deg}50%{translate:0 -8px;rotate:x 11deg}}
 
 .chairs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
@@ -338,6 +345,44 @@ h2,h3{letter-spacing:.2px}
 .ladder-now{font-size:15px;margin-bottom:6px}
 .ladder .perks{margin:0;padding-left:18px;color:var(--dim);font-size:13px;display:flex;flex-direction:column;gap:2px}
 .ladder .perks li{list-style:none;margin-left:-12px}
+
+/* 🧪 level stations — the visual climb (equipment renders from the ChemEng build) */
+.level-strip{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 12px;margin-bottom:8px;
+  scrollbar-width:thin}
+.level-station{flex:0 0 118px;margin:0;text-align:center;position:relative;padding:8px 6px 10px;
+  border:1px solid var(--line);border-radius:12px;background:var(--panel2);
+  transition:transform .15s ease,border-color .15s ease}
+.level-station img{width:100%;height:auto;border-radius:8px;display:block;margin-bottom:6px;filter:brightness(1.3)}
+.level-station figcaption{font-size:12px;line-height:1.35}
+.level-station figcaption .small{display:block}
+.level-station.unlocked{border-color:var(--line2)}
+.level-station.current{border-color:var(--accent2);box-shadow:var(--glow) rgba(34,227,255,.25);
+  transform:translateY(-2px)}
+.level-station.current figcaption b{color:var(--accent2)}
+.level-station.locked{opacity:.45}
+.level-station.locked img{filter:grayscale(1) brightness(.7)}
+.ls-bar{display:block;height:5px;margin-top:6px;border-radius:3px;background:var(--glass);
+  overflow:hidden}
+.ls-bar i{display:block;height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2))}
+
+/* 🎉 level-up celebration overlay */
+.levelup-overlay{position:fixed;inset:0;z-index:90;display:flex;align-items:center;
+  justify-content:center;background:rgba(7,9,18,.78);backdrop-filter:blur(6px);
+  animation:lu-fade .25s ease;cursor:pointer}
+.levelup-card{position:relative;text-align:center;padding:26px 34px;max-width:340px;
+  border:1px solid var(--line2);border-radius:var(--radius);background:var(--panel);
+  box-shadow:var(--shadow-3d),var(--glow) rgba(139,92,255,.35);
+  animation:lu-pop .45s cubic-bezier(.2,1.6,.4,1)}
+.levelup-card img{width:220px;max-width:80%;border-radius:12px;margin:6px 0 10px;filter:brightness(1.35) contrast(1.05)}
+.levelup-card h2{margin:4px 0 2px;font-size:20px}
+.levelup-card h2 b{color:var(--accent2)}
+.levelup-card .lu-burst{position:absolute;top:-18px;left:50%;transform:translateX(-50%);
+  font-size:34px;animation:lu-bounce 1.2s ease infinite}
+@keyframes lu-fade{from{opacity:0}to{opacity:1}}
+@keyframes lu-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes lu-bounce{0%,100%{transform:translateX(-50%) translateY(0)}
+  50%{transform:translateX(-50%) translateY(-8px)}}
 
 /* settings popover — the language switcher retires here after first use (#i18n v2) */
 .settings-pop { position: absolute; top: 52px; right: 12px; z-index: 40;

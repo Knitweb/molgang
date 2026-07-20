@@ -266,7 +266,7 @@ async function boot() {
     const b = document.createElement("button");
     b.className = "av-pick" + (i === 0 ? " sel" : "");
     b.title = a.name;
-    b.innerHTML = `<img src="avatars/${a.id}.svg" alt="${a.name}" /><span>${a.name}</span>`;
+    b.innerHTML = `<img src="avatars/${encodeURIComponent(a.id)}.svg" alt="${esc(a.name)}" /><span>${esc(a.name)}</span>`;
     b.onclick = () => {
       chosenAvatar = a.id;
       document.querySelectorAll(".av-pick").forEach((x) => x.classList.remove("sel"));
@@ -482,6 +482,7 @@ async function renderState(s) {
     $("me-knits").textContent = s.you.knits_made;
     $("me-level").textContent = "L" + s.you.level;
     $("me-title").textContent = s.you.title;
+    trackLevelUp(s.you.level);
     table = s.you.table; localStorage.setItem("molgang_table", table || "");
   }
   $("bar-woven").textContent = s.bar_woven;
@@ -509,19 +510,45 @@ function renderPulseHost(host) {
   $("pulse-host").title = `${addr}\nwallet: ${host.wallet || ""}`;
 }
 
+// 🖼 Table scenes — each bar table gets a rendered ChemEng scene banner (same
+// asset family as the level stations). Known default tables map by id; any
+// extra/renamed table cycles through the set by its position on the floor.
+const TABLE_SCENES = { periodic: "tables/periodic.png", organic: "tables/organic.png",
+                       noble: "tables/noble.png" };
+const TABLE_SCENE_CYCLE = Object.values(TABLE_SCENES);
+const tableScene = (id, idx) =>
+  TABLE_SCENES[id] || TABLE_SCENE_CYCLE[idx % TABLE_SCENE_CYCLE.length];
+
 function renderFloor(s) {
   const f = $("floor"); f.innerHTML = "";
-  s.tables.forEach((t) => {
+  s.tables.forEach((t, idx) => {
     const card = document.createElement("div");
     card.className = "table-card";
-    const chairs = Array.from({ length: t.seats }, (_, i) => {
-      const occ = t.seated[i];
-      return `<span class="chair ${occ ? "occ" : ""}" title="${occ ? occ.name : "empty"}">${occ ? avatarImg(occ.avatar, "chair-av") : "·"}</span>`;
-    }).join("");
-    card.innerHTML = `<h3>${t.name}</h3>
-      <div class="chairs">${chairs}</div>
-      <div class="dim small">${t.seated.length}/${t.seats} seated · ${t.fabric.length} woven</div>
+    // static skeleton via innerHTML; all user-controlled text/attrs set via the
+    // DOM API below so nothing tainted flows into an HTML sink (CodeQL js/xss)
+    card.innerHTML = `<div class="table-scene"><img src="${tableScene(t.id, idx)}" alt="" loading="lazy" /></div>
+      <h3></h3>
+      <div class="chairs"></div>
+      <div class="dim small">${Number(t.seated.length)}/${Number(t.seats)} seated · ${Number(t.fabric.length)} woven</div>
       <button class="join-table">take a seat →</button>`;
+    card.querySelector("h3").textContent = t.name;
+    const chairsEl = card.querySelector(".chairs");
+    for (let i = 0; i < t.seats; i++) {
+      const occ = t.seated[i];
+      const span = document.createElement("span");
+      span.className = "chair" + (occ ? " occ" : "");
+      span.title = occ ? occ.name : "empty";
+      if (occ) {
+        const img = document.createElement("img");
+        img.className = "chair-av";
+        img.src = `avatars/${encodeURIComponent(occ.avatar)}.svg`;
+        img.alt = "";
+        span.appendChild(img);
+      } else {
+        span.textContent = "·";
+      }
+      chairsEl.appendChild(span);
+    }
     card.querySelector(".join-table").onclick = async () => {
       const st = await api("/api/sit", "POST", { sid, table: t.id });
       if (st.error) { showToast(st.error); return; }
@@ -538,8 +565,8 @@ function renderTable(s) {
   $("table-name").textContent = "🍸 " + t.name;
   $("rename-table").classList.toggle("hidden", !t.can_rename);
   $("seats").innerHTML = t.seated.map((p) =>
-    `<div class="seat ${p.you ? "you" : ""}">${avatarImg(p.avatar, "seat-av")}
-      <div><b>${p.name}</b><br><span class="dim small">L${p.level} ${p.title} · ${p.woven}🧬</span></div></div>`).join("");
+    `<div class="seat ${p.you ? "you" : ""}">${avatarImg(encodeURIComponent(p.avatar), "seat-av")}
+      <div><b>${esc(p.name)}</b><br><span class="dim small">L${Number(p.level) || 1} ${esc(p.title)} · ${Number(p.woven) || 0}🧬</span></div></div>`).join("");
   $("leave-table").onclick = async () => {
     const r = await api("/api/stand", "POST", { sid });
     if (r.error) { showToast(r.error); return; }
@@ -567,9 +594,9 @@ function renderTable(s) {
   $("open").innerHTML = t.open.length ? t.open.map((p) => {
     const v = p.votes;
     const buttons = (p.mine || p.voted) ? `<span class="dim small">${p.mine ? "your knit" : "voted ✓"}</span>` :
-      `<button class="vote ok" data-pid="${p.pid}" data-v="confirm">👍 pulse</button>
-       <button class="vote no" data-pid="${p.pid}" data-v="mismatch">👎 pulse</button>`;
-    return `<div class="knit"><b>${p.term}</b> <span class="dim small">by ${p.by}</span>
+      `<button class="vote ok" data-pid="${esc(p.pid)}" data-v="confirm">👍 pulse</button>
+       <button class="vote no" data-pid="${esc(p.pid)}" data-v="mismatch">👎 pulse</button>`;
+    return `<div class="knit"><b>${esc(p.term)}</b> <span class="dim small">by ${esc(p.by)}</span>
       <span class="tally">✓${v.confirm} ✗${v.mismatch} · ${v.total}</span> ${buttons}</div>`;
   }).join("") : `<div class="dim">no open knits — brainstorm one above</div>`;
   $("open").querySelectorAll("button.vote").forEach((b) => {
@@ -581,7 +608,7 @@ function renderTable(s) {
   });
   renderSpirals(t);
   $("fabric").innerHTML = t.fabric.length ? t.fabric.map((w) =>
-    `<span class="woven" title="Fiber ${w.fiber_cid}">${w.term} <span class="dim small">·${w.confirmations}✓</span></span>`).join("") :
+    `<span class="woven" title="Fiber ${esc(w.fiber_cid)}">${esc(w.term)} <span class="dim small">·${Number(w.confirmations) || 0}✓</span></span>`).join("") :
     `<span class="dim">nothing woven yet</span>`;
 }
 
@@ -639,18 +666,18 @@ function renderSpirals(t) {
     const path = sp.links.map((lk, i) => {
       // each link is "A → B"; chain them without repeating the shared node.
       const [a, b] = lk.split("→").map((x) => x.trim());
-      return (i === 0 ? `<span class="chip">${a}</span>` : "") +
-        ` <span class="spiral-arrow">→</span> <span class="chip">${b}</span>`;
+      return (i === 0 ? `<span class="chip">${esc(a)}</span>` : "") +
+        ` <span class="spiral-arrow">→</span> <span class="chip">${esc(b)}</span>`;
     }).join("");
     const stateLabel = captured ? "🕸 capture" : "auxiliary";
     const acts = (sp.mine || sp.backed)
       ? `<span class="dim small">${sp.mine ? "your spiral" : "backed ✓"}</span>`
-      : `<button class="back" data-cid="${sp.cid}" data-v="confirm">⚡ Back (pulse)</button>
-         <button class="reject" data-cid="${sp.cid}" data-v="mismatch">✗ Reject</button>`;
-    return `<div class="spiral ${captured ? "captured" : ""}" data-cid="${sp.cid}">
+      : `<button class="back" data-cid="${esc(sp.cid)}" data-v="confirm">⚡ Back (pulse)</button>
+         <button class="reject" data-cid="${esc(sp.cid)}" data-v="mismatch">✗ Reject</button>`;
+    return `<div class="spiral ${captured ? "captured" : ""}" data-cid="${esc(sp.cid)}">
       <div class="spiral-top">
         <span class="spiral-state ${captured ? "capture" : ""}">${stateLabel}</span>
-        <b>by ${sp.by}</b>
+        <b>by ${esc(sp.by)}</b>
         <span class="spiral-len">${sp.length} links</span>
       </div>
       <div class="spiral-path">${path}</div>
@@ -671,6 +698,91 @@ function renderSpirals(t) {
   });
 }
 
+// 🧪 Level stations — the visual climb through the bar. One station per
+// reputation-ladder level (#113): real equipment renders from the ChemEng
+// (molgang-roblox) build, from a humble beaker up to the quantum tunnel ring.
+// XP thresholds mirror progression.LEVELS server-side; titles come from the API
+// for the CURRENT player, these are the static rungs of the whole ladder.
+const LEVEL_STATIONS = [
+  { xp: 0,    title: "Apprentice",    img: "levels/l1_beaker.png",         station: "Beaker" },
+  { xp: 100,  title: "Student",       img: "levels/l2_flask.png",          station: "Erlenmeyer flask" },
+  { xp: 300,  title: "Lab Assistant", img: "levels/l3_lab_bench.png",      station: "Lab bench" },
+  { xp: 600,  title: "Chemist",       img: "levels/l4_distillation.png",   station: "Distillation column" },
+  { xp: 1000, title: "Synthesist",    img: "levels/l5_heat_exchanger.png", station: "Heat exchanger" },
+  { xp: 1500, title: "Catalyst",      img: "levels/l6_centrifuge.png",     station: "Centrifuge" },
+  { xp: 2500, title: "Alchemist",     img: "levels/l7_quantum_dot.png",    station: "Quantum dot" },
+  { xp: 4000, title: "Laureate",      img: "levels/l8_quantum_ring.png",   station: "Quantum tunnel ring" },
+];
+
+function renderLevelStrip(level, xp) {
+  level = Math.max(1, Math.min(Math.floor(Number(level) || 1), LEVEL_STATIONS.length));
+  xp = Math.max(0, Number(xp) || 0);
+  return LEVEL_STATIONS.map((st, i) => {
+    const n = i + 1;
+    const state = n < level ? "unlocked" : n === level ? "current" : "locked";
+    let bar = "";
+    if (state === "current" && n < LEVEL_STATIONS.length) {
+      // progress inside the current card: how far through this station's XP span
+      const span = LEVEL_STATIONS[n].xp - st.xp;
+      const pct = Math.max(0, Math.min(100, Math.round(((xp - st.xp) / span) * 100)));
+      bar = `<span class="ls-bar"><i style="width:${pct}%"></i></span>`;
+    }
+    return `<figure class="level-station ${state}" title="${esc(st.station)}">
+        <img src="${st.img}" alt="${esc(st.station)}" loading="lazy" />
+        <figcaption><b>L${n}</b> ${esc(st.title)}${state === "locked" ? " 🔒" : ""}
+          <span class="dim small">${fmt(st.xp)} XP</span></figcaption>
+        ${bar}
+      </figure>`;
+  }).join("");
+}
+
+// 🎉 Level-up celebration — when the ladder level rises across a refresh, show
+// the newly unlocked station full-screen (visual continuity with the strip).
+function showLevelUp(level) {
+  // clamp to a plain integer FIRST — `level` arrives from the API and must never
+  // reach the markup as anything but a bounded number (CodeQL js/xss)
+  const n = Math.max(1, Math.min(Math.floor(Number(level) || 1), LEVEL_STATIONS.length));
+  const st = LEVEL_STATIONS[n - 1];
+  const old = document.querySelector(".levelup-overlay");
+  if (old) old.remove();
+  // built with the DOM API end-to-end: everything here comes from the static
+  // LEVEL_STATIONS constant + a clamped integer, and no HTML sink is involved
+  const el = document.createElement("div");
+  el.className = "levelup-overlay";
+  const card = document.createElement("div");
+  card.className = "levelup-card";
+  const burst = document.createElement("span");
+  burst.className = "lu-burst";
+  burst.textContent = "🎉";
+  const img = document.createElement("img");
+  img.src = st.img;
+  img.alt = st.station;
+  const h2 = document.createElement("h2");
+  h2.textContent = "Level up! ";
+  const bTitle = document.createElement("b");
+  bTitle.textContent = `L${n} ${st.title}`;
+  h2.appendChild(bTitle);
+  const pStation = document.createElement("p");
+  pStation.className = "dim";
+  pStation.textContent = `🔓 ${st.station} unlocked`;
+  const pHint = document.createElement("p");
+  pHint.className = "dim small";
+  pHint.textContent = "tap anywhere to continue";
+  card.append(burst, img, h2, pStation, pHint);
+  el.appendChild(card);
+  el.addEventListener("click", () => el.remove());
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 6000);
+}
+
+function trackLevelUp(level) {
+  // Celebrate only a RISE seen within this device's play history — never on the
+  // very first join (prev unknown) and never again after a page reload.
+  const prev = Number(localStorage.getItem("molgang_level") || 0);
+  if (prev && level > prev) showLevelUp(level);
+  localStorage.setItem("molgang_level", String(level));
+}
+
 // 🏅 Progress — quests, achievements & seasonal standing (#110/#111/#112). All reputation/XP,
 // never tokens. Reads the dedicated /api endpoints scoped to the current player.
 let lbSeason = "all";   // "all" | "season" — leaderboard toggle state
@@ -681,12 +793,25 @@ async function renderProgress(s) {
   // 🧗 Reputation ladder — current title, XP to next, and unlocked perks (#113)
   const you = (s && s.you) || {};
   const nxt = you.next || {};
-  const climb = nxt.at_max
-    ? `<span class="dim small">max rank reached 🎓</span>`
-    : (nxt.next_title ? `<span class="dim small">${fmt(nxt.xp_to_next)} XP to <b>${esc(nxt.next_title)}</b></span>` : "");
-  $("ladder").innerHTML =
-    `<div class="ladder-now">🏅 <b>L${you.level || 1} ${esc(you.title || "Apprentice")}</b> · ${fmt(you.xp || 0)} XP ${climb}</div>` +
-    `<ul class="perks">${(you.perks || []).map((p) => `<li>✓ ${esc(p)}</li>`).join("")}</ul>`;
+  // innerHTML carries ONLY static markup + the strip built from the LEVEL_STATIONS
+  // constant and clamped numbers; every API-controlled string lands via textContent
+  // (CodeQL js/xss — no tainted value reaches an HTML sink).
+  const lvl = Math.max(1, Math.floor(Number(you.level) || 1));
+  const ladder = $("ladder");
+  ladder.innerHTML =
+    `<div class="level-strip">${renderLevelStrip(lvl, Number(you.xp) || 0)}</div>` +
+    '<div class="ladder-now">🏅 <b></b> · <span class="lxp"></span> <span class="dim small lclimb"></span></div>' +
+    '<ul class="perks"></ul>';
+  ladder.querySelector(".ladder-now b").textContent = `L${lvl} ${you.title || "Apprentice"}`;
+  ladder.querySelector(".lxp").textContent = `${fmt(you.xp || 0)} XP`;
+  ladder.querySelector(".lclimb").textContent = nxt.at_max ? "max rank reached 🎓"
+    : (nxt.next_title ? `${fmt(nxt.xp_to_next)} XP to ${nxt.next_title}` : "");
+  const perksUl = ladder.querySelector(".perks");
+  (you.perks || []).forEach((p) => {
+    const li = document.createElement("li");
+    li.textContent = `✓ ${p}`;
+    perksUl.appendChild(li);
+  });
 
   const q = await api("/api/quests?player=" + encodeURIComponent(player));
   $("quests-list").innerHTML = (q.all || []).map((x) =>
@@ -724,8 +849,8 @@ function renderRecords(s) {
     const rank = ["🥇", "🥈", "🥉"][i] || ("#" + (i + 1));
     return `<div class="record-row">
       <span class="record-rank">${rank}</span>
-      <span><b>${r.by}</b> <span class="dim small">· ${r.table}</span></span>
-      <span class="record-len">🕸 ${r.length} links</span>
+      <span><b>${esc(r.by)}</b> <span class="dim small">· ${esc(r.table)}</span></span>
+      <span class="record-len">🕸 ${Number(r.length) || 0} links</span>
     </div>`;
   }).join("") : `<div class="dim">no spirals captured yet — weave one at a table to set the record</div>`;
 }
@@ -801,9 +926,9 @@ function renderLedger(mk) {
      <span class="bal">🗳️ <b>${mk.total_votes}</b> total votes on my knits</span>`;
   $("ledger-rows").innerHTML = mk.knits.map((k) => {
     const v = k.votes, st = k.woven ? "✅ woven" : (k.settled ? "✗ " + k.outcome : "… open");
-    return `<tr><td><b>${k.term}</b></td><td class="dim">${k.topic}</td><td>${st}</td>
+    return `<tr><td><b>${esc(k.term)}</b></td><td class="dim">${esc(k.topic)}</td><td>${esc(st)}</td>
       <td>${v.confirm} / ${v.mismatch} / ${v.abstain} / <b>${v.total}</b></td>
-      <td class="mono small">${k.fiber_cid ? k.fiber_cid.slice(0, 20) + "…" : "—"}</td></tr>`;
+      <td class="mono small">${k.fiber_cid ? esc(k.fiber_cid.slice(0, 20)) + "…" : "—"}</td></tr>`;
   }).join("") || `<tr><td colspan="5" class="dim">no knits yet — sit at a table and knit a term</td></tr>`;
 }
 
@@ -813,12 +938,12 @@ function renderExplorer(rows) {
       const v = c.votes, rank = ["🥇","🥈","🥉"][i] || ("#" + (i + 1));
       return `<div class="ecol ${c.woven ? "won" : ""}">
         <div class="erank">${rank}</div>
-        <div class="eterm"><b>${c.term}</b> <span class="dim small">by ${c.by}</span></div>
+        <div class="eterm"><b>${esc(c.term)}</b> <span class="dim small">by ${esc(c.by)}</span></div>
         <div class="evotes">net <b>${c.net}</b> · ✓${v.confirm} ✗${v.mismatch} – ${v.abstain} · total ${v.total}</div>
-        <div class="mono small">${c.woven ? "Fiber " + (c.fiber_cid || "").slice(0, 16) + "…" : (c.settled ? c.outcome : "open")}</div>
+        <div class="mono small">${c.woven ? "Fiber " + esc((c.fiber_cid || "").slice(0, 16)) + "…" : (c.settled ? esc(c.outcome) : "open")}</div>
       </div>`;
     }).join("");
-    return `<div class="erow"><div class="etopic">${row.topic} <span class="dim small">(${row.competing})</span></div>
+    return `<div class="erow"><div class="etopic">${esc(row.topic)} <span class="dim small">(${Number(row.competing) || 0})</span></div>
       <div class="ecols">${cols}</div></div>`;
   }).join("") || `<div class="dim">no knits yet</div>`;
 }
@@ -830,17 +955,17 @@ function renderWeb(w) {
      <span class="bal mono small">root ${(w.state_root || "").slice(0, 16)}…</span>`;
   const a = w.anchor || {};
   $("web-anchor").innerHTML = a.ual
-    ? `🔗 anchored to OriginTrail: <span class="mono small">${a.ual}</span>
+    ? `🔗 anchored to OriginTrail: <span class="mono small">${esc(a.ual)}</span>
        <span class="dim small">· ${a.nodes}n/${a.edges}e · verified ${a.verified}</span>`
     : `<span class="dim">not yet anchored — weave a term to extend the web</span>`;
   $("web-recent").innerHTML = (w.recent || []).map((r) =>
-    `<span class="woven" title="Fiber ${r.fiber}">${r.kind === "link" ? "🔗" : "🧬"} ${r.label} <span class="dim small">·${r.confirmations}✓ ${r.by}</span></span>`).join("")
+    `<span class="woven" title="Fiber ${esc(r.fiber)}">${r.kind === "link" ? "🔗" : "🧬"} ${esc(r.label)} <span class="dim small">·${Number(r.confirmations) || 0}✓ ${esc(r.by)}</span></span>`).join("")
     || `<span class="dim">empty</span>`;
   $("web-links").innerHTML = (w.links || []).map((l) =>
-    `<div class="linkrow"><span class="chip">${l.subject}</span> <span class="dim small">${l.relation} →</span> <span class="chip">${l.object}</span></div>`).join("")
+    `<div class="linkrow"><span class="chip">${esc(l.subject)}</span> <span class="dim small">${esc(l.relation)} →</span> <span class="chip">${esc(l.object)}</span></div>`).join("")
     || `<span class="dim">no links yet — knit two terms with "=" (e.g. <code>V2O5 = vanadium pentoxide</code>)</span>`;
   // type-ahead datalist of the woven vocabulary (case-insensitive lookup means any case works)
-  $("gx-names").innerHTML = (w.terms || []).map((t) => `<option value="${t}"></option>`).join("");
+  $("gx-names").innerHTML = (w.terms || []).map((t) => `<option value="${esc(t)}"></option>`).join("");
   renderGraph();
 }
 
@@ -853,7 +978,7 @@ function gxSuggest(suggestions, input, rerun) {
     });
   }, 0);
   return ` <span class="dim small">did you mean:</span> ` +
-    suggestions.map((s) => `<a href="#" class="chip" data-t="${s}">${s}</a>`).join(" ");
+    suggestions.map((s) => `<a href="#" class="chip" data-t="${esc(s)}">${esc(s)}</a>`).join(" ");
 }
 
 async function renderGraph() {
@@ -865,15 +990,15 @@ async function renderGraph() {
      <span class="bal">🧩 <b>${s.clusters || 0}</b> clusters</span>
      <span class="bal">density <b>${s.density || 0}</b></span>`;
   $("gx-hubs").innerHTML = "<b>hubs:</b> " + ((g.hubs || []).map((h) =>
-    `<span class="chip" title="centrality ${h.centrality}">${h.term} <span class="dim small">·${h.degree}</span></span>`).join(" ") || "<span class='dim'>none yet</span>");
+    `<span class="chip" title="centrality ${esc(h.centrality)}">${esc(h.term)} <span class="dim small">·${Number(h.degree) || 0}</span></span>`).join(" ") || "<span class='dim'>none yet</span>");
   $("gx-go").onclick = async () => {
     const t = $("gx-term").value.trim(); if (!t) return;
     const r = await api("/api/graph?term=" + encodeURIComponent(t));
     const n = r.neighbors;
     $("gx-result").innerHTML = !n
-      ? `<span class="dim">“${t}” isn't in the web yet.</span>` + gxSuggest(r.suggestions, $("gx-term"), $("gx-go").onclick)
-      : `<b>${n.term}</b> → ${(n.out.map((x) => `${x.relation} <span class="chip">${x.to}</span>`).join(", ") || "—")}<br>
-         <b>${n.term}</b> ← ${(n.in.map((x) => `<span class="chip">${x.from}</span> ${x.relation}`).join(", ") || "—")}`;
+      ? `<span class="dim">“${esc(t)}” isn't in the web yet.</span>` + gxSuggest(r.suggestions, $("gx-term"), $("gx-go").onclick)
+      : `<b>${esc(n.term)}</b> → ${(n.out.map((x) => `${esc(x.relation)} <span class="chip">${esc(x.to)}</span>`).join(", ") || "—")}<br>
+         <b>${esc(n.term)}</b> ← ${(n.in.map((x) => `<span class="chip">${esc(x.from)}</span> ${esc(x.relation)}`).join(", ") || "—")}`;
   };
   $("gx-path").onclick = async () => {
     const a = $("gx-a").value.trim(), b = $("gx-b").value.trim(); if (!a || !b) return;
@@ -882,13 +1007,13 @@ async function renderGraph() {
     if (!p) {
       const miss = r.missing || [];
       const box = (miss.length && a.toLowerCase() === String(miss[0]).toLowerCase()) ? $("gx-a") : $("gx-b");
-      $("gx-result").innerHTML = `<span class="dim">${(miss.join(", ") || "one of those terms")} isn't woven yet.</span>`
+      $("gx-result").innerHTML = `<span class="dim">${esc(miss.join(", ") || "one of those terms")} isn't woven yet.</span>`
         + gxSuggest(r.suggestions, box, $("gx-path").onclick);
       return;
     }
     $("gx-result").innerHTML = p.path
-      ? `path (${p.hops} hops): ${p.path.map((x) => `<span class="chip">${x}</span>`).join(" → ")}`
-      : `<span class="dim">no path between “${p.from}” and “${p.to}” yet.</span>`;
+      ? `path (${Number(p.hops) || 0} hops): ${p.path.map((x) => `<span class="chip">${esc(x)}</span>`).join(" → ")}`
+      : `<span class="dim">no path between “${esc(p.from)}” and “${esc(p.to)}” yet.</span>`;
   };
 }
 
@@ -983,7 +1108,7 @@ function renderMonStatus(st) {
   $("mon-nodes").innerHTML = (st.nodes || []).map((n) => {
     const dot = n.live ? `<span class="mdot up"></span>` : `<span class="mdot down"></span>`;
     const port = n.port ? `<span class="dim small">:${n.port}</span>` : "";
-    return `<div class="mon-node">${dot}<b>${n.label}</b> ${port}
+    return `<div class="mon-node">${dot}<b>${esc(n.label)}</b> ${port}
       <span class="${n.live ? "pos" : "neg"} small">${n.live ? "● live" : "● down"}</span></div>`;
   }).join("") || `<span class="dim">no nodes configured</span>`;
   const w = st.web || {}, h = st.pulse_host;
@@ -991,10 +1116,10 @@ function renderMonStatus(st) {
     `<span class="bal">🔵 <b>${w.nodes || 0}</b> web nodes</span>
      <span class="bal">🔗 <b>${w.edges || 0}</b> edges</span>
      <span class="bal mono small">root ${(w.state_root || "").slice(0, 14)}…</span>` +
-    (h && h.address ? `<span class="bal mono small" title="${h.address}">📡 host ${h.address.slice(0, 10)}… · ${h.balance_pls || 0} PLS</span>` : "");
+    (h && h.address ? `<span class="bal mono small" title="${esc(h.address)}">📡 host ${esc(h.address.slice(0, 10))}… · ${Number(h.balance_pls) || 0} PLS</span>` : "");
   const a = st.anchor || {};
   $("mon-anchor").innerHTML = a.ual
-    ? `🔗 OriginTrail: <span class="mono small">${a.ual}</span>
+    ? `🔗 OriginTrail: <span class="mono small">${esc(a.ual)}</span>
        <span class="dim small">· ${a.nodes}n/${a.edges}e · ${a.verified ? '<span class="pos">✓ verified</span>' : "unverified"}</span>`
     : `<span class="dim">shared web not yet anchored</span>`;
 }

@@ -17,4 +17,14 @@ return [
     // inherit 5mart.ml as a hidden default.
     // 'public_base_url' => 'https://example.org/molgang',
     // 'node_name' => 'example.org',
+
+    // Optional (#96): peer relays this node reconciles with (anti-entropy). Each entry is a
+    // peer's relay API base; a cron/bridge-driven GET /api/relay/reconcile pulls anything new
+    // from every peer through the full send() signature gate. Leave empty for an island relay.
+    // 'relay_peers' => ['https://knitweb.art/molgang/api/relay'],
+
+    // Optional (#96): when set, /api/relay/reconcile requires ?key=<this value> — keeps a
+    // public flash crowd from spending this node's outbound requests. Cron example:
+    //   curl -s 'https://example.org/molgang/api/relay/reconcile?key=SECRET'
+    // 'reconcile_secret' => 'another-long-random-string',
 ];
