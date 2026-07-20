@@ -83,17 +83,18 @@ function resetSession() {
   refreshTimer = null;
   $("me").classList.add("hidden");
   $("tabs").classList.add("hidden");
-  ["floor", "table", "ledger", "explorer", "web"].forEach((v) => $(v).classList.add("hidden"));
+  ["floor", "table", "ledger", "explorer", "web", "monitor"].forEach((v) => $(v).classList.add("hidden"));
   $("enter").classList.remove("hidden");
 }
 
 function setActiveTab() {
   document.querySelectorAll("#tabs button").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === view));
-  ["floor", "table", "ledger", "explorer", "web"].forEach((v) => $(v).classList.add("hidden"));
+  ["floor", "table", "ledger", "explorer", "web", "monitor"].forEach((v) => $(v).classList.add("hidden"));
   if (view === "ledger") $("ledger").classList.remove("hidden");
   else if (view === "explorer") $("explorer").classList.remove("hidden");
   else if (view === "web") $("web").classList.remove("hidden");
+  else if (view === "monitor") $("monitor").classList.remove("hidden");
   else $(table ? "table" : "floor").classList.remove("hidden");
 }
 
@@ -124,6 +125,7 @@ async function refresh() {
   if (view === "ledger") renderLedger(s.my_knits);
   else if (view === "explorer") renderExplorer(s.explorer);
   else if (view === "web") renderWeb(await api("/api/web"));
+  else if (view === "monitor") renderMonitor();
   else if (table) renderTable(s);
   else renderFloor(s);
   setActiveTab();
@@ -298,6 +300,71 @@ async function renderGraph() {
       : p.path ? `path (${p.hops} hops): ${p.path.map((x) => `<span class="chip">${x}</span>`).join(" → ")}`
       : `<span class="dim">no path between “${a}” and “${b}” yet.</span>`;
   };
+}
+
+// ---- 📡 monitor tab (#83) — PHP parity of web/'s Monitor tab over GET /api/monitor ----
+// Read-only: renders Monitor::summary() (node+registry+relay+telemetry+web+game). Every
+// server-supplied string goes through mesc() before landing in innerHTML.
+const mesc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const mage = (s) => (s == null ? "—" : s < 90 ? `${Math.round(s)}s` : `${Math.round(s / 60)}m`);
+const mbal = (icon, val, label) => `<span class="bal">${icon} <b>${mesc(val)}</b> ${mesc(label)}</span>`;
+
+async function renderMonitor() {
+  const m = await api("/api/monitor").catch(() => null);
+  if (!m || m.error) {
+    $("mon-node").innerHTML = `<span class="dim">monitor unavailable — <a href="monitor.html" target="_blank" rel="noopener">try the full monitor ↗</a></span>`;
+    return;
+  }
+  renderMonStatus(m);
+  renderMonKg(m);
+}
+
+function renderMonStatus(m) {
+  const n = m.node || {}, reg = m.registry || {};
+  $("mon-node").innerHTML =
+    mbal("🛰️", n.node || "—", n.scheme || "") +
+    mbal("🔵", reg.registered ?? 0, "registered") +
+    mbal("🟢", reg.online ?? 0, "online") +
+    mbal("⛔", reg.revoked ?? 0, "revoked");
+  const roster = reg.online_list || [];
+  $("mon-roster").innerHTML = roster.length
+    ? roster.map((p) =>
+        `<tr><td class="mono small">${mesc(p.address)}</td><td class="dim small">${mesc(p.endpoint || "—")}</td>` +
+        `<td>${mesc(mage(p.age_s))}</td></tr>`).join("")
+    : `<tr><td colspan="3" class="dim">no nodes online (registered: ${mesc(reg.registered ?? 0)})</td></tr>`;
+
+  const rl = m.relay || {}, tel = m.telemetry || {};
+  $("mon-relay").innerHTML =
+    mbal("✉️", rl.messages ?? 0, "messages") +
+    mbal("📢", rl.broadcast ?? 0, "broadcast") +
+    mbal("🎯", rl.addressed ?? 0, "addressed") +
+    mbal("🏷️", (rl.topics || []).length, "topics");
+  $("mon-telemetry").textContent = tel.peers_online != null
+    ? `· ${tel.peers_online} live peers · ${tel.knits_per_sec ?? 0} knits/s (road-to-1M)`
+    : "";
+
+  const g = m.game || {};
+  $("mon-game").innerHTML =
+    mbal("🧑", g.players ?? 0, "players") +
+    mbal("🤖", g.bots ?? 0, "bots") +
+    mbal("🎮", g.active ?? 0, "active sessions") +
+    mbal("🧵", g.woven ?? 0, "woven fibers") +
+    mbal("⚡", g.votes ?? 0, "votes");
+}
+
+function renderMonKg(m) {
+  const w = m.web || {};
+  $("mon-web").innerHTML =
+    mbal("🔵", w.nodes ?? 0, "web nodes") +
+    mbal("🔗", w.edges ?? 0, "edges") +
+    mbal("🧪", w.terms ?? 0, "terms") +
+    mbal("🪢", w.links ?? 0, "links") +
+    `<span class="bal mono small">root ${mesc((w.state_root || "—").slice(0, 14))}…</span>`;
+  $("mon-anchor").innerHTML = w.ual
+    ? `🔗 OriginTrail: <span class="mono small">${mesc(w.ual)}</span>` +
+      `<span class="dim small"> · ${w.anchored ? "✓ verified" : "unverified"}</span>`
+    : `<span class="dim">shared web not yet anchored</span>`;
 }
 
 boot();
