@@ -96,9 +96,17 @@ window.I18N = (() => {
   function apply(root) {
     const r = root || document;
     r.querySelectorAll("[data-i18n]").forEach((el) => {
-      const v = t(el.getAttribute("data-i18n"));
-      if (el.hasAttribute("data-i18n-html")) el.innerHTML = v;
-      else el.textContent = v;
+      const key = el.getAttribute("data-i18n");
+      // HTML injection is reserved for strings that come STRAIGHT from our locale
+      // JSONs — the tainted attribute value itself can only ever land as text,
+      // because the raw-key fallback path never reaches innerHTML at all
+      // (CodeQL js/xss-through-dom).
+      const resolved = dict[key] ?? en[key];
+      if (el.hasAttribute("data-i18n-html") && typeof resolved === "string") {
+        el.innerHTML = resolved;
+      } else {
+        el.textContent = t(key);
+      }
     });
     r.querySelectorAll("[data-i18n-title]").forEach((el) => {
       el.title = t(el.getAttribute("data-i18n-title"));
