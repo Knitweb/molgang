@@ -116,6 +116,9 @@ check('telemetry exposes the MEASUREMENT.md metric names + GTA6 reference',
     isset($tel['knits_per_sec'], $tel['useful_work_per_sec'])
     && ($tel['gta6_reference_peers'] ?? 0) === 1_000_000
     && ($tel['scope'] ?? '') === 'relay');
+check('telemetry exposes the deduped concurrent-pubkey SET for fleet union (#131)',
+    isset($tel['peer_pubkeys']) && is_array($tel['peer_pubkeys'])
+    && count($tel['peer_pubkeys']) === 1 && $tel['peer_pubkeys'][0] === $pubHex);
 
 // presence WITHOUT work in-window must NOT count (activity floor, rule 3): age out the message
 Db::run('UPDATE relay_message SET created = ?', [microtime(true) - (Relay::ONLINE_WINDOW_S + 60)]);
