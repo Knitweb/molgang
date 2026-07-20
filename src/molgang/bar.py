@@ -172,6 +172,43 @@ class Bar:
     def _now(self) -> float:
         return float(self._clock())
 
+    def telemetry(self, *, window_s: float = 120.0) -> dict:
+        """Node-scoped 1M/GTA6 scoreboard numbers for this single install (#131).
+
+        Honest counting keyed to docs/MEASUREMENT.md, scoped to what ONE Python node can see:
+        a *concurrent peer* is a distinct HUMAN session (bots excluded — they carry the
+        ``source:agentplay`` synthetic marker) seen within ``window_s`` AND having woven at
+        least one real Fiber (the activity floor). ``knits_per_sec`` is this node's woven count
+        over the window. The cross-region fleet total is summed by the relay layer, not here —
+        this is deliberately labelled ``scope="node"`` so a viewer never mistakes one install for
+        the fleet. No synthetic/mock path.
+        """
+        now = self._now()
+        cutoff = now - float(window_s)
+        human_live = [s for s in self.sessions.values()
+                      if not s.bot and s.last_seen >= cutoff]
+        active = sum(1 for s in human_live if self._woven_by(s.sid) > 0)
+        # useful-work throughput: woven Fibers stamped within the window. Proposal weaves carry
+        # a wall-clock ``anchor_ts``; count those (spiral weaves without a stamp are ignored here
+        # rather than assumed in-window — honest under-count beats an inflated one).
+        wall_cutoff = time.time() - float(window_s)
+        recent_woven = sum(1 for w in self.woven
+                           if float(w.get("anchor_ts", 0)) >= wall_cutoff)
+        per_sec = round(recent_woven / window_s, 3) if window_s > 0 else 0.0
+        return {
+            "peers_online": active,
+            "peers_present_human": len(human_live),
+            "knits_per_sec": per_sec,
+            "useful_work_per_sec": per_sec,
+            "useful_work_events": recent_woven,
+            "window_s": float(window_s),
+            "scope": "node",
+            "gta6_reference_peers": 1_000_000,
+            "win_target_peers": 1_000_000,
+            "win_sustain_min": 30,
+            "time": now,
+        }
+
     def _seed_bots(self, seed_all: bool = False, table_id: str | None = None,
                    per_table: int = 3) -> None:
         if table_id is not None:

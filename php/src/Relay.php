@@ -203,6 +203,64 @@ final class Relay
         return ['messages' => $msgs, 'cursor' => $cursor, 'count' => count($msgs)];
     }
 
+    // ---- fleet telemetry: the 1M/GTA6 scoreboard numbers (#131) -------------
+
+    /** The GTA6 reference concurrency the public dashboard compares against (docs/MEASUREMENT.md). */
+    public const GTA6_REFERENCE_PEERS = 1_000_000;
+    /** Sustained-window win condition (docs/MEASUREMENT.md): N_target held for T_sustain minutes. */
+    public const WIN_TARGET_PEERS   = 1_000_000;
+    public const WIN_SUSTAIN_MIN     = 30;
+
+    /**
+     * Real fleet telemetry keyed EXACTLY to docs/MEASUREMENT.md — no mock path.
+     *
+     * A *concurrent peer* is a distinct onboarded pubkey that (2) pinged within
+     * ``ONLINE_WINDOW_S`` AND (3) did at least one real unit of useful work in the same window
+     * — here a relay-woven message (``relay_message`` row) authored by that pubkey. Presence
+     * alone never counts. Dedup is ``COUNT(DISTINCT pubkey)`` so a wallet appearing from several
+     * regions/relays is ONE peer (rule 1). ``knits_per_sec``/``useful_work_per_sec`` are the
+     * window's relay-woven throughput over the window length.
+     *
+     * This is the single-relay view; the cross-region total is the sum of each relay's
+     * distinct-pubkey sets, reconciled by :func:`molgang.fleet` — a lone relay reports its own
+     * slice honestly and labels it as such.
+     */
+    public static function telemetry(): array
+    {
+        $now = self::now();
+        $w = self::ONLINE_WINDOW_S;
+        $cutoff = $now - $w;
+
+        // rule 2 ∧ 3: onboarded, live-in-window, AND authored real work in the same window.
+        $peers = (int) (Db::one(
+            'SELECT COUNT(DISTINCT r.pubkey) c
+               FROM node_registry r
+               JOIN relay_message m ON m.from_pub = r.pubkey
+              WHERE r.revoked = 0 AND r.last_seen >= ? AND m.created >= ?',
+            [$cutoff, $cutoff]
+        )['c'] ?? 0);
+
+        // useful-work throughput over the window: relay-woven messages in [now-W, now].
+        $workEvents = (int) (Db::one(
+            'SELECT COUNT(*) c FROM relay_message WHERE created >= ?', [$cutoff]
+        )['c'] ?? 0);
+        $perSec = $w > 0 ? round($workEvents / $w, 3) : 0.0;
+
+        return [
+            'peers_online'         => $peers,           // concurrent, activity-floored, deduped
+            'knits_per_sec'        => $perSec,
+            'useful_work_per_sec'  => $perSec,
+            'useful_work_events'   => $workEvents,
+            'window_s'             => $w,
+            'scope'                => 'relay',          // one relay's honest slice (sum across fleet)
+            'node'                 => self::nodeName(),
+            'gta6_reference_peers' => self::GTA6_REFERENCE_PEERS,
+            'win_target_peers'     => self::WIN_TARGET_PEERS,
+            'win_sustain_min'      => self::WIN_SUSTAIN_MIN,
+            'time'                 => $now,
+        ];
+    }
+
     /** A small public health/identity card for the relay node itself. */
     public static function info(): array
     {

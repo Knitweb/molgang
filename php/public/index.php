@@ -135,6 +135,10 @@ try {
             if ($sub === 'fetch') {
                 out(Relay::fetch($q));
             }
+            if ($sub === 'telemetry') {
+                // GET /api/relay/telemetry → real 1M/GTA6 scoreboard numbers (#131)
+                out(Relay::telemetry());
+            }
             http_response_code(404);
             out(['error' => 'unknown relay route']);
 

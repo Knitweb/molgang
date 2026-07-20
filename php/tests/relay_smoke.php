@@ -108,6 +108,21 @@ $m = $got['messages'][0];
 $reverify = Crypto::verify($m['from'], Relay::signedPreimage((string) ($m['to'] ?? ''), $m['topic'], $m['body']), $m['sig']);
 check('reader re-verifies the relayed signature end-to-end', $reverify === true);
 
+// --- fleet telemetry: the 1M/GTA6 scoreboard (#131), keyed to docs/MEASUREMENT.md -----------
+$tel = Relay::telemetry();
+check('telemetry counts the live+active peer (presence ∧ real work in-window)',
+    ($tel['peers_online'] ?? 0) === 1);
+check('telemetry exposes the MEASUREMENT.md metric names + GTA6 reference',
+    isset($tel['knits_per_sec'], $tel['useful_work_per_sec'])
+    && ($tel['gta6_reference_peers'] ?? 0) === 1_000_000
+    && ($tel['scope'] ?? '') === 'relay');
+
+// presence WITHOUT work in-window must NOT count (activity floor, rule 3): age out the message
+Db::run('UPDATE relay_message SET created = ?', [microtime(true) - (Relay::ONLINE_WINDOW_S + 60)]);
+$tel2 = Relay::telemetry();
+check('a peer with stale (out-of-window) work drops from the concurrent count',
+    ($tel2['peers_online'] ?? -1) === 0 && ($tel2['useful_work_per_sec'] ?? -1) === 0.0);
+
 @unlink($dbfile);
 echo $fail === 0 ? "\nRELAY SMOKE: PASS ✅\n" : "\nRELAY SMOKE: $fail FAILED ❌\n";
 exit($fail === 0 ? 0 : 1);

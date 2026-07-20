@@ -409,6 +409,9 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                 return self._json(200, {"enabled": True, "base": relay.base,
                                         "topic": relay.topic, "node": relay.signer.pub,
                                         "address": relay.signer.address, "cursor": relay.cursor})
+            if path == "/api/relay/telemetry":
+                # node-scoped 1M/GTA6 scoreboard numbers for the public dashboard (#131)
+                return self._json(200, bar.telemetry())
             if path == "/api/lens/chemistry":
                 from urllib.parse import parse_qs, urlparse
                 q = (parse_qs(urlparse(self.path).query).get("q") or [""])[0]
