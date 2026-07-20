@@ -26,6 +26,7 @@
       <button data-view="ledger">📒 My knits</button>
       <button data-view="explorer">🔭 Explorer</button>
       <button data-view="web">🌐 Web</button>
+      <button data-view="monitor">📡 Monitor</button>
     </nav>
   </header>
 
@@ -106,6 +107,29 @@
       <button id="gx-path">shortest path</button>
     </div>
     <div id="gx-result" class="dim"></div>
+  </section>
+
+  <!-- 📡 monitor: node/p2p roster + relay throughput + web/KG stats (PHP parity of web/'s tab, #83) -->
+  <section id="monitor" class="view hidden">
+    <h2>📡 Monitor <span class="dim small">— node &amp; p2p status · relay throughput · the woven knitweb</span>
+      <a href="monitor.html" target="_blank" rel="noopener" class="dim small" style="float:right">full monitor ↗</a></h2>
+
+    <h3>🛰️ Relay node &amp; p2p roster</h3>
+    <div id="mon-node" class="summary"></div>
+    <table class="grid">
+      <thead><tr><th>online node</th><th>endpoint</th><th>age</th></tr></thead>
+      <tbody id="mon-roster"></tbody>
+    </table>
+
+    <h3>🔁 Relay throughput <span class="dim small" id="mon-telemetry"></span></h3>
+    <div id="mon-relay" class="summary"></div>
+
+    <h3>🌐 Shared web &amp; knowledge graph</h3>
+    <div id="mon-web" class="summary"></div>
+    <div id="mon-anchor" class="anchor-bar"></div>
+
+    <h3>🧪 Game liveness</h3>
+    <div id="mon-game" class="summary"></div>
   </section>
 
   <footer class="dim small">bar woven: <b id="bar-woven">0</b> terms · bonds are Knits · molecules are Fibers · peers validate with pulses · <b>no NFTs</b> · <a href="https://www.binance.com/en/square/post/23850171083089" target="_blank" rel="noopener" title="MOLGANG epic faucet">⚡ epic Faucet</a></footer>
