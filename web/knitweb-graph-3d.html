@@ -26,6 +26,7 @@ html,body{margin:0;height:100%;background:#0e1117;color:#e8edf4;font-family:-app
 #xr-hint{position:fixed;bottom:60px;right:18px;z-index:10000;max-width:260px;background:#161b22f2;border:1px solid #2a3340;border-radius:10px;padding:10px 14px;font-size:12px;color:#c5cfdb;display:none}
 @media (min-width:721px){#panel{top:72px}}@media (max-width:720px){.bar{top:10px;left:10px;right:10px;gap:8px;padding:8px 10px;max-height:34vh;overflow:auto}.bar .t{width:100%}.bar .hint{display:none}.seg{max-width:100%}.seg button{padding:6px 8px}#panel{left:10px;right:10px;top:auto;bottom:12px;width:auto;max-height:30vh;overflow:auto;padding:12px 14px}#panel h3{font-size:15px}#panel p{font-size:12.5px}#vrbtn,#vrbtn button,#vrbtn a{top:126px!important;bottom:auto!important}#xr-hint{left:10px;right:10px;top:176px;bottom:auto;max-width:none}}
 </style>
+<script src="gfx-capability.js"></script>
 </head>
 <body>
 <div id="graph"></div>
@@ -274,6 +275,9 @@ function onSqueezeEnd(e){
 function initGraph(){
   if(typeof ForceGraph3D==='undefined'){pp.innerHTML='&#9888; 3d-force-graph niet geladen';return;}
   var el=document.getElementById('graph');
+  // graphics capability gate (#pwa-render): the 3D knowledge graph needs WebGL — fall back
+  // gracefully on devices without it instead of a black/broken canvas.
+  if(window.MolgangGfx && !window.MolgangGfx.guard(el, "The 3D knowledge graph needs WebGL.")){return;}
   Graph=ForceGraph3D()(el).width(window.innerWidth).height(window.innerHeight).backgroundColor('#0e1117').graphData(DATA.plugins)
     .nodeColor(function(n){return n.color;}).nodeVal(function(n){return n.val;}).nodeOpacity(0.95).nodeResolution(16)
     .nodeLabel(function(n){return '<b>'+esc(nm(n))+'</b>';})

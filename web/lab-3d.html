@@ -107,6 +107,7 @@
   #vrbtn{position:absolute;right:16px;bottom:16px}
   @media (max-width:900px){main{grid-template-columns:1fr}aside{display:none}}
 </style>
+<script src="gfx-capability.js"></script>
 </head>
 <body>
 <header>
@@ -220,8 +221,15 @@ const isSessionLost = e =>
 
 /* ---------- 3D scene ---------- */
 const canvas = $("#c");
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// graphics capability gate (#pwa-render): fall back gracefully where no WebGL exists, and pick a
+// quality tier so it stays fast on weak devices, instead of throwing on new THREE.WebGLRenderer.
+const _gfx = (window.MolgangGfx && window.MolgangGfx.rendererHints) ? window.MolgangGfx.rendererHints()
+  : {antialias:true, pixelRatio:Math.min(devicePixelRatio,2), tier:"high"};
+if (window.MolgangGfx && !window.MolgangGfx.guard(canvas, "The 3D Lab needs WebGL to render molecules.")) {
+  throw new Error("MOLGANG: no WebGL — showing fallback");
+}
+const renderer = new THREE.WebGLRenderer({canvas, antialias:_gfx.antialias, alpha:true});
+renderer.setPixelRatio(_gfx.pixelRatio);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
