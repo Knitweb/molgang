@@ -524,15 +524,31 @@ function renderFloor(s) {
   s.tables.forEach((t, idx) => {
     const card = document.createElement("div");
     card.className = "table-card";
-    const chairs = Array.from({ length: t.seats }, (_, i) => {
-      const occ = t.seated[i];
-      return `<span class="chair ${occ ? "occ" : ""}" title="${esc(occ ? occ.name : "empty")}">${occ ? avatarImg(occ.avatar, "chair-av") : "·"}</span>`;
-    }).join("");
+    // static skeleton via innerHTML; all user-controlled text/attrs set via the
+    // DOM API below so nothing tainted flows into an HTML sink (CodeQL js/xss)
     card.innerHTML = `<div class="table-scene"><img src="${tableScene(t.id, idx)}" alt="" loading="lazy" /></div>
-      <h3>${esc(t.name)}</h3>
-      <div class="chairs">${chairs}</div>
-      <div class="dim small">${t.seated.length}/${t.seats} seated · ${t.fabric.length} woven</div>
+      <h3></h3>
+      <div class="chairs"></div>
+      <div class="dim small">${Number(t.seated.length)}/${Number(t.seats)} seated · ${Number(t.fabric.length)} woven</div>
       <button class="join-table">take a seat →</button>`;
+    card.querySelector("h3").textContent = t.name;
+    const chairsEl = card.querySelector(".chairs");
+    for (let i = 0; i < t.seats; i++) {
+      const occ = t.seated[i];
+      const span = document.createElement("span");
+      span.className = "chair" + (occ ? " occ" : "");
+      span.title = occ ? occ.name : "empty";
+      if (occ) {
+        const img = document.createElement("img");
+        img.className = "chair-av";
+        img.src = `avatars/${encodeURIComponent(occ.avatar)}.svg`;
+        img.alt = "";
+        span.appendChild(img);
+      } else {
+        span.textContent = "·";
+      }
+      chairsEl.appendChild(span);
+    }
     card.querySelector(".join-table").onclick = async () => {
       const st = await api("/api/sit", "POST", { sid, table: t.id });
       if (st.error) { showToast(st.error); return; }
@@ -762,13 +778,25 @@ async function renderProgress(s) {
   // 🧗 Reputation ladder — current title, XP to next, and unlocked perks (#113)
   const you = (s && s.you) || {};
   const nxt = you.next || {};
-  const climb = nxt.at_max
-    ? `<span class="dim small">max rank reached 🎓</span>`
-    : (nxt.next_title ? `<span class="dim small">${fmt(nxt.xp_to_next)} XP to <b>${esc(nxt.next_title)}</b></span>` : "");
-  $("ladder").innerHTML =
-    `<div class="level-strip">${renderLevelStrip(you.level || 1, you.xp || 0)}</div>` +
-    `<div class="ladder-now">🏅 <b>L${you.level || 1} ${esc(you.title || "Apprentice")}</b> · ${fmt(you.xp || 0)} XP ${climb}</div>` +
-    `<ul class="perks">${(you.perks || []).map((p) => `<li>✓ ${esc(p)}</li>`).join("")}</ul>`;
+  // innerHTML carries ONLY static markup + the strip built from the LEVEL_STATIONS
+  // constant and clamped numbers; every API-controlled string lands via textContent
+  // (CodeQL js/xss — no tainted value reaches an HTML sink).
+  const lvl = Math.max(1, Math.floor(Number(you.level) || 1));
+  const ladder = $("ladder");
+  ladder.innerHTML =
+    `<div class="level-strip">${renderLevelStrip(lvl, Number(you.xp) || 0)}</div>` +
+    '<div class="ladder-now">🏅 <b></b> · <span class="lxp"></span> <span class="dim small lclimb"></span></div>' +
+    '<ul class="perks"></ul>';
+  ladder.querySelector(".ladder-now b").textContent = `L${lvl} ${you.title || "Apprentice"}`;
+  ladder.querySelector(".lxp").textContent = `${fmt(you.xp || 0)} XP`;
+  ladder.querySelector(".lclimb").textContent = nxt.at_max ? "max rank reached 🎓"
+    : (nxt.next_title ? `${fmt(nxt.xp_to_next)} XP to ${nxt.next_title}` : "");
+  const perksUl = ladder.querySelector(".perks");
+  (you.perks || []).forEach((p) => {
+    const li = document.createElement("li");
+    li.textContent = `✓ ${p}`;
+    perksUl.appendChild(li);
+  });
 
   const q = await api("/api/quests?player=" + encodeURIComponent(player));
   $("quests-list").innerHTML = (q.all || []).map((x) =>
