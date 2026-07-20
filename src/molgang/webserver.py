@@ -408,7 +408,9 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                     return self._json(200, {"enabled": False})
                 return self._json(200, {"enabled": True, "base": relay.base,
                                         "topic": relay.topic, "node": relay.signer.pub,
-                                        "address": relay.signer.address, "cursor": relay.cursor})
+                                        "address": relay.signer.address, "cursor": relay.cursor,
+                                        # pool surface (#95): one row per relay + health
+                                        "relays": relay.status()})
             if path == "/api/lens/chemistry":
                 from urllib.parse import parse_qs, urlparse
                 q = (parse_qs(urlparse(self.path).query).get("q") or [""])[0]
@@ -586,20 +588,23 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
     return Handler
 
 
-def _start_relay(bar: Bar, base: str, wallet: str | None, interval: float):
-    """Wire relay-sync onto the bar's shared World (knitweb/molgang#44).
+def _start_relay(bar: Bar, bases: list[str], wallet: str | None, interval: float):
+    """Wire relay-sync onto the bar's shared World (knitweb/molgang#44, pool: #95).
 
     * a stable node identity (derived from the pulse-host wallet) signs every push;
-    * each newly-woven knit/spiral is PUSHED to the relay via ``world.on_weave``;
+    * each newly-woven knit/spiral is PUSHED to every healthy relay via ``world.on_weave``;
     * an initial pull converges this fresh install on the shared web, then a daemon
       timer keeps pulling so writes from other installs land here too.
+
+    ``bases`` is the full ``--relay`` pool (repeatable / comma-list); one entry behaves
+    exactly like the historical single-relay path, N entries fan out with failover.
     """
     import threading
 
-    from .relay_sync import RelaySync, signer_from_wallet
+    from .relay_sync import RelayPool, signer_from_wallet
 
     signer = signer_from_wallet(wallet)
-    relay = RelaySync(base, bar.world, signer)
+    relay = RelayPool(bases, bar.world, signer)
     bar.world.on_weave = relay.push          # PUSH every confirmed knit/spiral as it is woven
     try:
         relay.pull()                         # converge on the existing shared web at startup
@@ -644,9 +649,11 @@ def main(argv: list[str]) -> int:
                     help="disable /api/monitor endpoints")
     ap.add_argument("--monitor-nodes", default=None,
                     help="comma list label=port for monitor liveness, e.g. alice=8900,bob=8901")
-    ap.add_argument("--relay", default=None,
+    ap.add_argument("--relay", action="append", default=None,
                     help="relay API base to share the growing web across machines, e.g. "
-                         "https://5mart.ml/molgang/api/relay (OFF by default = local-only)")
+                         "https://5mart.ml/molgang/api/relay (OFF by default = local-only). "
+                         "Repeat the flag and/or pass a comma-list to sync through a POOL of "
+                         "relays with fan-out + failover (#95)")
     ap.add_argument("--relay-wallet", default=None,
                     help="node wallet identity used to sign relay pushes (default --wallet)")
     ap.add_argument("--relay-interval", type=float, default=20.0,
@@ -687,7 +694,9 @@ def main(argv: list[str]) -> int:
         monitor = Monitor(bar, web=a.monitor_web, world=a.world, pulse_host=pulse,
                           nodes=a.monitor_nodes)
     relay_wallet = a.relay_wallet or a.wallet
-    relay = _start_relay(bar, a.relay, relay_wallet, a.relay_interval) if a.relay else None
+    # --relay is repeatable and each value may be a comma-list → flatten to the pool (#95)
+    relay_bases = [b.strip() for v in (a.relay or []) for b in v.split(",") if b.strip()]
+    relay = _start_relay(bar, relay_bases, relay_wallet, a.relay_interval) if relay_bases else None
     rate_config = RateLimitConfig(
         read=RateLimitRule(a.rate_read, a.rate_read_window),
         write=RateLimitRule(a.rate_write, a.rate_write_window),
@@ -704,7 +713,7 @@ def main(argv: list[str]) -> int:
               f"local knitweb {monitor.source}")
     print(f"  pulse host {pulse['account']['address']} · wallet {pulse['wallet']}")
     if relay is not None:
-        print(f"  🌐 relay sync ON · {relay.base} · node {relay.signer.address} "
+        print(f"  🌐 relay sync ON · {' + '.join(relay.bases)} · node {relay.signer.address} "
               f"· pull every {a.relay_interval:g}s")
     try:
         srv.serve_forever()

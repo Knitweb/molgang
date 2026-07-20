@@ -33,6 +33,7 @@ import hashlib
 import json
 import os
 import ssl
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -197,7 +198,8 @@ class RelaySync:
     """
 
     def __init__(self, base: str, world: World, signer: AccountNode, *,
-                 topic: str = WEB_TOPIC, opener=None, shards: int = 1, subscribe=None) -> None:
+                 topic: str = WEB_TOPIC, opener=None, shards: int = 1, subscribe=None,
+                 seen_keys: set | None = None, seen_sigs: set | None = None) -> None:
         self.base = base.rstrip("/")
         self.world = world
         self.signer = signer
@@ -212,8 +214,13 @@ class RelaySync:
         else:
             self.subscribe = sorted({int(i) for i in subscribe if 0 <= int(i) < self.shards})
         self._cursors: dict[str, float] = {}
-        # the de-dup index of every fiber key already present in the local World
-        self._seen: set[tuple] = set()
+        # the de-dup index of every fiber key already present in the local World. A RelayPool
+        # (#95) passes ONE shared set to all its per-base clients so an item applied via relay A
+        # is bump-not-reweave for relay B; standalone use keeps a private set (unchanged).
+        self._seen: set[tuple] = seen_keys if seen_keys is not None else set()
+        # signature-level dedup (#95): the SAME signed message replicated onto several relays has
+        # an identical `sig`, and must be woven/bumped exactly once across the whole pool.
+        self._seen_sigs: set[str] = seen_sigs if seen_sigs is not None else set()
         self._reindex()
         # injectable transport (the test stub swaps this; default = urllib over HTTPS)
         self._open = opener or self._urlopen
@@ -247,7 +254,8 @@ class RelaySync:
     # -- local de-dup index ------------------------------------------------
     def _reindex(self) -> None:
         self.world._sync()
-        self._seen = set()
+        # mutate IN PLACE (never reassign): a RelayPool shares this set across its clients
+        self._seen.clear()
         for it in self.world.items:
             self._seen.update(item_keys(it))
 
@@ -261,6 +269,7 @@ class RelaySync:
         msg = pack(item, self.signer, topic=self._topic_for_item(item), to=to)
         out = self._open(f"{self.base}/send", json.dumps(msg).encode("utf-8"))
         self._seen.update(item_keys(item))
+        self._seen_sigs.add(str(msg["sig"]))
         return out
 
     def push_world_item(self, item: WovenItem, **kw) -> dict:
@@ -311,9 +320,16 @@ class RelaySync:
                 # our own echoed push — already woven + counted locally; never re-bump it
                 skipped += 1
                 continue
+            sig = str(msg.get("sig", ""))
+            if sig and sig in self._seen_sigs:
+                # the SAME signed message already processed via another relay in the pool (#95)
+                skipped += 1
+                continue
             if not verify_message(msg, topic=topic):
                 rejected += 1
                 continue
+            if sig:
+                self._seen_sigs.add(sig)
             try:
                 assert_peer_engine_compatible(peer_engine_from_body(str(msg.get("body", ""))))
             except EngineCompatibilityError:
@@ -483,6 +499,128 @@ class RelaySync:
         raw_items = data.get("items", [])
         items_json = json.dumps(raw_items, sort_keys=True, separators=(",", ":")).encode("utf-8")
         return hashlib.sha256(items_json).hexdigest() == stored
+
+
+# -- the multi-relay pool (#95) ----------------------------------------------
+class RelayPool:
+    """Fan a shared :class:`World` across a POOL of relays — push to all, pull-union, failover.
+
+    One relay is one bottleneck and one point of failure for every peer (knitweb/molgang#95);
+    the pool holds one :class:`RelaySync` per base, all bound to the SAME ``World`` + signer and
+    sharing ONE dedup index (``seen_keys``/``seen_sigs``), so:
+
+    * :meth:`push` fans a confirmed knit out to every *healthy* base, best-effort — a down relay
+      is recorded and skipped, never raised into the weaving caller (``world.on_weave``);
+    * :meth:`pull` drains every healthy base and unions the messages — a fiber arriving on two
+      relays is applied once (identical ``sig`` ⇒ signature-level skip; a co-woven fiber from a
+      different signer still bumps once per distinct message), each base advancing its own cursor;
+    * a base whose transport errors enters a ``cooldown``-second timeout before it is retried,
+      so one dark relay cannot stall convergence through the others. When EVERY base is down the
+      pool retries them all anyway (a total outage should keep probing, not go silent forever).
+    """
+
+    def __init__(self, bases, world: World, signer: AccountNode, *,
+                 topic: str = WEB_TOPIC, opener=None, shards: int = 1, subscribe=None,
+                 cooldown: float = 60.0, clock=time.monotonic) -> None:
+        cleaned, seen_bases = [], set()
+        for b in bases if isinstance(bases, (list, tuple)) else [bases]:
+            b = str(b).strip().rstrip("/")
+            if b and b not in seen_bases:
+                seen_bases.add(b)
+                cleaned.append(b)
+        if not cleaned:
+            raise ValueError("RelayPool needs at least one relay base URL")
+        self.bases = cleaned
+        self.world = world
+        self.signer = signer
+        self.topic = topic
+        self.cooldown = float(cooldown)
+        self._clock = clock
+        # ONE shared dedup index across every per-base client (see RelaySync.__init__)
+        shared_keys: set[tuple] = set()
+        shared_sigs: set[str] = set()
+        self.syncs: list[RelaySync] = [
+            RelaySync(b, world, signer, topic=topic, opener=opener,
+                      shards=shards, subscribe=subscribe,
+                      seen_keys=shared_keys, seen_sigs=shared_sigs)
+            for b in self.bases
+        ]
+        self._health: dict[str, dict] = {b: {"failures": 0, "down_until": 0.0}
+                                         for b in self.bases}
+
+    # -- back-compat surface (webserver reads these off a single RelaySync) ----
+    @property
+    def base(self) -> str:
+        """Primary base (first configured) — kept so single-relay callers keep working."""
+        return self.bases[0]
+
+    @property
+    def cursor(self) -> float:
+        """Pool high-water mark = the furthest cursor any base reached."""
+        return max((s.cursor for s in self.syncs), default=0.0)
+
+    # -- health ------------------------------------------------------------
+    def healthy(self, base: str) -> bool:
+        return self._clock() >= self._health[base]["down_until"]
+
+    def _mark_ok(self, base: str) -> None:
+        self._health[base]["failures"] = 0
+        self._health[base]["down_until"] = 0.0
+
+    def _mark_fail(self, base: str) -> None:
+        h = self._health[base]
+        h["failures"] += 1
+        h["down_until"] = self._clock() + self.cooldown
+
+    def _active(self) -> list[RelaySync]:
+        """The healthy clients — or ALL of them when every base is in cooldown."""
+        up = [s for s in self.syncs if self.healthy(s.base)]
+        return up or list(self.syncs)
+
+    # -- PUSH: fan out to every healthy base -------------------------------
+    def push(self, item: WovenItem, *, to: str = "") -> dict:
+        """Best-effort fan-out of one confirmed item; per-base result, never raises transport.
+
+        Returns ``{ok, results: {base: relay-response | {ok:false, error}}}`` where ``ok`` is
+        True when at least one relay accepted — the caller (``world.on_weave``) must keep
+        weaving locally even through a full relay outage.
+        """
+        results: dict[str, dict] = {}
+        for s in self._active():
+            try:
+                results[s.base] = s.push(item, to=to)
+                self._mark_ok(s.base)
+            except Exception as e:  # a down relay is health-marked, not raised
+                self._mark_fail(s.base)
+                results[s.base] = {"ok": False, "error": str(e)}
+        return {"ok": any(r.get("ok") for r in results.values()), "results": results}
+
+    # -- PULL: drain every healthy base, union via the shared dedup ---------
+    def pull(self, since: float | None = None, *, limit: int = 200) -> dict:
+        """Union-pull across the pool; per-base cursors advance independently.
+
+        Returns the summed per-base stats plus ``errors`` (bases that failed this round)
+        and ``cursor`` (the pool high-water mark).
+        """
+        total = {"applied": 0, "bumped": 0, "rejected": 0, "skipped": 0,
+                 "scanned": 0, "errors": 0}
+        for s in self._active():
+            try:
+                stats = s.pull(since, limit=limit)
+                self._mark_ok(s.base)
+                for k in ("applied", "bumped", "rejected", "skipped", "scanned"):
+                    total[k] += stats.get(k, 0)
+            except Exception:
+                self._mark_fail(s.base)
+                total["errors"] += 1
+        total["cursor"] = self.cursor
+        return total
+
+    # -- introspection (GET /api/relay) -------------------------------------
+    def status(self) -> list[dict]:
+        """Per-relay ``{base, cursor, healthy, failures}`` for the API/monitor surface."""
+        return [{"base": s.base, "cursor": s.cursor, "healthy": self.healthy(s.base),
+                 "failures": self._health[s.base]["failures"]} for s in self.syncs]
 
 
 # -- identity helpers --------------------------------------------------------
