@@ -54,6 +54,63 @@ def port_live(port: int | None, host: str = "127.0.0.1") -> bool:
         return False
 
 
+def _http_json(url: str) -> dict:
+    """Tiny GET-JSON with a short timeout — mesh polling must never hang the tab."""
+    import json as _json
+    import urllib.request
+
+    with urllib.request.urlopen(url, timeout=3) as r:  # noqa: S310 (operator-configured base)
+        return _json.loads(r.read().decode("utf-8"))
+
+
+def relay_mesh(relay=None, opener=None) -> dict:
+    """Aggregate the relay MESH for operators (#99) — real data only, degradeable.
+
+    ``relay`` is the live :class:`~molgang.relay_sync.RelayPool` (or a single
+    ``RelaySync``-shaped handle exposing ``status()``). Per relay it combines:
+
+    * the pool's own view — per-base ``cursor``/``healthy``/``failures`` (#95),
+    * that relay's live ``GET <base>/info`` — ``online``/``nodes``/``queued`` counters,
+    * a ``region`` looked up in the union of every reachable roster (#98), and
+    * ``lag_s`` = the pool's high-water cursor minus this base's cursor — the
+      convergence lag an operator watches while ramping the mesh.
+
+    An unreachable relay degrades to ``healthy: false`` with its counters ``None``;
+    it never raises into the tab.
+    """
+    if relay is None or not hasattr(relay, "status"):
+        return {"enabled": False, "relays": [], "count": 0}
+    get = opener or _http_json
+    status = {s["base"]: s for s in relay.status()}
+    infos: dict[str, dict | None] = {}
+    regions: dict[str, str] = {}
+    for base in status:
+        try:
+            info = get(base.rstrip("/") + "/info")
+            infos[base] = info if isinstance(info, dict) else None
+        except Exception:
+            infos[base] = None
+        for r in (infos[base] or {}).get("relays", []) or []:
+            if isinstance(r, dict) and r.get("base") and r.get("region"):
+                regions.setdefault(str(r["base"]).rstrip("/"), str(r["region"]))
+    top = max((s.get("cursor", 0.0) for s in status.values()), default=0.0)
+    rows = []
+    for base, s in status.items():
+        info = infos.get(base)
+        rows.append({
+            "base": base,
+            "region": regions.get(base.rstrip("/")),
+            "healthy": bool(s.get("healthy")) and info is not None,
+            "failures": int(s.get("failures", 0)),
+            "online": (info or {}).get("online"),
+            "nodes": (info or {}).get("nodes"),
+            "queued": (info or {}).get("queued"),
+            "cursor": s.get("cursor", 0.0),
+            "lag_s": round(max(0.0, top - float(s.get("cursor", 0.0))), 3),
+        })
+    return {"enabled": True, "relays": rows, "count": len(rows)}
+
+
 class Monitor:
     """Aggregates node/p2p status + the local woven knitweb for the Monitor tab.
 
@@ -114,6 +171,10 @@ class Monitor:
 
     def kg_concept(self, key: str) -> dict | None:
         return graphx.concept(self._g, key)
+
+    def mesh(self, relay=None, opener=None) -> dict:
+        """The relay-mesh panel (#99): delegate to :func:`relay_mesh` (real data only)."""
+        return relay_mesh(relay, opener=opener)
 
     def overview(self) -> dict:
         """One compact poll for the Monitor tab: node status + the local-knitweb KG digest."""

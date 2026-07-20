@@ -1037,6 +1037,7 @@ async function renderMonitor() {
   }
   renderMonStatus(m.status);
   renderMonKg(m.kg);
+  renderMonMesh();
   // centre the compact graph on the top hub once (then leave it; it polls on its own cadence).
   if (!monCenter && m.kg.hubs && m.kg.hubs.length) monFocus(m.kg.hubs[0].term);
 }
@@ -1102,6 +1103,30 @@ async function runSim() {
       monSimNet.setData({ nodes, edges });
     }
   }
+}
+
+// Relay-mesh panel (#99): pool cursors + live per-relay info + convergence lag.
+// Real data from GET /api/monitor/mesh; an unreachable relay renders as down, never breaks.
+async function renderMonMesh() {
+  const el = $("mon-mesh");
+  if (!el) return;
+  const d = await api("/api/monitor/mesh").catch(() => null);
+  if (!d || !d.enabled || !(d.relays || []).length) {
+    el.innerHTML = `<span class="dim">no relay pool configured</span>`;
+    return;
+  }
+  el.innerHTML = `<table class="grid"><thead><tr>
+      <th>relay</th><th>region</th><th>online</th><th>queued</th><th>lag</th><th>health</th>
+    </tr></thead><tbody>` +
+    d.relays.map((r) => {
+      const lag = r.lag_s > 1 ? `<span class="neg">${esc(r.lag_s)}s behind</span>`
+        : `<span class="pos">✓ in sync</span>`;
+      const health = r.healthy ? `<span class="pos">● up</span>`
+        : `<span class="neg">● down · ${esc(r.failures)}✗</span>`;
+      return `<tr><td class="mono small">${esc(r.base)}</td>` +
+        `<td>${esc(r.region || "—")}</td><td>${esc(r.online ?? "—")}</td>` +
+        `<td>${esc(r.queued ?? "—")}</td><td>${lag}</td><td>${health}</td></tr>`;
+    }).join("") + `</tbody></table>`;
 }
 
 function renderMonStatus(st) {
