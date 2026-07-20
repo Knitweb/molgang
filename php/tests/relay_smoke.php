@@ -108,6 +108,62 @@ $m = $got['messages'][0];
 $reverify = Crypto::verify($m['from'], Relay::signedPreimage((string) ($m['to'] ?? ''), $m['topic'], $m['body']), $m['sig']);
 check('reader re-verifies the relayed signature end-to-end', $reverify === true);
 
+// --- anti-entropy: reconcile with a peer relay (#96) ----------------------------------------
+// A fake PEER relay served through the injectable $http: honours ?since= exactly like fetch().
+$peerPayload = 'NaCl is table salt';
+$peerPre = Relay::signedPreimage('', $topic, $peerPayload);
+$peerSig = wallet_sign($priv, $peerPre);                       // signed by our REGISTERED node
+$peerMsg = ['id' => bin2hex(random_bytes(12)), 'from' => $pubHex, 'to' => null,
+            'topic' => $topic, 'body' => $peerPayload, 'sig' => $peerSig, 'created' => 100.0];
+$forgedMsg = ['id' => bin2hex(random_bytes(12)), 'from' => $pubHex, 'to' => null,
+              'topic' => $topic, 'body' => $peerPayload . ' FORGED', 'sig' => $peerSig,
+              'created' => 101.0];
+$strangerMsg = ['id' => bin2hex(random_bytes(12)), 'from' => $otherPub, 'to' => null,
+                'topic' => $topic, 'body' => $payload, 'sig' => $osig, 'created' => 102.0];
+$peerLog = [$peerMsg, $forgedMsg, $strangerMsg];
+$peerCalls = [];
+$fakeHttp = function (string $url) use ($peerLog, &$peerCalls): array {
+    $peerCalls[] = $url;
+    parse_str((string) parse_url($url, PHP_URL_QUERY), $q);
+    $since = (float) ($q['since'] ?? 0);
+    $out = array_values(array_filter($peerLog, fn ($m) => $m['created'] > $since));
+    $cursor = $since;
+    foreach ($out as $m) $cursor = max($cursor, $m['created']);
+    return ['messages' => $out, 'cursor' => $cursor, 'count' => count($out)];
+};
+
+$before = (int) Db::one('SELECT COUNT(*) c FROM relay_message')['c'];
+$rec = Relay::reconcile(['https://peer.example/molgang/api/relay'], $fakeHttp);
+$p0 = $rec['peers'][0] ?? [];
+check('reconcile pass reaches the peer and reports per-peer stats', !empty($rec['ok']) && !empty($p0['ok']));
+check('a message stored only on the peer propagates here', ($p0['new'] ?? 0) === 1
+    && Db::one('SELECT 1 x FROM relay_message WHERE id=?', [$peerMsg['id']]) !== null);
+check('a forged peer message is refused on ingest (send() gate)', ($p0['rejected'] ?? 0) === 2
+    && Db::one('SELECT 1 x FROM relay_message WHERE id=?', [$forgedMsg['id']]) === null);
+check('an unregistered peer sender is refused on ingest',
+    Db::one('SELECT 1 x FROM relay_message WHERE id=?', [$strangerMsg['id']]) === null);
+$after = (int) Db::one('SELECT COUNT(*) c FROM relay_message')['c'];
+check('exactly one new row was written', $after === $before + 1);
+
+// the propagated message is served by OUR fetch and still re-verifies end-to-end
+$got2 = Relay::fetch(['topic' => $topic, 'since' => 0]);
+$prop = null;
+foreach ($got2['messages'] as $mm) { if ($mm['id'] === $peerMsg['id']) $prop = $mm; }
+check('peer message appears in local fetch', $prop !== null && $prop['body'] === $peerPayload);
+check('  …and re-verifies end-to-end after the hop', $prop !== null
+    && Crypto::verify($prop['from'],
+        Relay::signedPreimage((string) ($prop['to'] ?? ''), $prop['topic'], $prop['body']),
+        $prop['sig']));
+
+// incremental + idempotent: the second pass asks since=<stored cursor> and ingests nothing
+$rec2 = Relay::reconcile(['https://peer.example/molgang/api/relay'], $fakeHttp);
+$p1 = $rec2['peers'][0] ?? [];
+check('second pass is incremental (since=stored cursor → nothing new)',
+    str_contains(end($peerCalls), 'since=102') && ($p1['new'] ?? -1) === 0);
+check('replaying a known id through ingest() is a no-op',
+    ($r = Relay::ingest($peerMsg)) && !empty($r['ok']) && !empty($r['known'])
+    && (int) Db::one('SELECT COUNT(*) c FROM relay_message')['c'] === $after);
+
 @unlink($dbfile);
 echo $fail === 0 ? "\nRELAY SMOKE: PASS ✅\n" : "\nRELAY SMOKE: $fail FAILED ❌\n";
 exit($fail === 0 ? 0 : 1);
