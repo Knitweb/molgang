@@ -745,16 +745,31 @@ function showLevelUp(level) {
   const st = LEVEL_STATIONS[n - 1];
   const old = document.querySelector(".levelup-overlay");
   if (old) old.remove();
+  // built with the DOM API end-to-end: everything here comes from the static
+  // LEVEL_STATIONS constant + a clamped integer, and no HTML sink is involved
   const el = document.createElement("div");
   el.className = "levelup-overlay";
-  el.innerHTML =
-    `<div class="levelup-card">
-       <span class="lu-burst">🎉</span>
-       <img src="${st.img}" alt="${esc(st.station)}" />
-       <h2>Level up! <b>L${n} ${esc(st.title)}</b></h2>
-       <p class="dim">🔓 ${esc(st.station)} unlocked</p>
-       <p class="dim small">tap anywhere to continue</p>
-     </div>`;
+  const card = document.createElement("div");
+  card.className = "levelup-card";
+  const burst = document.createElement("span");
+  burst.className = "lu-burst";
+  burst.textContent = "🎉";
+  const img = document.createElement("img");
+  img.src = st.img;
+  img.alt = st.station;
+  const h2 = document.createElement("h2");
+  h2.textContent = "Level up! ";
+  const bTitle = document.createElement("b");
+  bTitle.textContent = `L${n} ${st.title}`;
+  h2.appendChild(bTitle);
+  const pStation = document.createElement("p");
+  pStation.className = "dim";
+  pStation.textContent = `🔓 ${st.station} unlocked`;
+  const pHint = document.createElement("p");
+  pHint.className = "dim small";
+  pHint.textContent = "tap anywhere to continue";
+  card.append(burst, img, h2, pStation, pHint);
+  el.appendChild(card);
   el.addEventListener("click", () => el.remove());
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 6000);
