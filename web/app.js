@@ -482,6 +482,7 @@ async function renderState(s) {
     $("me-knits").textContent = s.you.knits_made;
     $("me-level").textContent = "L" + s.you.level;
     $("me-title").textContent = s.you.title;
+    trackLevelUp(s.you.level);
     table = s.you.table; localStorage.setItem("molgang_table", table || "");
   }
   $("bar-woven").textContent = s.bar_woven;
@@ -509,19 +510,45 @@ function renderPulseHost(host) {
   $("pulse-host").title = `${addr}\nwallet: ${host.wallet || ""}`;
 }
 
+// 🖼 Table scenes — each bar table gets a rendered ChemEng scene banner (same
+// asset family as the level stations). Known default tables map by id; any
+// extra/renamed table cycles through the set by its position on the floor.
+const TABLE_SCENES = { periodic: "tables/periodic.png", organic: "tables/organic.png",
+                       noble: "tables/noble.png" };
+const TABLE_SCENE_CYCLE = Object.values(TABLE_SCENES);
+const tableScene = (id, idx) =>
+  TABLE_SCENES[id] || TABLE_SCENE_CYCLE[idx % TABLE_SCENE_CYCLE.length];
+
 function renderFloor(s) {
   const f = $("floor"); f.innerHTML = "";
-  s.tables.forEach((t) => {
+  s.tables.forEach((t, idx) => {
     const card = document.createElement("div");
     card.className = "table-card";
-    const chairs = Array.from({ length: t.seats }, (_, i) => {
-      const occ = t.seated[i];
-      return `<span class="chair ${occ ? "occ" : ""}" title="${occ ? occ.name : "empty"}">${occ ? avatarImg(occ.avatar, "chair-av") : "·"}</span>`;
-    }).join("");
-    card.innerHTML = `<h3>${t.name}</h3>
-      <div class="chairs">${chairs}</div>
-      <div class="dim small">${t.seated.length}/${t.seats} seated · ${t.fabric.length} woven</div>
+    // static skeleton via innerHTML; all user-controlled text/attrs set via the
+    // DOM API below so nothing tainted flows into an HTML sink (CodeQL js/xss)
+    card.innerHTML = `<div class="table-scene"><img src="${tableScene(t.id, idx)}" alt="" loading="lazy" /></div>
+      <h3></h3>
+      <div class="chairs"></div>
+      <div class="dim small">${Number(t.seated.length)}/${Number(t.seats)} seated · ${Number(t.fabric.length)} woven</div>
       <button class="join-table">take a seat →</button>`;
+    card.querySelector("h3").textContent = t.name;
+    const chairsEl = card.querySelector(".chairs");
+    for (let i = 0; i < t.seats; i++) {
+      const occ = t.seated[i];
+      const span = document.createElement("span");
+      span.className = "chair" + (occ ? " occ" : "");
+      span.title = occ ? occ.name : "empty";
+      if (occ) {
+        const img = document.createElement("img");
+        img.className = "chair-av";
+        img.src = `avatars/${encodeURIComponent(occ.avatar)}.svg`;
+        img.alt = "";
+        span.appendChild(img);
+      } else {
+        span.textContent = "·";
+      }
+      chairsEl.appendChild(span);
+    }
     card.querySelector(".join-table").onclick = async () => {
       const st = await api("/api/sit", "POST", { sid, table: t.id });
       if (st.error) { showToast(st.error); return; }
@@ -671,6 +698,91 @@ function renderSpirals(t) {
   });
 }
 
+// 🧪 Level stations — the visual climb through the bar. One station per
+// reputation-ladder level (#113): real equipment renders from the ChemEng
+// (molgang-roblox) build, from a humble beaker up to the quantum tunnel ring.
+// XP thresholds mirror progression.LEVELS server-side; titles come from the API
+// for the CURRENT player, these are the static rungs of the whole ladder.
+const LEVEL_STATIONS = [
+  { xp: 0,    title: "Apprentice",    img: "levels/l1_beaker.png",         station: "Beaker" },
+  { xp: 100,  title: "Student",       img: "levels/l2_flask.png",          station: "Erlenmeyer flask" },
+  { xp: 300,  title: "Lab Assistant", img: "levels/l3_lab_bench.png",      station: "Lab bench" },
+  { xp: 600,  title: "Chemist",       img: "levels/l4_distillation.png",   station: "Distillation column" },
+  { xp: 1000, title: "Synthesist",    img: "levels/l5_heat_exchanger.png", station: "Heat exchanger" },
+  { xp: 1500, title: "Catalyst",      img: "levels/l6_centrifuge.png",     station: "Centrifuge" },
+  { xp: 2500, title: "Alchemist",     img: "levels/l7_quantum_dot.png",    station: "Quantum dot" },
+  { xp: 4000, title: "Laureate",      img: "levels/l8_quantum_ring.png",   station: "Quantum tunnel ring" },
+];
+
+function renderLevelStrip(level, xp) {
+  level = Math.max(1, Math.min(Math.floor(Number(level) || 1), LEVEL_STATIONS.length));
+  xp = Math.max(0, Number(xp) || 0);
+  return LEVEL_STATIONS.map((st, i) => {
+    const n = i + 1;
+    const state = n < level ? "unlocked" : n === level ? "current" : "locked";
+    let bar = "";
+    if (state === "current" && n < LEVEL_STATIONS.length) {
+      // progress inside the current card: how far through this station's XP span
+      const span = LEVEL_STATIONS[n].xp - st.xp;
+      const pct = Math.max(0, Math.min(100, Math.round(((xp - st.xp) / span) * 100)));
+      bar = `<span class="ls-bar"><i style="width:${pct}%"></i></span>`;
+    }
+    return `<figure class="level-station ${state}" title="${esc(st.station)}">
+        <img src="${st.img}" alt="${esc(st.station)}" loading="lazy" />
+        <figcaption><b>L${n}</b> ${esc(st.title)}${state === "locked" ? " 🔒" : ""}
+          <span class="dim small">${fmt(st.xp)} XP</span></figcaption>
+        ${bar}
+      </figure>`;
+  }).join("");
+}
+
+// 🎉 Level-up celebration — when the ladder level rises across a refresh, show
+// the newly unlocked station full-screen (visual continuity with the strip).
+function showLevelUp(level) {
+  // clamp to a plain integer FIRST — `level` arrives from the API and must never
+  // reach the markup as anything but a bounded number (CodeQL js/xss)
+  const n = Math.max(1, Math.min(Math.floor(Number(level) || 1), LEVEL_STATIONS.length));
+  const st = LEVEL_STATIONS[n - 1];
+  const old = document.querySelector(".levelup-overlay");
+  if (old) old.remove();
+  // built with the DOM API end-to-end: everything here comes from the static
+  // LEVEL_STATIONS constant + a clamped integer, and no HTML sink is involved
+  const el = document.createElement("div");
+  el.className = "levelup-overlay";
+  const card = document.createElement("div");
+  card.className = "levelup-card";
+  const burst = document.createElement("span");
+  burst.className = "lu-burst";
+  burst.textContent = "🎉";
+  const img = document.createElement("img");
+  img.src = st.img;
+  img.alt = st.station;
+  const h2 = document.createElement("h2");
+  h2.textContent = "Level up! ";
+  const bTitle = document.createElement("b");
+  bTitle.textContent = `L${n} ${st.title}`;
+  h2.appendChild(bTitle);
+  const pStation = document.createElement("p");
+  pStation.className = "dim";
+  pStation.textContent = `🔓 ${st.station} unlocked`;
+  const pHint = document.createElement("p");
+  pHint.className = "dim small";
+  pHint.textContent = "tap anywhere to continue";
+  card.append(burst, img, h2, pStation, pHint);
+  el.appendChild(card);
+  el.addEventListener("click", () => el.remove());
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 6000);
+}
+
+function trackLevelUp(level) {
+  // Celebrate only a RISE seen within this device's play history — never on the
+  // very first join (prev unknown) and never again after a page reload.
+  const prev = Number(localStorage.getItem("molgang_level") || 0);
+  if (prev && level > prev) showLevelUp(level);
+  localStorage.setItem("molgang_level", String(level));
+}
+
 // 🏅 Progress — quests, achievements & seasonal standing (#110/#111/#112). All reputation/XP,
 // never tokens. Reads the dedicated /api endpoints scoped to the current player.
 let lbSeason = "all";   // "all" | "season" — leaderboard toggle state
@@ -681,12 +793,25 @@ async function renderProgress(s) {
   // 🧗 Reputation ladder — current title, XP to next, and unlocked perks (#113)
   const you = (s && s.you) || {};
   const nxt = you.next || {};
-  const climb = nxt.at_max
-    ? `<span class="dim small">max rank reached 🎓</span>`
-    : (nxt.next_title ? `<span class="dim small">${fmt(nxt.xp_to_next)} XP to <b>${esc(nxt.next_title)}</b></span>` : "");
-  $("ladder").innerHTML =
-    `<div class="ladder-now">🏅 <b>L${you.level || 1} ${esc(you.title || "Apprentice")}</b> · ${fmt(you.xp || 0)} XP ${climb}</div>` +
-    `<ul class="perks">${(you.perks || []).map((p) => `<li>✓ ${esc(p)}</li>`).join("")}</ul>`;
+  // innerHTML carries ONLY static markup + the strip built from the LEVEL_STATIONS
+  // constant and clamped numbers; every API-controlled string lands via textContent
+  // (CodeQL js/xss — no tainted value reaches an HTML sink).
+  const lvl = Math.max(1, Math.floor(Number(you.level) || 1));
+  const ladder = $("ladder");
+  ladder.innerHTML =
+    `<div class="level-strip">${renderLevelStrip(lvl, Number(you.xp) || 0)}</div>` +
+    '<div class="ladder-now">🏅 <b></b> · <span class="lxp"></span> <span class="dim small lclimb"></span></div>' +
+    '<ul class="perks"></ul>';
+  ladder.querySelector(".ladder-now b").textContent = `L${lvl} ${you.title || "Apprentice"}`;
+  ladder.querySelector(".lxp").textContent = `${fmt(you.xp || 0)} XP`;
+  ladder.querySelector(".lclimb").textContent = nxt.at_max ? "max rank reached 🎓"
+    : (nxt.next_title ? `${fmt(nxt.xp_to_next)} XP to ${nxt.next_title}` : "");
+  const perksUl = ladder.querySelector(".perks");
+  (you.perks || []).forEach((p) => {
+    const li = document.createElement("li");
+    li.textContent = `✓ ${p}`;
+    perksUl.appendChild(li);
+  });
 
   const q = await api("/api/quests?player=" + encodeURIComponent(player));
   $("quests-list").innerHTML = (q.all || []).map((x) =>
