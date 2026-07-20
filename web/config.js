@@ -32,3 +32,13 @@ window.MOLGANG_GRAPH_ENDPOINTS = [
   "explorer-graph.json",
   "molgang/explorer-graph.json"
 ];
+
+// ── Fleet scoreboard (dashboard.html, #131) ──────────────────────────────────
+// List the relay API bases the public "Road to 1M" dashboard should union across
+// for a cross-region total (dedup by pubkey — a wallet on two relays counts once).
+// Each base must serve /api/relay/telemetry with CORS (molgang serve + the PHP
+// relay both do). Leave EMPTY to show only this origin's single-scope numbers.
+window.MOLGANG_FLEET_RELAYS = [
+  // "https://eu.5mart.ml/molgang/api/relay",
+  // "https://us.example/molgang/api/relay",
+];

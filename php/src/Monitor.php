@@ -39,11 +39,12 @@ final class Monitor
     public static function summary(): array
     {
         return [
-            'node'     => self::node(),
-            'registry' => self::registry(),
-            'relay'    => self::relay(),
-            'web'      => self::web(),
-            'game'     => self::game(),
+            'node'      => self::node(),
+            'registry'  => self::registry(),
+            'relay'     => self::relay(),
+            'telemetry' => Relay::telemetry(),   // 1M/GTA6 scoreboard numbers (#131)
+            'web'       => self::web(),
+            'game'      => self::game(),
             'health'   => [
                 'api_version'   => '1',
                 'engine'        => 'php',

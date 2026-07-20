@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>MOLGANG — the road to 1M (live fleet scoreboard)</title>
+  <meta name="description" content="Live, auditable MOLGANG fleet telemetry vs the GTA6 concurrent-player benchmark — real peers, real useful work, no mock data." />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* dashboard-only chrome — reuses the bar's tokens from style.css */
+    .dash-wrap{max-width:1000px;margin:0 auto;padding:22px 18px 60px}
+    .dash-head{text-align:center;margin:18px 0 26px}
+    .dash-head h1{font-size:26px;margin:.2em 0}
+    .dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+    .metric{border:1px solid var(--line2);border-radius:var(--radius);padding:20px;
+      background:linear-gradient(180deg,var(--panel2),var(--panel));box-shadow:var(--shadow-3d)}
+    .metric .val{font-size:34px;font-weight:800;letter-spacing:.5px;
+      background:linear-gradient(90deg,#fff,var(--accent2));-webkit-background-clip:text;
+      background-clip:text;color:transparent}
+    .metric .lbl{color:var(--dim);font-size:13px;margin-top:4px}
+    .gta-panel{margin:26px 0;border:1px solid var(--line2);border-radius:var(--radius);
+      padding:22px;background:var(--panel)}
+    .gta-panel h2{margin:0 0 4px;font-size:18px}
+    .bar-track{position:relative;height:34px;border-radius:10px;margin:16px 0 6px;
+      background:var(--glass);overflow:hidden;border:1px solid var(--line)}
+    .bar-fill{height:100%;border-radius:10px 0 0 10px;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+      transition:width .6s cubic-bezier(.2,.9,.3,1);min-width:2px}
+    .gta-line{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--gold);
+      box-shadow:0 0 10px var(--gold)}
+    .gta-line::after{content:"GTA6 1M";position:absolute;top:-18px;left:50%;
+      transform:translateX(-50%);font-size:10px;color:var(--gold);white-space:nowrap}
+    .win{display:inline-block;padding:4px 12px;border-radius:999px;font-size:13px;font-weight:700}
+    .win.no{background:rgba(255,111,147,.15);color:var(--no);border:1px solid var(--no)}
+    .win.yes{background:rgba(52,245,176,.15);color:var(--ok);border:1px solid var(--ok)}
+    .dash-foot{color:var(--dim);font-size:12px;text-align:center;margin-top:26px;line-height:1.7}
+    .dash-foot a{color:var(--accent2)}
+    .stale{color:var(--no)}
+    .scope-note{color:var(--dim);font-size:12px;text-align:center;margin-top:8px}
+  </style>
+</head>
+<body>
+  <div class="dash-wrap">
+    <div class="dash-head">
+      <h1>🧪 MOLGANG — the road to 1M</h1>
+      <p class="dim">Live fleet telemetry vs the GTA6 concurrent-player benchmark.
+        Real peers, real useful work — <b>no mock data</b>.</p>
+    </div>
+
+    <div class="dash-grid">
+      <div class="metric"><div class="val" id="m-peers">–</div>
+        <div class="lbl">concurrent peers <span class="dim">(deduped by pubkey, activity-floored)</span></div></div>
+      <div class="metric"><div class="val" id="m-knits">–</div>
+        <div class="lbl">knits / sec <span class="dim">(relay-woven in-window)</span></div></div>
+      <div class="metric"><div class="val" id="m-work">–</div>
+        <div class="lbl">useful work / sec</div></div>
+      <div class="metric"><div class="val" id="m-window">–</div>
+        <div class="lbl">liveness window (s)</div></div>
+    </div>
+
+    <div class="gta-panel">
+      <h2>Concurrency vs GTA6 <span id="win-badge" class="win no">building…</span></h2>
+      <p class="dim small" id="gta-caption">–</p>
+      <div class="bar-track">
+        <div class="bar-fill" id="gta-fill" style="width:0"></div>
+        <div class="gta-line" id="gta-line" style="left:100%"></div>
+      </div>
+      <p class="dim small">Win condition (docs/MEASUREMENT.md): <b id="win-target">1,000,000</b>
+        concurrent peers sustained for <b id="win-min">30</b> min, with non-zero useful work.</p>
+    </div>
+
+    <p class="scope-note" id="scope-note"></p>
+    <p class="dash-foot">
+      Counting standard: <a href="https://github.com/Knitweb/molgang/blob/main/docs/MEASUREMENT.md" target="_blank" rel="noopener">docs/MEASUREMENT.md</a>
+      · a peer = a distinct onboarded pubkey, live within the window AND doing real useful work.<br>
+      <span id="updated">connecting…</span> · <a href="./">← back to the bar</a>
+    </p>
+  </div>
+
+  <script src="config.js"></script>
+  <script>
+    "use strict";
+    // Same API-base resolution as app.js: cross-origin backend or same-origin.
+    var BASE = (window.MOLGANG_API ? String(window.MOLGANG_API).replace(/\/$/, "")
+      : location.pathname.replace(/\/[^/]*$/, ""));
+    var fmt = function (n) { return (n == null ? 0 : Number(n)).toLocaleString(); };
+    var GTA6 = 1000000;
+
+    function paint(t) {
+      var peers = Number(t.peers_online) || 0;
+      var target = Number(t.win_target_peers) || GTA6;
+      GTA6 = Number(t.gta6_reference_peers) || GTA6;
+      document.getElementById("m-peers").textContent = fmt(peers);
+      document.getElementById("m-knits").textContent = fmt(t.knits_per_sec);
+      document.getElementById("m-work").textContent = fmt(t.useful_work_per_sec);
+      document.getElementById("m-window").textContent = fmt(t.window_s);
+      document.getElementById("win-target").textContent = fmt(target);
+      document.getElementById("win-min").textContent = fmt(t.win_sustain_min);
+
+      // bar scale: log-friendly so early single-digit peers are still visible vs the 1M line.
+      var pct = target > 0 ? Math.min(100, (peers / target) * 100) : 0;
+      var shown = peers > 0 && pct < 0.4 ? 0.4 : pct;    // keep a sliver visible for a live peer
+      document.getElementById("gta-fill").style.width = shown + "%";
+      document.getElementById("gta-caption").textContent =
+        fmt(peers) + " / " + fmt(target) + " concurrent peers (" + pct.toFixed(4) + "% of the GTA6 line)";
+
+      var badge = document.getElementById("win-badge");
+      var meets = peers >= target && Number(t.useful_work_per_sec) > 0;
+      badge.className = "win " + (meets ? "yes" : "no");
+      badge.textContent = meets ? "at the line — needs " + fmt(t.win_sustain_min) + " min sustained"
+        : "building…";
+
+      var scopeNote = "";
+      if (t.scope === "fleet") {
+        scopeNote = "Scope: cross-region fleet union over " + (t.node || "the relays")
+          + " — deduped by pubkey (a wallet on two relays counts once).";
+      } else if (t.scope === "relay") {
+        scopeNote = "Scope: this relay's honest slice (" + (t.node || "relay")
+          + "). The cross-region total unions every relay's distinct-pubkey set.";
+      } else if (t.scope === "node") {
+        scopeNote = "Scope: this single node (" + (t.node || "node") + ").";
+      }
+      document.getElementById("scope-note").textContent = scopeNote;
+      var d = new Date();
+      document.getElementById("updated").textContent = "updated " + d.toLocaleTimeString();
+    }
+
+    // Cross-region fleet union (#131): when config lists relays, fetch each one's telemetry
+    // and UNION their peer_pubkeys so a wallet active on two relays counts once (rule 1).
+    function fleetUnion(bases) {
+      return Promise.all(bases.map(function (b) {
+        return fetch(b.replace(/\/$/, "") + "/telemetry").then(function (r) {
+          return r.ok ? r.json() : null;
+        }).catch(function () { return null; });
+      })).then(function (results) {
+        var union = {}, knits = 0, reachable = 0, degraded = false, lb = 0;
+        results.forEach(function (t) {
+          if (!t) return;
+          reachable++;
+          knits += Number(t.knits_per_sec) || 0;
+          if (Array.isArray(t.peer_pubkeys)) {
+            t.peer_pubkeys.forEach(function (p) { union[p] = 1; });
+          } else { degraded = true; lb += Number(t.peers_online) || 0; }
+        });
+        var total = Object.keys(union).length + lb;
+        return {
+          peers_online: total, knits_per_sec: knits, useful_work_per_sec: knits,
+          window_s: (results.find(function (t) { return t; }) || {}).window_s || 120,
+          scope: "fleet", node: reachable + "/" + bases.length + " relays" + (degraded ? " (degraded)" : ""),
+          gta6_reference_peers: 1000000, win_target_peers: 1000000, win_sustain_min: 30,
+        };
+      });
+    }
+
+    function tick() {
+      var relays = (window.MOLGANG_FLEET_RELAYS || []).filter(Boolean);
+      if (relays.length) { fleetUnion(relays).then(paint).catch(fail); return; }
+      // Single scope: prefer the dedicated relay telemetry; fall back to the monitor snapshot.
+      fetch(BASE + "/api/relay/telemetry").then(function (r) {
+        if (!r.ok) throw new Error("no telemetry route");
+        return r.json();
+      }).then(paint).catch(function () {
+        fetch(BASE + "/api/monitor").then(function (r) { return r.json(); })
+          .then(function (s) { if (s && s.telemetry) paint(s.telemetry); else fail(); })
+          .catch(fail);
+      });
+    }
+    function fail() {
+      document.getElementById("updated").innerHTML =
+        '<span class="stale">telemetry unavailable — is a relay/monitor backend reachable?</span>';
+    }
+    tick();
+    setInterval(tick, 5000);
+  </script>
+</body>
+</html>
