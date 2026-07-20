@@ -123,13 +123,21 @@ check('bootstrap lists only relay-role rows, least-loaded first',
     ($boot['count'] ?? 0) === 2
     && $boot['relays'][0]['base'] === 'https://relay-eu.example/molgang/api/relay'
     && $boot['relays'][0]['region'] === 'eu-west' && $boot['relays'][0]['load'] === 3);
+// a SECOND eu-west relay with a heavier load — so we can prove the region partition keeps the
+// load/freshness order WITHIN the non-matching group (usort would have scrambled it).
+Db::run('INSERT INTO node_registry (pubkey,address,device_fp,endpoint,registered,last_seen,region,role,load_hint,revoked)
+         VALUES (?,?,?,?,?,?,?,?,?,0)',
+        [str_repeat('03', 33), 'pls1euwest2', 'fp', 'https://relay-eu2.example/molgang/api/relay',
+         1.0, microtime(true), 'eu-west', 'relay', 6]);
 $bootUs = Relay::bootstrap('us-east');
 check('?region= pins matching relays to the front without dropping the rest',
-    ($bootUs['count'] ?? 0) === 2
-    && $bootUs['relays'][0]['region'] === 'us-east'
-    && $bootUs['relays'][1]['region'] === 'eu-west');
+    ($bootUs['count'] ?? 0) === 3
+    && $bootUs['relays'][0]['region'] === 'us-east');
+check('region partition is STABLE — non-matching group keeps least-loaded-first order',
+    ($bootUs['relays'][1]['region'] ?? '') === 'eu-west' && ($bootUs['relays'][1]['load'] ?? -1) === 3
+    && ($bootUs['relays'][2]['region'] ?? '') === 'eu-west' && ($bootUs['relays'][2]['load'] ?? -1) === 6);
 $info2 = Relay::info();
-check('info() exposes the cross-region relay roster', count($info2['relays'] ?? []) === 2);
+check('info() exposes the cross-region relay roster', count($info2['relays'] ?? []) === 3);
 
 @unlink($dbfile);
 echo $fail === 0 ? "\nRELAY SMOKE: PASS ✅\n" : "\nRELAY SMOKE: $fail FAILED ❌\n";

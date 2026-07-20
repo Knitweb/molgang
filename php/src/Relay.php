@@ -112,10 +112,19 @@ final class Relay
             ];
         }
         if ($region !== null && $region !== '') {
+            // STABLE partition — matching region first, the rest after, each group KEEPING the
+            // SQL load_hint/last_seen order. (usort() is not stable, so a comparator that only
+            // compares region equality would scramble the ranking within each group.)
             $region = strtolower($region);
-            usort($relays, fn ($a, $b) =>
-                (int) (strtolower((string) $b['region']) === $region)
-                - (int) (strtolower((string) $a['region']) === $region));
+            $match = $other = [];
+            foreach ($relays as $r) {
+                if (strtolower((string) $r['region']) === $region) {
+                    $match[] = $r;
+                } else {
+                    $other[] = $r;
+                }
+            }
+            $relays = array_merge($match, $other);
         }
         return ['relays' => $relays, 'count' => count($relays), 'time' => $now];
     }
