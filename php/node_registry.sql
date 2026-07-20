@@ -37,3 +37,12 @@ CREATE TABLE IF NOT EXISTS relay_message (
   created     DOUBLE       NOT NULL,               -- unix float; the poll cursor
   KEY k_to (to_addr), KEY k_topic (topic), KEY k_created (created), KEY k_from (from_pub)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Per-peer anti-entropy cursors (#96): the high-water 'created' this node has already pulled
+-- from each peer relay, so GET /api/relay/reconcile passes stay incremental and cheap.
+CREATE TABLE IF NOT EXISTS relay_peer_cursor (
+  peer        VARCHAR(255) NOT NULL PRIMARY KEY,   -- peer relay API base URL
+  cursor_at   DOUBLE       NOT NULL DEFAULT 0,     -- peer's fetch cursor already consumed
+  last_sync   DOUBLE       NOT NULL DEFAULT 0,     -- unix float of the last reconcile pass
+  last_new    INT          NOT NULL DEFAULT 0      -- messages ingested on that pass
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

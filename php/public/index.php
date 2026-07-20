@@ -135,6 +135,21 @@ try {
             if ($sub === 'fetch') {
                 out(Relay::fetch($q));
             }
+            if ($sub === 'reconcile') {
+                // POST/GET /api/relay/reconcile[?key=…] → one anti-entropy pass over the
+                // configured relay_peers (#96). Request-driven and bounded, so it is cron-safe;
+                // if a reconcile_secret is configured the key must match (else open, peers come
+                // from config only — never from the request).
+                $cfgFile = dirname(__DIR__) . '/config.php';
+                $cfg = is_file($cfgFile) ? (array) require $cfgFile : [];
+                $secret = (string) ($cfg['reconcile_secret'] ?? '');
+                $key = (string) ($q['key'] ?? ($body['key'] ?? ''));
+                if ($secret !== '' && !hash_equals($secret, $key)) {
+                    http_response_code(403);
+                    out(['error' => 'bad reconcile key']);
+                }
+                out(Relay::reconcile());
+            }
             http_response_code(404);
             out(['error' => 'unknown relay route']);
 
