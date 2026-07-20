@@ -360,12 +360,13 @@ function setActiveTab() {
 // ---- render ----
 let offlineToastShown = false;
 async function refresh() {
-  let s;
-  try {
-    s = await api("/api/state?sid=" + encodeURIComponent(sid));
-  } catch (e) {
-    // network blip: show ONE non-blocking reconnecting toast, keep the last
-    // rendered state on screen, and let the poll interval retry cleanly (#116)
+  const s = await api("/api/state?sid=" + encodeURIComponent(sid));
+  if (!s || (s.ok === false && s.status === 0)) {
+    // network blip (#116): api() surfaces a dead/unreachable server as
+    // {ok:false, status:0} instead of throwing — never treat it as "no session"
+    // (that used to fall through to renderState → resetSession, logging the
+    // player OUT on a blip). One non-blocking reconnecting toast, keep the last
+    // rendered state on screen, and let the poll interval retry cleanly.
     if (!offlineToastShown) { offlineToastShown = true; showToast(t("toast.reconnecting")); }
     return;
   }

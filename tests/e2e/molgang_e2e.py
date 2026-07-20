@@ -169,9 +169,14 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
 
     shots.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(headless=True, args=["--lang=en-US"])
         page = browser.new_page(viewport={"width": 1280, "height": 900}, device_scale_factor=2)
         try:
+            # pin the UI locale to EN — the app's locale cascade uses the host
+            # timezone and an ISP geo hint, so an NL/BE machine (or runner) would
+            # otherwise render Dutch chrome under these EN assertions. The
+            # explicit-player-choice slot always wins the cascade.
+            page.add_init_script("try{localStorage.setItem('molgang_locale','en')}catch(e){}")
             page.goto(base + "/", wait_until="networkidle", timeout=30_000)
             page.add_style_tag(content="*{animation:none!important;transition:none!important}")
             page.wait_for_selector("#avatars .av-pick", timeout=15_000)
@@ -288,6 +293,204 @@ def run_flow(base: str, shots: Path, term: str) -> list[str]:
     return failures
 
 
+def _skip_tour(page) -> None:
+    """Dismiss the first-run tutorial if it opened (fresh device) — not the flow under test."""
+    try:
+        page.wait_for_selector("#tour-skip", state="visible", timeout=2_500)
+        _click(page, "#tour-skip")
+        page.wait_for_function(
+            "() => document.querySelector('#tour-layer')?.classList.contains('hidden')",
+            timeout=5_000,
+        )
+    except Exception:
+        pass
+
+
+def _walk_in(page, name: str) -> None:
+    page.wait_for_selector("#avatars .av-pick", timeout=15_000)
+    _skip_tour(page)
+    page.check("#age-ok")
+    page.fill("#name", name)
+    _click(page, "#go")
+    page.wait_for_selector("#floor:not(.hidden) .table-card", timeout=15_000)
+
+
+def run_platform_checks(base: str, shots: Path) -> list[str]:
+    """#120: PWA installability, offline-first service worker, i18n switch, mobile viewport.
+
+    Everything runs against the live ``molgang serve`` — real /api/*, real sw.js, no mocks.
+    """
+    failures: list[str] = []
+    from playwright.sync_api import sync_playwright
+
+    shots.mkdir(parents=True, exist_ok=True)
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=["--lang=en-US"])
+
+        # ── PWA surface + service worker + cache-served shell ────────────────
+        ctx = browser.new_context(viewport={"width": 1280, "height": 900}, locale="en-US")
+        ctx.add_init_script("try{localStorage.setItem('molgang_locale','en')}catch(e){}")
+        page_errors: list[str] = []
+        page = ctx.new_page()
+        page.on("pageerror", lambda e: page_errors.append(str(e)))
+        page.goto(base + "/", wait_until="networkidle", timeout=30_000)
+        page.add_style_tag(content="*{animation:none!important;transition:none!important}")
+
+        manifest = page.evaluate(
+            """async () => {
+              const link = document.querySelector('link[rel="manifest"]');
+              if (!link) return { ok: false, why: "no <link rel=manifest>" };
+              const res = await fetch(link.href);
+              if (!res.ok) return { ok: false, why: "manifest HTTP " + res.status };
+              const m = await res.json();
+              return { ok: !!m.name && Array.isArray(m.icons) && m.icons.length >= 2
+                           && !!m.start_url && !!m.display,
+                       name: m.name, display: m.display, icons: (m.icons || []).length };
+            }"""
+        )
+        if not manifest.get("ok"):
+            failures.append(f"PWA manifest not installable: {manifest}")
+
+        # registration settles (app.js registers sw.js on load)
+        page.evaluate("() => navigator.serviceWorker.ready.then(() => true)")
+        page.reload(wait_until="networkidle")
+        controlled = page.evaluate("() => !!navigator.serviceWorker.controller")
+        if not controlled:
+            failures.append("service worker does not control the page after a second load")
+        cache = page.evaluate(
+            """async () => {
+              const keys = await caches.keys();
+              const shell = keys.find((k) => k.startsWith("molgang-shell-"));
+              if (!shell) return { keys };
+              const stored = await (await caches.open(shell)).keys();
+              return { shell, urls: stored.map((r) => new URL(r.url).pathname) };
+            }"""
+        )
+        urls = cache.get("urls") or []
+        if not cache.get("shell") or not any(u.endswith("app.js") for u in urls) \
+                or not any(u.endswith(("/", "index.html")) for u in urls):
+            failures.append(f"app shell not precached by the service worker: {cache}")
+        page.screenshot(path=str(shots / "10-pwa-shell.png"))
+
+        # ── i18n: NL locale switch translates chrome + sets <html lang> ──────
+        _walk_in(page, "🤖 Platform Probe")
+        page.select_option("#lang-switch", "en")
+        try:
+            _wait_for_contains(page, '#tabs button[data-view="ledger"]',
+                               "My knits", timeout_ms=10_000)
+        except Exception:
+            failures.append("EN locale did not render the tab chrome (tab.ledger)")
+        # after its first use the switcher retires into the ⚙ settings popover —
+        # open it like a returning player would before switching again
+        page.wait_for_selector("#settings-gear:not(.hidden)", timeout=10_000)
+        _click(page, "#settings-gear")
+        page.wait_for_selector("#settings-pop:not(.hidden) #lang-switch", timeout=10_000)
+        page.select_option("#settings-pop #lang-switch", "nl")
+        try:
+            page.wait_for_function(
+                "() => document.documentElement.lang === 'nl'", timeout=10_000)
+        except Exception:
+            failures.append("locale switch did not set <html lang=nl>")
+        try:
+            _wait_for_contains(page, '#tabs button[data-view="ledger"]',
+                               "Mijn knits", timeout_ms=10_000)
+        except Exception:
+            failures.append("NL locale did not translate the tab chrome (tab.ledger)")
+        page.screenshot(path=str(shots / "12-i18n-nl.png"))
+        if page_errors:
+            failures.append(f"uncaught page errors in the PWA/i18n flow: {page_errors[:3]}")
+        ctx.close()
+
+        # ── offline → reconnecting toast → recovery (#116) ───────────────────
+        # In a SW-BLOCKED context: Chromium's offline emulation does not apply to
+        # service-worker-initiated fetches (with the sw active the poll is served
+        # from the API cache by design — that resilience is covered by the cache
+        # assertions above). Blocking the sw exercises app.js's own blip path:
+        # one reconnecting toast, keep last state, recover on the next poll.
+        off = browser.new_context(viewport={"width": 1280, "height": 900},
+                                  service_workers="block", locale="en-US")
+        off.add_init_script("try{localStorage.setItem('molgang_locale','en')}catch(e){}")
+        opage = off.new_page()
+        off_errors: list[str] = []
+        opage.on("pageerror", lambda e: off_errors.append(str(e)))
+        opage.goto(base + "/", wait_until="networkidle", timeout=30_000)
+        opage.add_style_tag(content="*{animation:none!important;transition:none!important}")
+        _walk_in(opage, "🤖 Offline Probe")
+        off.set_offline(True)
+        # Chromium's offline emulation blocks NEW requests but leaves an already-
+        # ESTABLISHED websocket open; a real network drop kills it. Close the live
+        # world socket like the drop would, so the poll fallback (and its toast) runs.
+        opage.evaluate("() => { try { closeWorldSocket(); } catch (e) {} }")
+        # locale-agnostic: assert against the ACTIVE locale's own string (headless
+        # chromium keeps the host language list even with a context locale pin)
+        expect_reconnecting = opage.evaluate("() => t('toast.reconnecting')")
+        try:
+            _wait_for_contains(opage, "#toast", expect_reconnecting, timeout_ms=10_000)
+        except Exception:
+            failures.append("offline poll did not surface the reconnecting toast")
+        opage.screenshot(path=str(shots / "11-offline.png"))
+        off.set_offline(False)
+        expect_reconnected = opage.evaluate("() => t('toast.reconnected')")
+        try:
+            _wait_for_contains(opage, "#toast", expect_reconnected, timeout_ms=10_000)
+        except Exception:
+            failures.append("going back online did not surface the reconnected toast")
+        if off_errors:
+            failures.append(f"uncaught page errors during offline round-trip: {off_errors[:3]}")
+        off.close()
+
+        # ── mobile viewport: the core loop completes with no horizontal scroll ─
+        mob = browser.new_context(viewport={"width": 360, "height": 640}, locale="en-US",
+                                  device_scale_factor=2, is_mobile=True, has_touch=True)
+        mob.add_init_script("try{localStorage.setItem('molgang_locale','en')}catch(e){}")
+        mpage = mob.new_page()
+        mob_errors: list[str] = []
+        mpage.on("pageerror", lambda e: mob_errors.append(str(e)))
+        mpage.goto(base + "/", wait_until="networkidle", timeout=30_000)
+        mpage.add_style_tag(content="*{animation:none!important;transition:none!important}")
+        _walk_in(mpage, "📱 Mobile Probe")
+        mpage.screenshot(path=str(shots / "13-mobile-floor.png"))
+        # sit at an EMPTY table: an earlier suite's player may still be seated at the
+        # first one, and a stale co-seated peer holds the weave quorum above what the
+        # NPC backing can settle — solo-at-a-table is the flow under test here
+        mpage.evaluate(
+            """() => {
+              const cards = [...document.querySelectorAll('#floor .table-card')];
+              const empty = cards.find((c) => /\\b0\\/\\d+/.test(c.textContent));
+              (empty || cards[cards.length - 1]).querySelector('.join-table').click();
+            }"""
+        )
+        mpage.wait_for_selector("#table:not(.hidden) #knit", timeout=15_000)
+        mpage.fill("#term", "NaCl")
+        _click(mpage, "#knit")
+        try:
+            # NPC backing is deliberately delayed (#26) and other seated peers may
+            # share the table — give the quorum room before calling it a failure
+            _wait_for_contains(mpage, "#fabric", "NaCl", timeout_ms=30_000)
+        except Exception:
+            failures.append("mobile flow: 'NaCl' never appeared in the table fabric")
+        overflow = mpage.evaluate(
+            "() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
+        if overflow > 1:
+            failures.append(f"mobile viewport has {overflow}px of horizontal overflow")
+        if mob_errors:
+            failures.append(f"uncaught page errors in the mobile flow: {mob_errors[:3]}")
+        mpage.screenshot(path=str(shots / "14-mobile-woven.png"))
+        mob.close()
+
+        browser.close()
+    return failures
+
+
+def _run_suites(base: str, shots: Path, args) -> list[str]:
+    failures: list[str] = []
+    if args.suite in ("core", "all"):
+        failures += run_flow(base, shots, args.term)
+    if args.suite in ("platform", "all"):
+        failures += run_platform_checks(base, shots)
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="MOLGANG browser e2e smoke test")
     parser.add_argument("--host", default="127.0.0.1",
@@ -299,6 +502,8 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=8765, help="Port for the local one-shot server")
     parser.add_argument("--reuse", action="store_true",
                         help="Reuse an already-running server at --base")
+    parser.add_argument("--suite", choices=("core", "platform", "all"), default="core",
+                        help="core = walk-in→knit→woven; platform = PWA/offline/i18n/mobile (#120)")
     args = parser.parse_args()
 
     host_for_base = args.host if args.host not in {"0.0.0.0", "::"} else "127.0.0.1"
@@ -314,13 +519,13 @@ def main() -> int:
             proc = _serve_process(Path(tmp.name), host=args.host, port=args.port)
             try:
                 _wait_for_api(base, timeout_s=20)
-                failures = run_flow(base, shots, args.term)
+                failures = _run_suites(base, shots, args)
             finally:
                 _stop_process(proc)
                 tmp.cleanup()
         else:
             _wait_for_api(base, timeout_s=20)
-            failures = run_flow(base, shots, args.term)
+            failures = _run_suites(base, shots, args)
     except Exception as e:
         print(f"E2E PLAYWRIGHT: failed ({e})")
         if proc and proc.stdout:
