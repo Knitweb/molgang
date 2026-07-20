@@ -122,9 +122,17 @@ try {
             }
             if ($sub === 'ping') {
                 if ($method !== 'POST') { http_response_code(405); out(['error' => 'POST required']); }
-                $res = Relay::ping((string) ($body['pubkey'] ?? ''), isset($body['endpoint']) ? (string) $body['endpoint'] : null);
+                $res = Relay::ping((string) ($body['pubkey'] ?? ''),
+                    isset($body['endpoint']) ? (string) $body['endpoint'] : null,
+                    isset($body['region']) ? (string) $body['region'] : null,
+                    isset($body['role']) ? (string) $body['role'] : null,
+                    isset($body['load']) ? (int) $body['load'] : null);
                 if (empty($res['ok'])) http_response_code(400);
                 out($res);
+            }
+            if ($sub === 'bootstrap') {
+                // GET /api/relay/bootstrap[?region=eu-west] → ranked relay roster (#98)
+                out(Relay::bootstrap(isset($q['region']) ? (string) $q['region'] : null));
             }
             if ($sub === 'send') {
                 if ($method !== 'POST') { http_response_code(405); out(['error' => 'POST required']); }

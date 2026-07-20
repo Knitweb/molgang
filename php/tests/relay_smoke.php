@@ -19,7 +19,7 @@ $_SERVER['HTTPS'] = 'on';
 $_SERVER['HTTP_HOST'] = 'relay.example';
 $_SERVER['REQUEST_URI'] = '/molgang/api/onboard/challenge';
 // SQLite mirror of node_registry.sql (portable column types).
-$pdo->exec('CREATE TABLE node_registry(pubkey TEXT PRIMARY KEY,address TEXT UNIQUE,device_fp TEXT,endpoint TEXT,registered REAL,last_seen REAL,revoked INT DEFAULT 0)');
+$pdo->exec('CREATE TABLE node_registry(pubkey TEXT PRIMARY KEY,address TEXT UNIQUE,device_fp TEXT,endpoint TEXT,registered REAL,last_seen REAL,region TEXT,role TEXT DEFAULT \'node\',load_hint INT DEFAULT 0,revoked INT DEFAULT 0)');
 $pdo->exec('CREATE TABLE node_challenge(challenge_id TEXT PRIMARY KEY,used INT)');
 $pdo->exec('CREATE TABLE relay_message(id TEXT PRIMARY KEY,from_pub TEXT,to_addr TEXT,topic TEXT,body TEXT,sig TEXT,created REAL)');
 
@@ -107,6 +107,29 @@ check('fetch returns the stored message', $got['count'] === 1 && $got['messages'
 $m = $got['messages'][0];
 $reverify = Crypto::verify($m['from'], Relay::signedPreimage((string) ($m['to'] ?? ''), $m['topic'], $m['body']), $m['sig']);
 check('reader re-verifies the relayed signature end-to-end', $reverify === true);
+
+// --- region-aware bootstrap roster (#98) ----------------------------------------------------
+// Promote our registered node to a RELAY in eu-west via ping hints, then register a second
+// relay (us-east, higher load) directly, and check the ranked roster.
+$pingRelay = Relay::ping($pubHex, 'https://relay-eu.example/molgang/api/relay', 'eu-west', 'relay', 3);
+check('ping accepts region/role/load bootstrap hints', !empty($pingRelay['ok']));
+Db::run('INSERT INTO node_registry (pubkey,address,device_fp,endpoint,registered,last_seen,region,role,load_hint,revoked)
+         VALUES (?,?,?,?,?,?,?,?,?,0)',
+        [str_repeat('02', 33), 'pls1useast', 'fp', 'https://relay-us.example/molgang/api/relay',
+         1.0, microtime(true), 'us-east', 'relay', 9]);
+
+$boot = Relay::bootstrap();
+check('bootstrap lists only relay-role rows, least-loaded first',
+    ($boot['count'] ?? 0) === 2
+    && $boot['relays'][0]['base'] === 'https://relay-eu.example/molgang/api/relay'
+    && $boot['relays'][0]['region'] === 'eu-west' && $boot['relays'][0]['load'] === 3);
+$bootUs = Relay::bootstrap('us-east');
+check('?region= pins matching relays to the front without dropping the rest',
+    ($bootUs['count'] ?? 0) === 2
+    && $bootUs['relays'][0]['region'] === 'us-east'
+    && $bootUs['relays'][1]['region'] === 'eu-west');
+$info2 = Relay::info();
+check('info() exposes the cross-region relay roster', count($info2['relays'] ?? []) === 2);
 
 @unlink($dbfile);
 echo $fail === 0 ? "\nRELAY SMOKE: PASS ✅\n" : "\nRELAY SMOKE: $fail FAILED ❌\n";

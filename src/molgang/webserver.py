@@ -653,7 +653,8 @@ def main(argv: list[str]) -> int:
                     help="relay API base to share the growing web across machines, e.g. "
                          "https://5mart.ml/molgang/api/relay (OFF by default = local-only). "
                          "Repeat the flag and/or pass a comma-list to sync through a POOL of "
-                         "relays with fan-out + failover (#95)")
+                         "relays with fan-out + failover (#95). A bootstrap+URL entry "
+                         "discovers the pool from that node's region-aware registry (#98)")
     ap.add_argument("--relay-wallet", default=None,
                     help="node wallet identity used to sign relay pushes (default --wallet)")
     ap.add_argument("--relay-interval", type=float, default=20.0,
@@ -694,8 +695,11 @@ def main(argv: list[str]) -> int:
         monitor = Monitor(bar, web=a.monitor_web, world=a.world, pulse_host=pulse,
                           nodes=a.monitor_nodes)
     relay_wallet = a.relay_wallet or a.wallet
-    # --relay is repeatable and each value may be a comma-list → flatten to the pool (#95)
-    relay_bases = [b.strip() for v in (a.relay or []) for b in v.split(",") if b.strip()]
+    # --relay is repeatable and each value may be a comma-list → flatten to the pool (#95);
+    # bootstrap+URL entries resolve through the region-aware registry roster (#98)
+    from .relay_sync import expand_relay_bases
+    relay_bases = expand_relay_bases(
+        [b for v in (a.relay or []) for b in v.split(",")])
     relay = _start_relay(bar, relay_bases, relay_wallet, a.relay_interval) if relay_bases else None
     rate_config = RateLimitConfig(
         read=RateLimitRule(a.rate_read, a.rate_read_window),

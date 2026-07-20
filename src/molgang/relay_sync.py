@@ -623,6 +623,61 @@ class RelayPool:
                  "failures": self._health[s.base]["failures"]} for s in self.syncs]
 
 
+# -- region-aware bootstrap discovery (#98) ----------------------------------
+# A `--relay bootstrap+<base>` entry resolves through the registry instead of
+# pinning one relay: GET <base>/bootstrap returns {relays:[{base,region,load,age_s}]}
+# ranked least-loaded/freshest first, and the pool is seeded in that order.
+BOOTSTRAP_PREFIX = "bootstrap+"
+
+
+def discover_relays(url: str, *, opener=None, region: str | None = None,
+                    fallback: bool = True) -> list[str]:
+    """Resolve a discovery base into an ordered relay-base list via ``GET …/bootstrap``.
+
+    Returns the registry's ranked bases (dedup'd, http(s) only). When the registry is
+    unreachable, malformed, or empty and ``fallback`` is True, returns ``[url]`` itself —
+    the rendezvous relay a peer configured must keep working even without a roster.
+    """
+    base = url.strip().rstrip("/")
+    q = "?" + urllib.parse.urlencode({"region": region}) if region else ""
+
+    def _get(u: str, data=None) -> dict:
+        req = urllib.request.Request(u)
+        ctx = _tls_context() if u.lower().startswith("https") else None
+        with urllib.request.urlopen(req, timeout=_HTTP_TIMEOUT, context=ctx) as r:
+            return json.loads(r.read() or b"{}")
+
+    try:
+        resp = (opener or _get)(f"{base}/bootstrap{q}", None)
+    except Exception:
+        resp = None
+    bases: list[str] = []
+    if isinstance(resp, dict):
+        for r in resp.get("relays", []):
+            b = str((r or {}).get("base", "")).strip().rstrip("/")
+            if b.startswith(("http://", "https://")) and b not in bases:
+                bases.append(b)
+    if not bases and fallback:
+        bases = [base]
+    return bases
+
+
+def expand_relay_bases(entries: list[str], *, opener=None, region: str | None = None) -> list[str]:
+    """Expand a ``--relay`` list: plain bases pass through, ``bootstrap+URL`` entries are
+    resolved via :func:`discover_relays`; order preserved, duplicates dropped."""
+    out: list[str] = []
+    for e in entries:
+        e = e.strip()
+        if not e:
+            continue
+        found = (discover_relays(e[len(BOOTSTRAP_PREFIX):], opener=opener, region=region)
+                 if e.startswith(BOOTSTRAP_PREFIX) else [e])
+        for b in found:
+            if b not in out:
+                out.append(b)
+    return out
+
+
 # -- identity helpers --------------------------------------------------------
 def host_signer(seed: str = "molgang:relay:host") -> AccountNode:
     """A stable node identity to sign relay pushes (deterministic ``AccountNode.from_seed``)."""
