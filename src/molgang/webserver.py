@@ -191,6 +191,7 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
                  rate_config: RateLimitConfig | None = None):
     limiter = rate_limiter or RateLimiter()
     limits = rate_config or RateLimitConfig.from_env()
+    bar_lock = threading.RLock()       # serializes bar-touching requests (see do_POST)
 
     class Handler(BaseHTTPRequestHandler):
         def _cors(self) -> None:
@@ -303,10 +304,25 @@ def make_handler(bar: Bar, pulse_host: dict | None = None, cors: str | None = "*
             self.wfile.write(body)
 
         def do_GET(self) -> None:
+            path = self.path.split("?")[0]
+            if path.startswith("/api/"):
+                # /api GETs also mutate the bar (state polls trigger NPC voting), so
+                # they take the same lock as POSTs; the lock sits INSIDE the timing
+                # so the RED histogram (and the #125 SLOs) sees real queueing delay
+                return self._timed(lambda: self._with_bar_lock(self._get_impl))
             self._timed(self._get_impl)
 
         def do_POST(self) -> None:
-            self._timed(self._post_impl)
+            # The Bar is a plain in-memory object with NO internal locking, but this
+            # server is a ThreadingHTTPServer: unsynchronized concurrent writes race
+            # the shared world/accounts (seq/nonce mismatches, mid-request crashes —
+            # surfaced by the #122 ramp harness). One process-wide RLock serializes
+            # every bar mutation; static/asset GETs stay parallel.
+            self._timed(lambda: self._with_bar_lock(self._post_impl))
+
+        def _with_bar_lock(self, impl) -> None:
+            with bar_lock:
+                impl()
 
         def _timed(self, impl) -> None:
             """RED metrics around every request (#121): rate, errors, duration, inflight."""
